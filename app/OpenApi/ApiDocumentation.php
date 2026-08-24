@@ -17,7 +17,7 @@ use OpenApi\Attributes as OA;
     securityScheme: 'sessionCookie',
     type: 'apiKey',
     description: 'Laravel session cookie. It is created automatically after a successful login and sent by the browser on subsequent requests.',
-    name: 'laravel_session',
+    name: 'laravel-session',
     in: 'cookie'
 )]
 #[OA\Schema(
@@ -33,6 +33,4 @@ use OpenApi\Attributes as OA;
     ],
     type: 'object'
 )]
-class ApiDocumentation
-{
-}
+class ApiDocumentation {}
