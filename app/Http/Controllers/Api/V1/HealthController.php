@@ -17,7 +17,7 @@ class HealthController extends Controller
             new OA\Response(
                 response: 200,
                 description: 'API is operational'
-            )
+            ),
         ]
     )]
     public function __invoke(): JsonResponse
