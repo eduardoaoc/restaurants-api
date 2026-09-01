@@ -2,10 +2,17 @@
 
 namespace Tests\Concerns;
 
+use App\Actions\Catalog\CreateCategoryAction;
+use App\Actions\Catalog\CreateProductAction;
 use App\Actions\Staff\CreateStaffAction;
+use App\Models\Category;
+use App\Models\Menu;
 use App\Models\Organization;
+use App\Models\Product;
 use App\Models\Restaurant;
+use App\Models\RestaurantProduct;
 use App\Models\Role;
+use App\Models\Table;
 use App\Models\User;
 use App\Models\UserRole;
 use Database\Seeders\PermissionSeeder;
@@ -60,6 +67,84 @@ trait InteractsWithTenants
             'restaurant_id' => $restaurant->id,
             'role' => $role,
             'sub_id' => $subId,
+        ]);
+    }
+
+    /**
+     * Create a fresh Organization + Restaurant + owner user, all wired up.
+     *
+     * @return array{0: Organization, 1: User, 2: Restaurant}
+     */
+    protected function createTenant(): array
+    {
+        $organization = Organization::factory()->create();
+        $owner = User::factory()->create();
+        $this->assignRole($owner, 'owner', $organization);
+        $restaurant = Restaurant::factory()->create(['organization_id' => $organization->id]);
+
+        return [$organization, $owner, $restaurant];
+    }
+
+    /**
+     * Create a table for a restaurant with a properly generated public token.
+     */
+    protected function createTable(Restaurant $restaurant, ?string $name = null, ?int $number = null): Table
+    {
+        return $restaurant->tables()->create([
+            'name' => $name ?? 'Mesa '.uniqid(),
+            'number' => $number,
+            'public_token' => Table::generateUniquePublicToken(),
+        ]);
+    }
+
+    /**
+     * Create the (single) menu of a restaurant.
+     */
+    protected function createMenu(Restaurant $restaurant, string $name = 'Main Menu'): Menu
+    {
+        return $restaurant->menu()->create(['name' => $name, 'status' => 'active']);
+    }
+
+    /**
+     * Create a category with translations under a menu.
+     *
+     * @param  array<int, array{locale: string, name: string, description?: ?string}>|null  $translations
+     */
+    protected function createCategory(Menu $menu, ?string $slug = null, ?array $translations = null): Category
+    {
+        return app(CreateCategoryAction::class)->execute($menu, [
+            'slug' => $slug ?? 'category-'.uniqid(),
+            'translations' => $translations ?? [
+                ['locale' => 'en', 'name' => 'Starters'],
+            ],
+        ]);
+    }
+
+    /**
+     * Create a product with translations under an organization's catalog.
+     *
+     * @param  array<int, array{locale: string, name: string, description?: ?string}>|null  $translations
+     */
+    protected function createProduct(Organization $organization, ?string $internalName = null, ?array $translations = null): Product
+    {
+        return app(CreateProductAction::class)->execute($organization, [
+            'internal_name' => $internalName ?? 'Product '.uniqid(),
+            'translations' => $translations ?? [
+                ['locale' => 'en', 'name' => 'Cola'],
+            ],
+        ]);
+    }
+
+    /**
+     * Attach a product to a restaurant with a price.
+     */
+    protected function createRestaurantProduct(Restaurant $restaurant, Product $product, float $price = 10.0, bool $available = true): RestaurantProduct
+    {
+        return RestaurantProduct::query()->create([
+            'restaurant_id' => $restaurant->id,
+            'product_id' => $product->id,
+            'price' => $price,
+            'available' => $available,
         ]);
     }
 }

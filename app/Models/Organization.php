@@ -45,4 +45,14 @@ class Organization extends Model
     {
         return $this->hasMany(UserRole::class);
     }
+
+    /**
+     * The product catalog of this organization, reusable across restaurants.
+     *
+     * @return HasMany<Product, $this>
+     */
+    public function products(): HasMany
+    {
+        return $this->hasMany(Product::class);
+    }
 }

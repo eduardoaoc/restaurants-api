@@ -2,12 +2,24 @@
 
 namespace App\Providers;
 
+use App\Models\Category;
+use App\Models\Menu;
 use App\Models\Organization;
+use App\Models\Product;
 use App\Models\Restaurant;
+use App\Models\RestaurantProduct;
+use App\Models\Table;
+use App\Models\TableSession;
 use App\Models\User;
+use App\Policies\CategoryPolicy;
+use App\Policies\MenuPolicy;
 use App\Policies\OrganizationPolicy;
+use App\Policies\ProductPolicy;
 use App\Policies\RestaurantPolicy;
+use App\Policies\RestaurantProductPolicy;
 use App\Policies\StaffPolicy;
+use App\Policies\TablePolicy;
+use App\Policies\TableSessionPolicy;
 use App\Support\Tenancy\TenantContext;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
@@ -39,5 +51,11 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(Organization::class, OrganizationPolicy::class);
         Gate::policy(Restaurant::class, RestaurantPolicy::class);
         Gate::policy(User::class, StaffPolicy::class);
+        Gate::policy(Table::class, TablePolicy::class);
+        Gate::policy(TableSession::class, TableSessionPolicy::class);
+        Gate::policy(Menu::class, MenuPolicy::class);
+        Gate::policy(Category::class, CategoryPolicy::class);
+        Gate::policy(Product::class, ProductPolicy::class);
+        Gate::policy(RestaurantProduct::class, RestaurantProductPolicy::class);
     }
 }
