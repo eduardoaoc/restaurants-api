@@ -176,6 +176,693 @@
                     }
                 }
             }
+        },
+        "/api/v1/organization": {
+            "get": {
+                "tags": [
+                    "Organization"
+                ],
+                "summary": "Get the active organization",
+                "description": "Return the active organization for the authenticated user.",
+                "operationId": "organizationShow",
+                "responses": {
+                    "200": {
+                        "description": "The active organization",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "properties": {
+                                                "organization": {
+                                                    "$ref": "#/components/schemas/Organization"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "The user has no organization"
+                    }
+                },
+                "security": [
+                    {
+                        "sessionCookie": []
+                    }
+                ]
+            },
+            "patch": {
+                "tags": [
+                    "Organization"
+                ],
+                "summary": "Update the active organization",
+                "description": "Update the active organization for the authenticated user.",
+                "operationId": "organizationUpdate",
+                "requestBody": {
+                    "required": false,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "properties": {
+                                    "name": {
+                                        "type": "string",
+                                        "example": "Grupo Exemplo"
+                                    },
+                                    "slug": {
+                                        "type": "string",
+                                        "example": "grupo-exemplo"
+                                    },
+                                    "status": {
+                                        "type": "string",
+                                        "example": "active"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Organization updated successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Organization updated successfully."
+                                        },
+                                        "data": {
+                                            "properties": {
+                                                "organization": {
+                                                    "$ref": "#/components/schemas/Organization"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "The user is not allowed to update the organization"
+                    },
+                    "422": {
+                        "description": "Validation error"
+                    }
+                },
+                "security": [
+                    {
+                        "sessionCookie": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/restaurants": {
+            "get": {
+                "tags": [
+                    "Restaurants"
+                ],
+                "summary": "List restaurants of the active organization",
+                "description": "List the restaurants belonging to the active organization.",
+                "operationId": "restaurantsIndex",
+                "responses": {
+                    "200": {
+                        "description": "List of restaurants",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "properties": {
+                                                "restaurants": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "$ref": "#/components/schemas/Restaurant"
+                                                    }
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "The user has no organization"
+                    }
+                },
+                "security": [
+                    {
+                        "sessionCookie": []
+                    }
+                ]
+            },
+            "post": {
+                "tags": [
+                    "Restaurants"
+                ],
+                "summary": "Create a restaurant under the active organization",
+                "description": "Create a restaurant under the active organization.",
+                "operationId": "restaurantsStore",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "name",
+                                    "slug"
+                                ],
+                                "properties": {
+                                    "name": {
+                                        "type": "string",
+                                        "example": "Downtown Branch"
+                                    },
+                                    "slug": {
+                                        "type": "string",
+                                        "example": "downtown-branch"
+                                    },
+                                    "status": {
+                                        "type": "string",
+                                        "example": "active"
+                                    },
+                                    "timezone": {
+                                        "type": "string",
+                                        "example": "America/Sao_Paulo"
+                                    },
+                                    "default_locale": {
+                                        "type": "string",
+                                        "example": "pt-BR"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Restaurant created successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Restaurant created successfully."
+                                        },
+                                        "data": {
+                                            "properties": {
+                                                "restaurant": {
+                                                    "$ref": "#/components/schemas/Restaurant"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "The user is not allowed to create restaurants"
+                    },
+                    "422": {
+                        "description": "Validation error"
+                    }
+                },
+                "security": [
+                    {
+                        "sessionCookie": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/restaurants/{restaurant}": {
+            "get": {
+                "tags": [
+                    "Restaurants"
+                ],
+                "summary": "Get a restaurant of the active organization",
+                "description": "Show a restaurant belonging to the active organization.",
+                "operationId": "restaurantsShow",
+                "parameters": [
+                    {
+                        "name": "restaurant",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The restaurant",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "properties": {
+                                                "restaurant": {
+                                                    "$ref": "#/components/schemas/Restaurant"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "The user has no organization"
+                    },
+                    "404": {
+                        "description": "Restaurant not found"
+                    }
+                },
+                "security": [
+                    {
+                        "sessionCookie": []
+                    }
+                ]
+            },
+            "patch": {
+                "tags": [
+                    "Restaurants"
+                ],
+                "summary": "Update a restaurant of the active organization",
+                "description": "Update a restaurant belonging to the active organization.",
+                "operationId": "restaurantsUpdate",
+                "parameters": [
+                    {
+                        "name": "restaurant",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": false,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "properties": {
+                                    "name": {
+                                        "type": "string",
+                                        "example": "Downtown Branch"
+                                    },
+                                    "slug": {
+                                        "type": "string",
+                                        "example": "downtown-branch"
+                                    },
+                                    "status": {
+                                        "type": "string",
+                                        "example": "active"
+                                    },
+                                    "timezone": {
+                                        "type": "string",
+                                        "example": "America/Sao_Paulo"
+                                    },
+                                    "default_locale": {
+                                        "type": "string",
+                                        "example": "pt-BR"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Restaurant updated successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Restaurant updated successfully."
+                                        },
+                                        "data": {
+                                            "properties": {
+                                                "restaurant": {
+                                                    "$ref": "#/components/schemas/Restaurant"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "The user is not allowed to update this restaurant"
+                    },
+                    "404": {
+                        "description": "Restaurant not found"
+                    },
+                    "422": {
+                        "description": "Validation error"
+                    }
+                },
+                "security": [
+                    {
+                        "sessionCookie": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/staff": {
+            "get": {
+                "tags": [
+                    "Staff"
+                ],
+                "summary": "List operational staff of the active organization",
+                "description": "List the operational staff of the active organization.",
+                "operationId": "staffIndex",
+                "responses": {
+                    "200": {
+                        "description": "List of staff members",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "properties": {
+                                                "staff": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "$ref": "#/components/schemas/Staff"
+                                                    }
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "The user is not allowed to manage staff"
+                    }
+                },
+                "security": [
+                    {
+                        "sessionCookie": []
+                    }
+                ]
+            },
+            "post": {
+                "tags": [
+                    "Staff"
+                ],
+                "summary": "Create an operational staff member",
+                "description": "Create an operational staff member under the active organization.",
+                "operationId": "staffStore",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "name",
+                                    "email",
+                                    "password",
+                                    "restaurant_id",
+                                    "role",
+                                    "sub_id"
+                                ],
+                                "properties": {
+                                    "name": {
+                                        "type": "string",
+                                        "example": "Carlos"
+                                    },
+                                    "email": {
+                                        "type": "string",
+                                        "format": "email",
+                                        "example": "carlos@example.com"
+                                    },
+                                    "password": {
+                                        "type": "string",
+                                        "format": "password",
+                                        "example": "TemporaryPassword123!"
+                                    },
+                                    "restaurant_id": {
+                                        "type": "integer",
+                                        "example": 3
+                                    },
+                                    "role": {
+                                        "type": "string",
+                                        "example": "waiter"
+                                    },
+                                    "sub_id": {
+                                        "type": "string",
+                                        "example": "W-023"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Staff member created successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Staff member created successfully."
+                                        },
+                                        "data": {
+                                            "properties": {
+                                                "staff": {
+                                                    "$ref": "#/components/schemas/Staff"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "The user is not allowed to create staff"
+                    },
+                    "404": {
+                        "description": "Restaurant not found"
+                    },
+                    "422": {
+                        "description": "Validation error"
+                    }
+                },
+                "security": [
+                    {
+                        "sessionCookie": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/staff/{user}": {
+            "get": {
+                "tags": [
+                    "Staff"
+                ],
+                "summary": "Get an operational staff member of the active organization",
+                "description": "Show an operational staff member of the active organization.",
+                "operationId": "staffShow",
+                "parameters": [
+                    {
+                        "name": "user",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The staff member",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "properties": {
+                                                "staff": {
+                                                    "$ref": "#/components/schemas/Staff"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "The user is not allowed to view staff"
+                    },
+                    "404": {
+                        "description": "Staff member not found"
+                    }
+                },
+                "security": [
+                    {
+                        "sessionCookie": []
+                    }
+                ]
+            },
+            "patch": {
+                "tags": [
+                    "Staff"
+                ],
+                "summary": "Update an operational staff member",
+                "description": "Update an operational staff member of the active organization.",
+                "operationId": "staffUpdate",
+                "parameters": [
+                    {
+                        "name": "user",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": false,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "properties": {
+                                    "name": {
+                                        "type": "string",
+                                        "example": "Carlos"
+                                    },
+                                    "email": {
+                                        "type": "string",
+                                        "format": "email",
+                                        "example": "carlos@example.com"
+                                    },
+                                    "restaurant_id": {
+                                        "type": "integer",
+                                        "example": 3
+                                    },
+                                    "role": {
+                                        "type": "string",
+                                        "example": "waiter"
+                                    },
+                                    "sub_id": {
+                                        "type": "string",
+                                        "example": "W-023"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Staff member updated successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Staff member updated successfully."
+                                        },
+                                        "data": {
+                                            "properties": {
+                                                "staff": {
+                                                    "$ref": "#/components/schemas/Staff"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "The user is not allowed to update this staff member"
+                    },
+                    "404": {
+                        "description": "Staff member not found"
+                    },
+                    "422": {
+                        "description": "Validation error"
+                    }
+                },
+                "security": [
+                    {
+                        "sessionCookie": []
+                    }
+                ]
+            }
         }
     },
     "components": {
@@ -216,6 +903,161 @@
                     }
                 },
                 "type": "object"
+            },
+            "Organization": {
+                "required": [
+                    "id",
+                    "name",
+                    "slug",
+                    "status"
+                ],
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "format": "int64",
+                        "example": 1
+                    },
+                    "name": {
+                        "type": "string",
+                        "example": "Grupo Exemplo"
+                    },
+                    "slug": {
+                        "type": "string",
+                        "example": "grupo-exemplo"
+                    },
+                    "status": {
+                        "type": "string",
+                        "example": "active"
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "updated_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                },
+                "type": "object"
+            },
+            "Restaurant": {
+                "required": [
+                    "id",
+                    "organization_id",
+                    "name",
+                    "slug",
+                    "status",
+                    "timezone",
+                    "default_locale"
+                ],
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "format": "int64",
+                        "example": 1
+                    },
+                    "organization_id": {
+                        "type": "integer",
+                        "format": "int64",
+                        "example": 1
+                    },
+                    "name": {
+                        "type": "string",
+                        "example": "Downtown Branch"
+                    },
+                    "slug": {
+                        "type": "string",
+                        "example": "downtown-branch"
+                    },
+                    "status": {
+                        "type": "string",
+                        "example": "active"
+                    },
+                    "timezone": {
+                        "type": "string",
+                        "example": "America/Sao_Paulo"
+                    },
+                    "default_locale": {
+                        "type": "string",
+                        "example": "pt-BR"
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "updated_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                },
+                "type": "object"
+            },
+            "Staff": {
+                "required": [
+                    "id",
+                    "name",
+                    "email",
+                    "sub_id",
+                    "role",
+                    "restaurant"
+                ],
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "format": "int64",
+                        "example": 10
+                    },
+                    "name": {
+                        "type": "string",
+                        "example": "Carlos"
+                    },
+                    "email": {
+                        "type": "string",
+                        "format": "email",
+                        "example": "carlos@example.com"
+                    },
+                    "sub_id": {
+                        "type": "string",
+                        "example": "W-023"
+                    },
+                    "role": {
+                        "properties": {
+                            "id": {
+                                "type": "integer",
+                                "format": "int64",
+                                "example": 3
+                            },
+                            "slug": {
+                                "type": "string",
+                                "example": "waiter"
+                            }
+                        },
+                        "type": "object"
+                    },
+                    "restaurant": {
+                        "properties": {
+                            "id": {
+                                "type": "integer",
+                                "format": "int64",
+                                "example": 2
+                            },
+                            "name": {
+                                "type": "string",
+                                "example": "Restaurante Centro"
+                            }
+                        },
+                        "type": "object"
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "updated_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                },
+                "type": "object"
             }
         },
         "securitySchemes": {
@@ -235,6 +1077,18 @@
         {
             "name": "System",
             "description": "System"
+        },
+        {
+            "name": "Organization",
+            "description": "Organization"
+        },
+        {
+            "name": "Restaurants",
+            "description": "Restaurants"
+        },
+        {
+            "name": "Staff",
+            "description": "Staff"
         }
     ]
 }

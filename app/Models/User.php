@@ -76,4 +76,18 @@ class User extends Authenticatable
             ->withPivot(['organization_id', 'restaurant_id'])
             ->withTimestamps();
     }
+
+    /**
+     * Determine whether this user holds a role within the given organization
+     * that grants the given permission slug.
+     */
+    public function hasPermission(string $permissionSlug, Organization $organization): bool
+    {
+        return $this->userRoles()
+            ->where('organization_id', $organization->id)
+            ->whereHas('role.permissions', function ($query) use ($permissionSlug) {
+                $query->where('slug', $permissionSlug);
+            })
+            ->exists();
+    }
 }
