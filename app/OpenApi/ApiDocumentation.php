@@ -225,4 +225,200 @@ use OpenApi\Attributes as OA;
     ],
     type: 'object'
 )]
+#[OA\Schema(
+    schema: 'ModifierGroup',
+    required: ['id', 'restaurant_product_id', 'internal_name', 'min_select', 'max_select', 'required', 'sort_order', 'status'],
+    properties: [
+        new OA\Property(property: 'id', type: 'integer', format: 'int64', example: 1),
+        new OA\Property(property: 'restaurant_product_id', type: 'integer', format: 'int64', example: 25),
+        new OA\Property(property: 'internal_name', type: 'string', example: 'Extras'),
+        new OA\Property(property: 'min_select', type: 'integer', example: 0),
+        new OA\Property(property: 'max_select', type: 'integer', example: 5),
+        new OA\Property(property: 'required', type: 'boolean', example: false),
+        new OA\Property(property: 'sort_order', type: 'integer', example: 20),
+        new OA\Property(property: 'status', type: 'string', example: 'active'),
+        new OA\Property(
+            property: 'translations',
+            type: 'array',
+            items: new OA\Items(ref: '#/components/schemas/Translation')
+        ),
+        new OA\Property(
+            property: 'options',
+            type: 'array',
+            items: new OA\Items(ref: '#/components/schemas/ModifierOption')
+        ),
+        new OA\Property(property: 'created_at', type: 'string', format: 'date-time'),
+        new OA\Property(property: 'updated_at', type: 'string', format: 'date-time'),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
+    schema: 'ModifierOption',
+    required: ['id', 'modifier_group_id', 'internal_name', 'price_delta', 'available', 'sort_order', 'status'],
+    properties: [
+        new OA\Property(property: 'id', type: 'integer', format: 'int64', example: 10),
+        new OA\Property(property: 'modifier_group_id', type: 'integer', format: 'int64', example: 1),
+        new OA\Property(property: 'internal_name', type: 'string', example: 'Bacon'),
+        new OA\Property(property: 'price_delta', type: 'string', example: '1.50'),
+        new OA\Property(property: 'available', type: 'boolean', example: true),
+        new OA\Property(property: 'sort_order', type: 'integer', example: 10),
+        new OA\Property(property: 'status', type: 'string', example: 'active'),
+        new OA\Property(
+            property: 'translations',
+            type: 'array',
+            items: new OA\Items(ref: '#/components/schemas/Translation')
+        ),
+        new OA\Property(property: 'created_at', type: 'string', format: 'date-time'),
+        new OA\Property(property: 'updated_at', type: 'string', format: 'date-time'),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
+    schema: 'PublicRestaurant',
+    required: ['id', 'name'],
+    properties: [
+        new OA\Property(property: 'id', type: 'integer', format: 'int64', example: 3),
+        new OA\Property(property: 'name', type: 'string', example: 'Aforo Centro'),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
+    schema: 'PublicTable',
+    required: ['id', 'name', 'number'],
+    properties: [
+        new OA\Property(property: 'id', type: 'integer', format: 'int64', example: 12),
+        new OA\Property(property: 'name', type: 'string', example: 'Mesa 12'),
+        new OA\Property(property: 'number', type: 'integer', example: 12, nullable: true),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
+    schema: 'PublicSessionState',
+    required: ['active', 'status'],
+    properties: [
+        new OA\Property(property: 'active', type: 'boolean', example: true),
+        new OA\Property(property: 'status', type: 'string', example: 'occupied', nullable: true),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
+    schema: 'PublicTableResolution',
+    required: ['restaurant', 'table', 'session', 'menu'],
+    properties: [
+        new OA\Property(property: 'restaurant', ref: '#/components/schemas/PublicRestaurant'),
+        new OA\Property(property: 'table', ref: '#/components/schemas/PublicTable'),
+        new OA\Property(property: 'session', ref: '#/components/schemas/PublicSessionState'),
+        new OA\Property(
+            property: 'menu',
+            required: ['available'],
+            properties: [
+                new OA\Property(property: 'available', type: 'boolean', example: true),
+            ],
+            type: 'object'
+        ),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
+    schema: 'PublicModifierOption',
+    required: ['id', 'name', 'description', 'price_delta'],
+    properties: [
+        new OA\Property(property: 'id', type: 'integer', format: 'int64', example: 58),
+        new OA\Property(property: 'name', type: 'string', example: 'Bacon'),
+        new OA\Property(property: 'description', type: 'string', example: null, nullable: true),
+        new OA\Property(property: 'price_delta', type: 'string', example: '1.50'),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
+    schema: 'PublicModifierGroup',
+    required: ['id', 'name', 'description', 'required', 'min_select', 'max_select', 'options'],
+    properties: [
+        new OA\Property(property: 'id', type: 'integer', format: 'int64', example: 21),
+        new OA\Property(property: 'name', type: 'string', example: 'Extras'),
+        new OA\Property(property: 'description', type: 'string', example: null, nullable: true),
+        new OA\Property(property: 'required', type: 'boolean', example: false),
+        new OA\Property(property: 'min_select', type: 'integer', example: 0),
+        new OA\Property(property: 'max_select', type: 'integer', example: 4),
+        new OA\Property(
+            property: 'options',
+            type: 'array',
+            items: new OA\Items(ref: '#/components/schemas/PublicModifierOption')
+        ),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
+    schema: 'PublicProduct',
+    required: ['restaurant_product_id', 'product_id', 'name', 'description', 'price', 'modifier_groups'],
+    properties: [
+        new OA\Property(property: 'restaurant_product_id', type: 'integer', format: 'int64', example: 100),
+        new OA\Property(property: 'product_id', type: 'integer', format: 'int64', example: 15),
+        new OA\Property(property: 'name', type: 'string', example: 'Hamburguesa Clásica'),
+        new OA\Property(property: 'description', type: 'string', example: 'Carne, queso y salsa', nullable: true),
+        new OA\Property(property: 'price', type: 'string', example: '12.90'),
+        new OA\Property(
+            property: 'modifier_groups',
+            type: 'array',
+            items: new OA\Items(ref: '#/components/schemas/PublicModifierGroup')
+        ),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
+    schema: 'PublicCategory',
+    required: ['id', 'slug', 'name', 'description', 'products'],
+    properties: [
+        new OA\Property(property: 'id', type: 'integer', format: 'int64', example: 8),
+        new OA\Property(property: 'slug', type: 'string', example: 'hamburguesas'),
+        new OA\Property(property: 'name', type: 'string', example: 'Hamburguesas'),
+        new OA\Property(property: 'description', type: 'string', example: null, nullable: true),
+        new OA\Property(
+            property: 'products',
+            type: 'array',
+            items: new OA\Items(ref: '#/components/schemas/PublicProduct')
+        ),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
+    schema: 'PublicMenu',
+    required: ['restaurant', 'table', 'session', 'locale', 'menu'],
+    properties: [
+        new OA\Property(property: 'restaurant', ref: '#/components/schemas/PublicRestaurant'),
+        new OA\Property(property: 'table', ref: '#/components/schemas/PublicTable'),
+        new OA\Property(property: 'session', ref: '#/components/schemas/PublicSessionState'),
+        new OA\Property(property: 'locale', type: 'string', example: 'es'),
+        new OA\Property(
+            property: 'menu',
+            required: ['id', 'categories'],
+            properties: [
+                new OA\Property(property: 'id', type: 'integer', format: 'int64', example: 5),
+                new OA\Property(
+                    property: 'categories',
+                    type: 'array',
+                    items: new OA\Items(ref: '#/components/schemas/PublicCategory')
+                ),
+            ],
+            type: 'object'
+        ),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
+    schema: 'PublicApiError',
+    required: ['error'],
+    properties: [
+        new OA\Property(
+            property: 'error',
+            required: ['code', 'message'],
+            properties: [
+                new OA\Property(property: 'code', type: 'string', example: 'PUBLIC_TABLE_NOT_FOUND'),
+                new OA\Property(property: 'message', type: 'string', example: 'Table not found.'),
+            ],
+            type: 'object'
+        ),
+    ],
+    type: 'object'
+)]
 class ApiDocumentation {}

@@ -5,8 +5,12 @@ use App\Http\Controllers\Api\V1\CategoryController;
 use App\Http\Controllers\Api\V1\CategoryProductController;
 use App\Http\Controllers\Api\V1\HealthController;
 use App\Http\Controllers\Api\V1\MenuController;
+use App\Http\Controllers\Api\V1\ModifierGroupController;
+use App\Http\Controllers\Api\V1\ModifierOptionController;
 use App\Http\Controllers\Api\V1\OrganizationController;
 use App\Http\Controllers\Api\V1\ProductController;
+use App\Http\Controllers\Api\V1\Public\PublicMenuController;
+use App\Http\Controllers\Api\V1\Public\PublicTableController;
 use App\Http\Controllers\Api\V1\RestaurantController;
 use App\Http\Controllers\Api\V1\RestaurantProductController;
 use App\Http\Controllers\Api\V1\StaffController;
@@ -24,6 +28,13 @@ Route::prefix('v1')->group(function () {
             Route::get('/me', [AuthController::class, 'me']);
             Route::post('/logout', [AuthController::class, 'logout']);
         });
+    });
+
+    // Public surface: QR resolution + menu. No auth, no tenant context —
+    // everything is derived from the public_token itself (see Bloco 9).
+    Route::prefix('public')->middleware('throttle:public-menu')->group(function () {
+        Route::get('/tables/{publicToken}', [PublicTableController::class, 'show']);
+        Route::get('/tables/{publicToken}/menu', [PublicMenuController::class, 'show']);
     });
 
     Route::middleware(['auth:sanctum', 'tenant'])->group(function () {
@@ -66,5 +77,15 @@ Route::prefix('v1')->group(function () {
 
         Route::post('/categories/{category}/products', [CategoryProductController::class, 'store']);
         Route::patch('/categories/{category}/products/{restaurantProduct}', [CategoryProductController::class, 'update']);
+
+        Route::get('/restaurant-products/{restaurantProduct}/modifier-groups', [ModifierGroupController::class, 'index']);
+        Route::post('/restaurant-products/{restaurantProduct}/modifier-groups', [ModifierGroupController::class, 'store']);
+        Route::get('/modifier-groups/{modifierGroup}', [ModifierGroupController::class, 'show']);
+        Route::patch('/modifier-groups/{modifierGroup}', [ModifierGroupController::class, 'update']);
+
+        Route::get('/modifier-groups/{modifierGroup}/options', [ModifierOptionController::class, 'index']);
+        Route::post('/modifier-groups/{modifierGroup}/options', [ModifierOptionController::class, 'store']);
+        Route::get('/modifier-options/{modifierOption}', [ModifierOptionController::class, 'show']);
+        Route::patch('/modifier-options/{modifierOption}', [ModifierOptionController::class, 'update']);
     });
 });

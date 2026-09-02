@@ -3,10 +3,14 @@
 namespace Tests\Concerns;
 
 use App\Actions\Catalog\CreateCategoryAction;
+use App\Actions\Catalog\CreateModifierGroupAction;
+use App\Actions\Catalog\CreateModifierOptionAction;
 use App\Actions\Catalog\CreateProductAction;
 use App\Actions\Staff\CreateStaffAction;
 use App\Models\Category;
 use App\Models\Menu;
+use App\Models\ModifierGroup;
+use App\Models\ModifierOption;
 use App\Models\Organization;
 use App\Models\Product;
 use App\Models\Restaurant;
@@ -145,6 +149,64 @@ trait InteractsWithTenants
             'product_id' => $product->id,
             'price' => $price,
             'available' => $available,
+        ]);
+    }
+
+    /**
+     * Create a fresh Organization + owner + Restaurant + Product + RestaurantProduct.
+     *
+     * @return array{0: Organization, 1: User, 2: Restaurant, 3: RestaurantProduct}
+     */
+    protected function createTenantWithRestaurantProduct(): array
+    {
+        [$organization, $owner, $restaurant] = $this->createTenant();
+        $product = $this->createProduct($organization);
+        $restaurantProduct = $this->createRestaurantProduct($restaurant, $product);
+
+        return [$organization, $owner, $restaurant, $restaurantProduct];
+    }
+
+    /**
+     * Create a modifier group with translations under a restaurant product.
+     *
+     * @param  array<int, array{locale: string, name: string, description?: ?string}>|null  $translations
+     */
+    protected function createModifierGroup(
+        RestaurantProduct $restaurantProduct,
+        ?string $internalName = null,
+        int $minSelect = 0,
+        int $maxSelect = 1,
+        bool $required = false,
+        ?array $translations = null,
+    ): ModifierGroup {
+        return app(CreateModifierGroupAction::class)->execute($restaurantProduct, [
+            'internal_name' => $internalName ?? 'Group '.uniqid(),
+            'min_select' => $minSelect,
+            'max_select' => $maxSelect,
+            'required' => $required,
+            'translations' => $translations ?? [
+                ['locale' => 'en', 'name' => 'Extras'],
+            ],
+        ]);
+    }
+
+    /**
+     * Create a modifier option with translations under a modifier group.
+     *
+     * @param  array<int, array{locale: string, name: string, description?: ?string}>|null  $translations
+     */
+    protected function createModifierOption(
+        ModifierGroup $modifierGroup,
+        ?string $internalName = null,
+        float $priceDelta = 0.0,
+        ?array $translations = null,
+    ): ModifierOption {
+        return app(CreateModifierOptionAction::class)->execute($modifierGroup, [
+            'internal_name' => $internalName ?? 'Option '.uniqid(),
+            'price_delta' => $priceDelta,
+            'translations' => $translations ?? [
+                ['locale' => 'en', 'name' => 'Bacon'],
+            ],
         ]);
     }
 }

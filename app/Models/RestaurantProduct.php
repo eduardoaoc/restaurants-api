@@ -46,6 +46,14 @@ class RestaurantProduct extends Model
         return $this->hasMany(CategoryProduct::class);
     }
 
+    /**
+     * @return HasMany<ModifierGroup, $this>
+     */
+    public function modifierGroups(): HasMany
+    {
+        return $this->hasMany(ModifierGroup::class);
+    }
+
     protected static function booted(): void
     {
         static::saving(function (self $restaurantProduct) {

@@ -4,6 +4,8 @@ namespace App\Providers;
 
 use App\Models\Category;
 use App\Models\Menu;
+use App\Models\ModifierGroup;
+use App\Models\ModifierOption;
 use App\Models\Organization;
 use App\Models\Product;
 use App\Models\Restaurant;
@@ -13,6 +15,8 @@ use App\Models\TableSession;
 use App\Models\User;
 use App\Policies\CategoryPolicy;
 use App\Policies\MenuPolicy;
+use App\Policies\ModifierGroupPolicy;
+use App\Policies\ModifierOptionPolicy;
 use App\Policies\OrganizationPolicy;
 use App\Policies\ProductPolicy;
 use App\Policies\RestaurantPolicy;
@@ -48,6 +52,10 @@ class AppServiceProvider extends ServiceProvider
             return Limit::perMinute(5)->by($email.'|'.$request->ip());
         });
 
+        RateLimiter::for('public-menu', function (Request $request) {
+            return Limit::perMinute(60)->by($request->ip());
+        });
+
         Gate::policy(Organization::class, OrganizationPolicy::class);
         Gate::policy(Restaurant::class, RestaurantPolicy::class);
         Gate::policy(User::class, StaffPolicy::class);
@@ -57,5 +65,7 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(Category::class, CategoryPolicy::class);
         Gate::policy(Product::class, ProductPolicy::class);
         Gate::policy(RestaurantProduct::class, RestaurantProductPolicy::class);
+        Gate::policy(ModifierGroup::class, ModifierGroupPolicy::class);
+        Gate::policy(ModifierOption::class, ModifierOptionPolicy::class);
     }
 }
