@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use InvalidArgumentException;
 
 #[Fillable(['restaurant_id', 'table_id', 'opened_by_user_id', 'closed_by_user_id', 'guest_count', 'status', 'opened_at', 'closed_at'])]
@@ -56,6 +57,17 @@ class TableSession extends Model
     public function isActive(): bool
     {
         return $this->status !== 'closed';
+    }
+
+    /**
+     * The orders placed during this session. A session can accumulate many
+     * orders; a new session (after this one closes) starts with none.
+     *
+     * @return HasMany<Order, $this>
+     */
+    public function orders(): HasMany
+    {
+        return $this->hasMany(Order::class);
     }
 
     protected static function booted(): void

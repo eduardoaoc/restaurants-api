@@ -7,9 +7,11 @@ use App\Http\Controllers\Api\V1\HealthController;
 use App\Http\Controllers\Api\V1\MenuController;
 use App\Http\Controllers\Api\V1\ModifierGroupController;
 use App\Http\Controllers\Api\V1\ModifierOptionController;
+use App\Http\Controllers\Api\V1\OrderController;
 use App\Http\Controllers\Api\V1\OrganizationController;
 use App\Http\Controllers\Api\V1\ProductController;
 use App\Http\Controllers\Api\V1\Public\PublicMenuController;
+use App\Http\Controllers\Api\V1\Public\PublicOrderController;
 use App\Http\Controllers\Api\V1\Public\PublicTableController;
 use App\Http\Controllers\Api\V1\RestaurantController;
 use App\Http\Controllers\Api\V1\RestaurantProductController;
@@ -30,11 +32,17 @@ Route::prefix('v1')->group(function () {
         });
     });
 
-    // Public surface: QR resolution + menu. No auth, no tenant context —
-    // everything is derived from the public_token itself (see Bloco 9).
-    Route::prefix('public')->middleware('throttle:public-menu')->group(function () {
-        Route::get('/tables/{publicToken}', [PublicTableController::class, 'show']);
-        Route::get('/tables/{publicToken}/menu', [PublicMenuController::class, 'show']);
+    // Public surface: QR resolution + menu + order creation. No auth, no
+    // tenant context — everything is derived from the public_token itself
+    // (see Bloco 9). Order creation gets its own, stricter limiter.
+    Route::prefix('public')->group(function () {
+        Route::middleware('throttle:public-menu')->group(function () {
+            Route::get('/tables/{publicToken}', [PublicTableController::class, 'show']);
+            Route::get('/tables/{publicToken}/menu', [PublicMenuController::class, 'show']);
+        });
+
+        Route::post('/tables/{publicToken}/orders', [PublicOrderController::class, 'store'])
+            ->middleware('throttle:public-orders');
     });
 
     Route::middleware(['auth:sanctum', 'tenant'])->group(function () {
@@ -87,5 +95,11 @@ Route::prefix('v1')->group(function () {
         Route::post('/modifier-groups/{modifierGroup}/options', [ModifierOptionController::class, 'store']);
         Route::get('/modifier-options/{modifierOption}', [ModifierOptionController::class, 'show']);
         Route::patch('/modifier-options/{modifierOption}', [ModifierOptionController::class, 'update']);
+
+        Route::post('/tables/{table}/orders', [OrderController::class, 'store']);
+        Route::get('/orders', [OrderController::class, 'index']);
+        Route::get('/orders/{order}', [OrderController::class, 'show']);
+        Route::post('/orders/{order}/approve', [OrderController::class, 'approve']);
+        Route::post('/orders/{order}/reject', [OrderController::class, 'reject']);
     });
 });

@@ -1519,6 +1519,356 @@
                 ]
             }
         },
+        "/api/v1/tables/{table}/orders": {
+            "post": {
+                "tags": [
+                    "Orders"
+                ],
+                "summary": "Create an order on a table (waiter's own order)",
+                "description": "Launch an order on a table, on behalf of the restaurant's staff. The\norder is created already `confirmed`: the waiter placing it does not\nneed to approve their own order.",
+                "operationId": "ordersStore",
+                "parameters": [
+                    {
+                        "name": "table",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "items"
+                                ],
+                                "properties": {
+                                    "locale": {
+                                        "type": "string",
+                                        "example": "es"
+                                    },
+                                    "note": {
+                                        "type": "string",
+                                        "nullable": true
+                                    },
+                                    "items": {
+                                        "type": "array",
+                                        "items": {
+                                            "$ref": "#/components/schemas/OrderItemCreateRequest"
+                                        }
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Order created successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Order created successfully."
+                                        },
+                                        "data": {
+                                            "properties": {
+                                                "order": {
+                                                    "$ref": "#/components/schemas/Order"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "The user is not allowed to create orders on this table"
+                    },
+                    "404": {
+                        "description": "Table not found"
+                    },
+                    "409": {
+                        "description": "The table has no active session"
+                    },
+                    "422": {
+                        "description": "Invalid item/modifier selection or malformed request"
+                    }
+                },
+                "security": [
+                    {
+                        "sessionCookie": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/orders": {
+            "get": {
+                "tags": [
+                    "Orders"
+                ],
+                "summary": "List orders",
+                "description": "List orders visible to the active organization, scoped to the\nrestaurants the acting user may operate on (see RestaurantScope).",
+                "operationId": "ordersIndex",
+                "parameters": [
+                    {
+                        "name": "restaurant_id",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "table_id",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "status",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "example": "waiting_approval"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "List of orders",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "properties": {
+                                                "orders": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "$ref": "#/components/schemas/Order"
+                                                    }
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "The user is not allowed to view orders"
+                    }
+                },
+                "security": [
+                    {
+                        "sessionCookie": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/orders/{order}": {
+            "get": {
+                "tags": [
+                    "Orders"
+                ],
+                "summary": "Get an order",
+                "description": "Show a single order, scoped to the active organization and the\nacting user's restaurant scope.",
+                "operationId": "ordersShow",
+                "parameters": [
+                    {
+                        "name": "order",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The order",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "properties": {
+                                                "order": {
+                                                    "$ref": "#/components/schemas/Order"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "The user is not allowed to view this order"
+                    },
+                    "404": {
+                        "description": "Order not found"
+                    }
+                },
+                "security": [
+                    {
+                        "sessionCookie": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/orders/{order}/approve": {
+            "post": {
+                "tags": [
+                    "Orders"
+                ],
+                "summary": "Approve a customer order",
+                "description": "Approve a customer_qr order that is waiting_approval.",
+                "operationId": "ordersApprove",
+                "parameters": [
+                    {
+                        "name": "order",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Order approved successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Order approved successfully."
+                                        },
+                                        "data": {
+                                            "properties": {
+                                                "order": {
+                                                    "$ref": "#/components/schemas/Order"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "The user is not allowed to approve orders"
+                    },
+                    "404": {
+                        "description": "Order not found"
+                    },
+                    "409": {
+                        "description": "The order cannot be approved in its current state"
+                    }
+                },
+                "security": [
+                    {
+                        "sessionCookie": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/orders/{order}/reject": {
+            "post": {
+                "tags": [
+                    "Orders"
+                ],
+                "summary": "Reject a customer order",
+                "description": "Reject (cancel) a customer_qr order that is waiting_approval.",
+                "operationId": "ordersReject",
+                "parameters": [
+                    {
+                        "name": "order",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Order rejected successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Order rejected successfully."
+                                        },
+                                        "data": {
+                                            "properties": {
+                                                "order": {
+                                                    "$ref": "#/components/schemas/Order"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "The user is not allowed to reject orders"
+                    },
+                    "404": {
+                        "description": "Order not found"
+                    },
+                    "409": {
+                        "description": "The order cannot be rejected in its current state"
+                    }
+                },
+                "security": [
+                    {
+                        "sessionCookie": []
+                    }
+                ]
+            }
+        },
         "/api/v1/organization": {
             "get": {
                 "tags": [
@@ -1970,6 +2320,107 @@
                     },
                     "422": {
                         "description": "Invalid locale format",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PublicApiError"
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "Too many requests",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PublicApiError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/public/tables/{publicToken}/orders": {
+            "post": {
+                "tags": [
+                    "Public"
+                ],
+                "summary": "Create an order from the public QR surface",
+                "description": "Create an order from the public QR surface. Requires an active table\nsession (unlike the menu, which is servable without one). The\nfrontend only sends intent (which RestaurantProduct, quantity,\nmodifier selections, notes) — price/totals/status/origin are always\ncomputed/assigned by the backend.",
+                "operationId": "publicOrdersStore",
+                "parameters": [
+                    {
+                        "name": "publicToken",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "Idempotency-Key",
+                        "in": "header",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "maxLength": 100
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/PublicOrderCreateRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Order created",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PublicOrderCreated"
+                                }
+                            }
+                        }
+                    },
+                    "200": {
+                        "description": "Idempotent replay of a previously created order",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PublicOrderCreated"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Table not found or not publicly servable",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PublicApiError"
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "No active table session, a concurrent session close, or a reused idempotency key",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PublicApiError"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Invalid item/modifier selection or malformed request",
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -4244,6 +4695,362 @@
                     }
                 },
                 "type": "object"
+            },
+            "OrderItemModifier": {
+                "required": [
+                    "id",
+                    "modifier_group_id",
+                    "modifier_option_id",
+                    "group_name",
+                    "name",
+                    "price_delta"
+                ],
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "format": "int64",
+                        "example": 800
+                    },
+                    "modifier_group_id": {
+                        "type": "integer",
+                        "format": "int64",
+                        "example": 21,
+                        "nullable": true
+                    },
+                    "modifier_option_id": {
+                        "type": "integer",
+                        "format": "int64",
+                        "example": 58,
+                        "nullable": true
+                    },
+                    "group_name": {
+                        "type": "string",
+                        "example": "Extras"
+                    },
+                    "name": {
+                        "type": "string",
+                        "example": "Bacon"
+                    },
+                    "price_delta": {
+                        "type": "string",
+                        "example": "1.50"
+                    }
+                },
+                "type": "object"
+            },
+            "OrderItem": {
+                "required": [
+                    "id",
+                    "restaurant_product_id",
+                    "product_id",
+                    "name",
+                    "description",
+                    "unit_price",
+                    "quantity",
+                    "modifiers_unit_total",
+                    "unit_total",
+                    "line_total",
+                    "note",
+                    "modifiers"
+                ],
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "format": "int64",
+                        "example": 501
+                    },
+                    "restaurant_product_id": {
+                        "type": "integer",
+                        "format": "int64",
+                        "example": 100
+                    },
+                    "product_id": {
+                        "type": "integer",
+                        "format": "int64",
+                        "example": 15,
+                        "nullable": true
+                    },
+                    "name": {
+                        "description": "Snapshot taken at order time — never the product's current name.",
+                        "type": "string",
+                        "example": "Hamburguesa Clásica"
+                    },
+                    "description": {
+                        "type": "string",
+                        "example": "Carne, queso y salsa",
+                        "nullable": true
+                    },
+                    "unit_price": {
+                        "description": "Snapshot — never the RestaurantProduct's current price.",
+                        "type": "string",
+                        "example": "12.90"
+                    },
+                    "quantity": {
+                        "type": "integer",
+                        "example": 2
+                    },
+                    "modifiers_unit_total": {
+                        "type": "string",
+                        "example": "1.50"
+                    },
+                    "unit_total": {
+                        "type": "string",
+                        "example": "14.40"
+                    },
+                    "line_total": {
+                        "type": "string",
+                        "example": "28.80"
+                    },
+                    "note": {
+                        "type": "string",
+                        "example": null,
+                        "nullable": true
+                    },
+                    "modifiers": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/OrderItemModifier"
+                        }
+                    }
+                },
+                "type": "object"
+            },
+            "Order": {
+                "required": [
+                    "id",
+                    "order_number",
+                    "origin",
+                    "status",
+                    "restaurant",
+                    "table",
+                    "customer_name",
+                    "customer_note",
+                    "subtotal",
+                    "modifiers_total",
+                    "total",
+                    "items"
+                ],
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "format": "int64",
+                        "example": 1042
+                    },
+                    "order_number": {
+                        "type": "string",
+                        "example": "#1042"
+                    },
+                    "origin": {
+                        "type": "string",
+                        "example": "customer_qr"
+                    },
+                    "status": {
+                        "type": "string",
+                        "example": "waiting_approval"
+                    },
+                    "restaurant": {
+                        "properties": {
+                            "id": {
+                                "type": "integer",
+                                "format": "int64",
+                                "example": 3
+                            },
+                            "name": {
+                                "type": "string",
+                                "example": "Aforo Centro"
+                            }
+                        },
+                        "type": "object"
+                    },
+                    "table": {
+                        "properties": {
+                            "id": {
+                                "type": "integer",
+                                "format": "int64",
+                                "example": 12
+                            },
+                            "name": {
+                                "type": "string",
+                                "example": "Mesa 12"
+                            }
+                        },
+                        "type": "object"
+                    },
+                    "customer_name": {
+                        "type": "string",
+                        "example": "Carlos",
+                        "nullable": true
+                    },
+                    "customer_note": {
+                        "type": "string",
+                        "example": null,
+                        "nullable": true
+                    },
+                    "subtotal": {
+                        "type": "string",
+                        "example": "25.80"
+                    },
+                    "modifiers_total": {
+                        "type": "string",
+                        "example": "3.00"
+                    },
+                    "total": {
+                        "type": "string",
+                        "example": "28.80"
+                    },
+                    "created_by_user_id": {
+                        "type": "integer",
+                        "format": "int64",
+                        "example": 5,
+                        "nullable": true
+                    },
+                    "approved_by_user_id": {
+                        "type": "integer",
+                        "format": "int64",
+                        "example": 5,
+                        "nullable": true
+                    },
+                    "cancelled_by_user_id": {
+                        "type": "integer",
+                        "format": "int64",
+                        "example": null,
+                        "nullable": true
+                    },
+                    "approved_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true
+                    },
+                    "cancelled_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "updated_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "items": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/OrderItem"
+                        }
+                    }
+                },
+                "type": "object"
+            },
+            "OrderItemCreateRequest": {
+                "required": [
+                    "restaurant_product_id",
+                    "quantity"
+                ],
+                "properties": {
+                    "restaurant_product_id": {
+                        "type": "integer",
+                        "format": "int64",
+                        "example": 100
+                    },
+                    "quantity": {
+                        "type": "integer",
+                        "example": 2,
+                        "maximum": 50,
+                        "minimum": 1
+                    },
+                    "note": {
+                        "type": "string",
+                        "example": "Sin cebolla",
+                        "nullable": true
+                    },
+                    "modifier_option_ids": {
+                        "type": "array",
+                        "items": {
+                            "type": "integer",
+                            "format": "int64"
+                        },
+                        "example": [
+                            58,
+                            61
+                        ]
+                    }
+                },
+                "type": "object"
+            },
+            "PublicOrderCreateRequest": {
+                "required": [
+                    "items"
+                ],
+                "properties": {
+                    "customer_name": {
+                        "type": "string",
+                        "example": "Carlos",
+                        "nullable": true
+                    },
+                    "locale": {
+                        "type": "string",
+                        "example": "es"
+                    },
+                    "note": {
+                        "type": "string",
+                        "example": "Sin cebolla",
+                        "nullable": true
+                    },
+                    "items": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/OrderItemCreateRequest"
+                        }
+                    }
+                },
+                "type": "object"
+            },
+            "PublicOrderCreated": {
+                "required": [
+                    "id",
+                    "order_number",
+                    "status",
+                    "subtotal",
+                    "modifiers_total",
+                    "total",
+                    "items"
+                ],
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "format": "int64",
+                        "example": 1042
+                    },
+                    "order_number": {
+                        "type": "string",
+                        "example": "#1042"
+                    },
+                    "status": {
+                        "type": "string",
+                        "example": "waiting_approval"
+                    },
+                    "subtotal": {
+                        "type": "string",
+                        "example": "25.80"
+                    },
+                    "modifiers_total": {
+                        "type": "string",
+                        "example": "3.00"
+                    },
+                    "total": {
+                        "type": "string",
+                        "example": "28.80"
+                    },
+                    "items": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/OrderItem"
+                        }
+                    }
+                },
+                "type": "object"
             }
         },
         "securitySchemes": {
@@ -4275,6 +5082,10 @@
         {
             "name": "Modifiers",
             "description": "Modifiers"
+        },
+        {
+            "name": "Orders",
+            "description": "Orders"
         },
         {
             "name": "Organization",

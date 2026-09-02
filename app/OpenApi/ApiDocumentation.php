@@ -421,4 +421,133 @@ use OpenApi\Attributes as OA;
     ],
     type: 'object'
 )]
+#[OA\Schema(
+    schema: 'OrderItemModifier',
+    required: ['id', 'modifier_group_id', 'modifier_option_id', 'group_name', 'name', 'price_delta'],
+    properties: [
+        new OA\Property(property: 'id', type: 'integer', format: 'int64', example: 800),
+        new OA\Property(property: 'modifier_group_id', type: 'integer', format: 'int64', example: 21, nullable: true),
+        new OA\Property(property: 'modifier_option_id', type: 'integer', format: 'int64', example: 58, nullable: true),
+        new OA\Property(property: 'group_name', type: 'string', example: 'Extras'),
+        new OA\Property(property: 'name', type: 'string', example: 'Bacon'),
+        new OA\Property(property: 'price_delta', type: 'string', example: '1.50'),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
+    schema: 'OrderItem',
+    required: ['id', 'restaurant_product_id', 'product_id', 'name', 'description', 'unit_price', 'quantity', 'modifiers_unit_total', 'unit_total', 'line_total', 'note', 'modifiers'],
+    properties: [
+        new OA\Property(property: 'id', type: 'integer', format: 'int64', example: 501),
+        new OA\Property(property: 'restaurant_product_id', type: 'integer', format: 'int64', example: 100),
+        new OA\Property(property: 'product_id', type: 'integer', format: 'int64', example: 15, nullable: true),
+        new OA\Property(property: 'name', type: 'string', example: 'Hamburguesa Clásica', description: 'Snapshot taken at order time — never the product\'s current name.'),
+        new OA\Property(property: 'description', type: 'string', example: 'Carne, queso y salsa', nullable: true),
+        new OA\Property(property: 'unit_price', type: 'string', example: '12.90', description: 'Snapshot — never the RestaurantProduct\'s current price.'),
+        new OA\Property(property: 'quantity', type: 'integer', example: 2),
+        new OA\Property(property: 'modifiers_unit_total', type: 'string', example: '1.50'),
+        new OA\Property(property: 'unit_total', type: 'string', example: '14.40'),
+        new OA\Property(property: 'line_total', type: 'string', example: '28.80'),
+        new OA\Property(property: 'note', type: 'string', example: null, nullable: true),
+        new OA\Property(
+            property: 'modifiers',
+            type: 'array',
+            items: new OA\Items(ref: '#/components/schemas/OrderItemModifier')
+        ),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
+    schema: 'Order',
+    required: ['id', 'order_number', 'origin', 'status', 'restaurant', 'table', 'customer_name', 'customer_note', 'subtotal', 'modifiers_total', 'total', 'items'],
+    properties: [
+        new OA\Property(property: 'id', type: 'integer', format: 'int64', example: 1042),
+        new OA\Property(property: 'order_number', type: 'string', example: '#1042'),
+        new OA\Property(property: 'origin', type: 'string', example: 'customer_qr'),
+        new OA\Property(property: 'status', type: 'string', example: 'waiting_approval'),
+        new OA\Property(
+            property: 'restaurant',
+            properties: [
+                new OA\Property(property: 'id', type: 'integer', format: 'int64', example: 3),
+                new OA\Property(property: 'name', type: 'string', example: 'Aforo Centro'),
+            ],
+            type: 'object'
+        ),
+        new OA\Property(
+            property: 'table',
+            properties: [
+                new OA\Property(property: 'id', type: 'integer', format: 'int64', example: 12),
+                new OA\Property(property: 'name', type: 'string', example: 'Mesa 12'),
+            ],
+            type: 'object'
+        ),
+        new OA\Property(property: 'customer_name', type: 'string', example: 'Carlos', nullable: true),
+        new OA\Property(property: 'customer_note', type: 'string', example: null, nullable: true),
+        new OA\Property(property: 'subtotal', type: 'string', example: '25.80'),
+        new OA\Property(property: 'modifiers_total', type: 'string', example: '3.00'),
+        new OA\Property(property: 'total', type: 'string', example: '28.80'),
+        new OA\Property(property: 'created_by_user_id', type: 'integer', format: 'int64', example: 5, nullable: true),
+        new OA\Property(property: 'approved_by_user_id', type: 'integer', format: 'int64', example: 5, nullable: true),
+        new OA\Property(property: 'cancelled_by_user_id', type: 'integer', format: 'int64', example: null, nullable: true),
+        new OA\Property(property: 'approved_at', type: 'string', format: 'date-time', nullable: true),
+        new OA\Property(property: 'cancelled_at', type: 'string', format: 'date-time', nullable: true),
+        new OA\Property(property: 'created_at', type: 'string', format: 'date-time'),
+        new OA\Property(property: 'updated_at', type: 'string', format: 'date-time'),
+        new OA\Property(
+            property: 'items',
+            type: 'array',
+            items: new OA\Items(ref: '#/components/schemas/OrderItem')
+        ),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
+    schema: 'OrderItemCreateRequest',
+    required: ['restaurant_product_id', 'quantity'],
+    properties: [
+        new OA\Property(property: 'restaurant_product_id', type: 'integer', format: 'int64', example: 100),
+        new OA\Property(property: 'quantity', type: 'integer', example: 2, minimum: 1, maximum: 50),
+        new OA\Property(property: 'note', type: 'string', example: 'Sin cebolla', nullable: true),
+        new OA\Property(
+            property: 'modifier_option_ids',
+            type: 'array',
+            items: new OA\Items(type: 'integer', format: 'int64'),
+            example: [58, 61]
+        ),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
+    schema: 'PublicOrderCreateRequest',
+    required: ['items'],
+    properties: [
+        new OA\Property(property: 'customer_name', type: 'string', example: 'Carlos', nullable: true),
+        new OA\Property(property: 'locale', type: 'string', example: 'es'),
+        new OA\Property(property: 'note', type: 'string', example: 'Sin cebolla', nullable: true),
+        new OA\Property(
+            property: 'items',
+            type: 'array',
+            items: new OA\Items(ref: '#/components/schemas/OrderItemCreateRequest')
+        ),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
+    schema: 'PublicOrderCreated',
+    required: ['id', 'order_number', 'status', 'subtotal', 'modifiers_total', 'total', 'items'],
+    properties: [
+        new OA\Property(property: 'id', type: 'integer', format: 'int64', example: 1042),
+        new OA\Property(property: 'order_number', type: 'string', example: '#1042'),
+        new OA\Property(property: 'status', type: 'string', example: 'waiting_approval'),
+        new OA\Property(property: 'subtotal', type: 'string', example: '25.80'),
+        new OA\Property(property: 'modifiers_total', type: 'string', example: '3.00'),
+        new OA\Property(property: 'total', type: 'string', example: '28.80'),
+        new OA\Property(
+            property: 'items',
+            type: 'array',
+            items: new OA\Items(ref: '#/components/schemas/OrderItem')
+        ),
+    ],
+    type: 'object'
+)]
 class ApiDocumentation {}
