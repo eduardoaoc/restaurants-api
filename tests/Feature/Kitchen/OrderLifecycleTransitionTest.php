@@ -3,7 +3,6 @@
 namespace Tests\Feature\Kitchen;
 
 use App\Actions\Orders\RejectOrderAction;
-use App\Actions\Tables\CloseTableAction;
 use App\Models\Order;
 use App\Models\Organization;
 use App\Models\Restaurant;
@@ -412,6 +411,13 @@ class OrderLifecycleTransitionTest extends TestCase
 
     public function test_lifecycle_continues_after_the_table_session_is_closed(): void
     {
+        // CloseTableAction (Bloco 13) now refuses to close a session with
+        // any open order, so a real close is no longer reachable while
+        // this order is still `confirmed`. The status is forced directly
+        // to prove the actual guarantee under test: TransitionOrderStatusAction
+        // never consults the session's status at all (see its class
+        // docblock) — a real close could never produce this order state
+        // anyway, but the code must not rely on that being true.
         [$organization, $owner, $restaurant, $rp] = $this->createTenantWithRestaurantProduct();
         $kitchen = $this->createStaff($organization, $restaurant, 'kitchen', 'K-1');
         $waiter = $this->createStaff($organization, $restaurant, 'waiter', 'W-1');
@@ -419,7 +425,7 @@ class OrderLifecycleTransitionTest extends TestCase
         $session = $this->openSession($table, $owner);
         $order = $this->createWaiterOrder($table, $waiter, [['restaurant_product_id' => $rp->id, 'quantity' => 1]]);
 
-        app(CloseTableAction::class)->execute($session, $owner);
+        $session->forceFill(['status' => 'closed', 'closed_at' => now(), 'closed_by_user_id' => $owner->id])->save();
 
         // Full chain via the real action (see note on the actingAs()
         // limitation above) — the point under test is that none of these

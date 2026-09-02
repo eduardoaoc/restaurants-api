@@ -2,6 +2,7 @@
 
 namespace App\Actions\Orders;
 
+use App\Exceptions\Billing\TableSessionAlreadyPaidException;
 use App\Exceptions\Orders\OrderCreationConflictException;
 use App\Models\Order;
 use App\Models\Table;
@@ -50,6 +51,10 @@ class OrderCreationService
 
             if (! $session || ! $session->isActive()) {
                 throw new OrderCreationConflictException('The table session is no longer active.');
+            }
+
+            if ($session->isPaid()) {
+                throw new TableSessionAlreadyPaidException;
             }
 
             $built = $this->buildOrderItems->execute($table->restaurant, $items, $locale);

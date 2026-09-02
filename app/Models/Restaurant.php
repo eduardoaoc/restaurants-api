@@ -88,4 +88,14 @@ class Restaurant extends Model
     {
         return $this->hasMany(TableRequest::class);
     }
+
+    /**
+     * All historical manual payment records for this restaurant.
+     *
+     * @return HasMany<PaymentRecord, $this>
+     */
+    public function paymentRecords(): HasMany
+    {
+        return $this->hasMany(PaymentRecord::class);
+    }
 }

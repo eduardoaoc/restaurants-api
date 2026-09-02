@@ -127,8 +127,10 @@ use OpenApi\Attributes as OA;
         new OA\Property(property: 'restaurant_id', type: 'integer', format: 'int64', example: 2),
         new OA\Property(property: 'guest_count', type: 'integer', example: 4),
         new OA\Property(property: 'status', type: 'string', example: 'occupied'),
+        new OA\Property(property: 'payment_status', type: 'string', example: 'unpaid'),
         new OA\Property(property: 'opened_at', type: 'string', format: 'date-time'),
         new OA\Property(property: 'closed_at', type: 'string', format: 'date-time', nullable: true),
+        new OA\Property(property: 'paid_at', type: 'string', format: 'date-time', nullable: true),
         new OA\Property(property: 'opened_by_user_id', type: 'integer', format: 'int64', example: 5),
         new OA\Property(property: 'closed_by_user_id', type: 'integer', format: 'int64', example: 5, nullable: true),
         new OA\Property(property: 'created_at', type: 'string', format: 'date-time'),
@@ -670,6 +672,84 @@ use OpenApi\Attributes as OA;
         new OA\Property(property: 'completed_by', ref: '#/components/schemas/TableRequestActor', nullable: true),
         new OA\Property(property: 'cancelled_at', type: 'string', format: 'date-time', nullable: true),
         new OA\Property(property: 'cancelled_by', ref: '#/components/schemas/TableRequestActor', nullable: true),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
+    schema: 'BillOrderSummary',
+    required: ['id', 'status', 'total', 'created_at'],
+    properties: [
+        new OA\Property(property: 'id', type: 'integer', format: 'int64', example: 1042),
+        new OA\Property(property: 'status', type: 'string', example: 'served'),
+        new OA\Property(property: 'total', type: 'string', example: '28.80'),
+        new OA\Property(property: 'created_at', type: 'string', format: 'date-time'),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
+    schema: 'PaymentRecordActor',
+    required: ['id', 'name'],
+    properties: [
+        new OA\Property(property: 'id', type: 'integer', format: 'int64', example: 7),
+        new OA\Property(property: 'name', type: 'string', example: 'Carlos'),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
+    schema: 'PaymentRecord',
+    required: ['id', 'method', 'amount', 'currency', 'reference', 'note', 'recorded_at', 'recorded_by'],
+    properties: [
+        new OA\Property(property: 'id', type: 'integer', format: 'int64', example: 301),
+        new OA\Property(property: 'method', type: 'string', example: 'card'),
+        new OA\Property(property: 'amount', type: 'string', example: '28.40'),
+        new OA\Property(property: 'currency', type: 'string', example: 'EUR'),
+        new OA\Property(property: 'reference', type: 'string', example: 'POS-8292', nullable: true),
+        new OA\Property(property: 'note', type: 'string', example: null, nullable: true),
+        new OA\Property(property: 'recorded_at', type: 'string', format: 'date-time'),
+        new OA\Property(property: 'recorded_by', ref: '#/components/schemas/PaymentRecordActor', nullable: true),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
+    schema: 'TableSessionBill',
+    required: ['table_session_id', 'status', 'payment_status', 'table', 'orders_total', 'paid_total', 'balance', 'can_close', 'orders', 'payments'],
+    properties: [
+        new OA\Property(property: 'table_session_id', type: 'integer', format: 'int64', example: 88),
+        new OA\Property(property: 'status', type: 'string', example: 'occupied'),
+        new OA\Property(property: 'payment_status', type: 'string', example: 'unpaid'),
+        new OA\Property(
+            property: 'table',
+            properties: [
+                new OA\Property(property: 'id', type: 'integer', format: 'int64', example: 12),
+                new OA\Property(property: 'name', type: 'string', example: 'Mesa 12'),
+            ],
+            type: 'object'
+        ),
+        new OA\Property(property: 'orders_total', type: 'string', example: '58.40'),
+        new OA\Property(property: 'paid_total', type: 'string', example: '30.00'),
+        new OA\Property(property: 'balance', type: 'string', example: '28.40'),
+        new OA\Property(property: 'can_close', type: 'boolean', example: false),
+        new OA\Property(
+            property: 'orders',
+            type: 'array',
+            items: new OA\Items(ref: '#/components/schemas/BillOrderSummary')
+        ),
+        new OA\Property(
+            property: 'payments',
+            type: 'array',
+            items: new OA\Items(ref: '#/components/schemas/PaymentRecord')
+        ),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
+    schema: 'CreatePaymentRequest',
+    required: ['method', 'amount'],
+    properties: [
+        new OA\Property(property: 'method', type: 'string', example: 'card', description: 'One of: cash, card, other'),
+        new OA\Property(property: 'amount', type: 'string', example: '28.40', description: 'Decimal string, > 0, at most the current balance. Never a JSON number.'),
+        new OA\Property(property: 'reference', type: 'string', example: 'POS-8292', nullable: true),
+        new OA\Property(property: 'note', type: 'string', example: null, nullable: true),
     ],
     type: 'object'
 )]

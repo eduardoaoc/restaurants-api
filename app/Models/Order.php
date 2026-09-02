@@ -56,6 +56,30 @@ class Order extends Model
     }
 
     /**
+     * Statuses that count towards a table session's bill. waiting_approval
+     * is excluded (not yet accepted by the restaurant — nothing to charge
+     * for) and cancelled is excluded (never happened, financially).
+     *
+     * @return array<int, string>
+     */
+    public static function billableStatuses(): array
+    {
+        return [self::STATUS_CONFIRMED, self::STATUS_ACCEPTED, self::STATUS_PREPARING, self::STATUS_READY, self::STATUS_SERVED];
+    }
+
+    /**
+     * Statuses that represent unfinished kitchen/approval work — a session
+     * cannot close while any order is still in one of these, even if the
+     * order itself isn't billable yet (waiting_approval).
+     *
+     * @return array<int, string>
+     */
+    public static function openStatuses(): array
+    {
+        return [self::STATUS_WAITING_APPROVAL, self::STATUS_CONFIRMED, self::STATUS_ACCEPTED, self::STATUS_PREPARING, self::STATUS_READY];
+    }
+
+    /**
      * @return array<string, string>
      */
     protected function casts(): array

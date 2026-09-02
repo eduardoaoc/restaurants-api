@@ -8,9 +8,16 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use InvalidArgumentException;
 
-#[Fillable(['restaurant_id', 'table_id', 'opened_by_user_id', 'closed_by_user_id', 'guest_count', 'status', 'opened_at', 'closed_at'])]
+#[Fillable([
+    'restaurant_id', 'table_id', 'opened_by_user_id', 'closed_by_user_id', 'guest_count',
+    'status', 'opened_at', 'closed_at', 'payment_status', 'paid_at',
+])]
 class TableSession extends Model
 {
+    public const PAYMENT_STATUS_UNPAID = 'unpaid';
+
+    public const PAYMENT_STATUS_PAID = 'paid';
+
     /**
      * @return array<string, string>
      */
@@ -19,6 +26,7 @@ class TableSession extends Model
         return [
             'opened_at' => 'datetime',
             'closed_at' => 'datetime',
+            'paid_at' => 'datetime',
         ];
     }
 
@@ -59,6 +67,11 @@ class TableSession extends Model
         return $this->status !== 'closed';
     }
 
+    public function isPaid(): bool
+    {
+        return $this->payment_status === self::PAYMENT_STATUS_PAID;
+    }
+
     /**
      * The orders placed during this session. A session can accumulate many
      * orders; a new session (after this one closes) starts with none.
@@ -78,6 +91,16 @@ class TableSession extends Model
     public function tableRequests(): HasMany
     {
         return $this->hasMany(TableRequest::class);
+    }
+
+    /**
+     * The manual payment records collected against this session's bill.
+     *
+     * @return HasMany<PaymentRecord, $this>
+     */
+    public function paymentRecords(): HasMany
+    {
+        return $this->hasMany(PaymentRecord::class);
     }
 
     protected static function booted(): void

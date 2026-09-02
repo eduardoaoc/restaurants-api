@@ -1,5 +1,12 @@
 <?php
 
+use App\Exceptions\Billing\PaymentExceedsBalanceException;
+use App\Exceptions\Billing\PaymentIdempotencyKeyReusedException;
+use App\Exceptions\Billing\TableSessionAlreadyPaidException;
+use App\Exceptions\Billing\TableSessionClosedException;
+use App\Exceptions\Billing\TableSessionHasNoBillableOrdersException;
+use App\Exceptions\Billing\TableSessionHasOpenOrdersException;
+use App\Exceptions\Billing\TableSessionNotPaidException;
 use App\Exceptions\Orders\IdempotencyKeyReusedException;
 use App\Exceptions\Orders\InvalidModifierSelectionException;
 use App\Exceptions\Orders\InvalidOrderItemException;
@@ -89,6 +96,41 @@ return Application::configure(basePath: dirname(__DIR__))
         });
         $exceptions->render(function (TableRequestStateConflictException $e, Request $request) {
             return response()->json(['message' => $e->getMessage()], 409);
+        });
+        $exceptions->render(function (TableSessionClosedException $e, Request $request) {
+            return response()->json([
+                'error' => ['code' => 'TABLE_SESSION_CLOSED', 'message' => 'This table session is already closed.'],
+            ], 409);
+        });
+        $exceptions->render(function (TableSessionAlreadyPaidException $e, Request $request) {
+            return response()->json([
+                'error' => ['code' => 'TABLE_SESSION_ALREADY_PAID', 'message' => 'This table session is already fully paid.'],
+            ], 409);
+        });
+        $exceptions->render(function (TableSessionNotPaidException $e, Request $request) {
+            return response()->json([
+                'error' => ['code' => 'TABLE_SESSION_NOT_PAID', 'message' => 'This table session has not been fully paid yet.'],
+            ], 409);
+        });
+        $exceptions->render(function (TableSessionHasOpenOrdersException $e, Request $request) {
+            return response()->json([
+                'error' => ['code' => 'TABLE_SESSION_HAS_OPEN_ORDERS', 'message' => 'This table session still has an order in progress.'],
+            ], 409);
+        });
+        $exceptions->render(function (TableSessionHasNoBillableOrdersException $e, Request $request) {
+            return response()->json([
+                'error' => ['code' => 'TABLE_SESSION_HAS_NO_BILLABLE_ORDERS', 'message' => 'This table session has no billable orders.'],
+            ], 409);
+        });
+        $exceptions->render(function (PaymentExceedsBalanceException $e, Request $request) {
+            return response()->json([
+                'error' => ['code' => 'PAYMENT_EXCEEDS_BALANCE', 'message' => 'The payment amount exceeds the current balance.'],
+            ], 422);
+        });
+        $exceptions->render(function (PaymentIdempotencyKeyReusedException $e, Request $request) {
+            return response()->json([
+                'error' => ['code' => 'PAYMENT_IDEMPOTENCY_KEY_REUSED', 'message' => 'This idempotency key was already used with a different payment.'],
+            ], 409);
         });
         $exceptions->render(function (ThrottleRequestsException $e, Request $request) {
             if (! $request->is('api/v1/public/*')) {

@@ -3,6 +3,7 @@
 namespace App\Actions\TableRequests;
 
 use App\Actions\Public\ResolvePublicTableAction;
+use App\Exceptions\Billing\TableSessionAlreadyPaidException;
 use App\Exceptions\Orders\TableSessionNotActiveException;
 use App\Exceptions\TableRequests\TableRequestAlreadyOpenException;
 use App\Models\TableRequest;
@@ -41,6 +42,10 @@ class CreatePublicTableRequestAction
 
             if (! $lockedSession || ! $lockedSession->isActive()) {
                 throw new TableSessionNotActiveException;
+            }
+
+            if ($lockedSession->isPaid()) {
+                throw new TableSessionAlreadyPaidException;
             }
 
             $hasOpenRequestOfType = TableRequest::query()

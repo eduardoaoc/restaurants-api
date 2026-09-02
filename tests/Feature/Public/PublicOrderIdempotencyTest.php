@@ -2,16 +2,18 @@
 
 namespace Tests\Feature\Public;
 
+use App\Actions\Orders\ApproveOrderAction;
 use App\Actions\Tables\CloseTableAction;
 use App\Models\Order;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\Concerns\InteractsWithOrders;
+use Tests\Concerns\InteractsWithPayments;
 use Tests\Concerns\InteractsWithTenants;
 use Tests\TestCase;
 
 class PublicOrderIdempotencyTest extends TestCase
 {
-    use InteractsWithOrders, InteractsWithTenants, RefreshDatabase;
+    use InteractsWithOrders, InteractsWithPayments, InteractsWithTenants, RefreshDatabase;
 
     protected function setUp(): void
     {
@@ -133,7 +135,15 @@ class PublicOrderIdempotencyTest extends TestCase
         $this->postJson("/api/v1/public/tables/{$table->public_token}/orders", $payload, $headers)
             ->assertStatus(201);
 
+        // Make the order in session1 servable/paid so the session can
+        // close (Bloco 13 requires it) without creating a second order,
+        // which would break the orders-count assertion below.
+        $orderInSession1 = Order::query()->latest('id')->firstOrFail();
+        $orderInSession1 = app(ApproveOrderAction::class)->execute($orderInSession1, $owner);
+        $orderInSession1 = $this->advanceOrderTo($orderInSession1, Order::STATUS_SERVED, $owner);
+        $this->recordPayment($session1, $owner, $orderInSession1->total);
         app(CloseTableAction::class)->execute($session1, $owner);
+
         $this->openSession($table, $owner);
 
         // Same idempotency key, but a brand new session: must create a new order.

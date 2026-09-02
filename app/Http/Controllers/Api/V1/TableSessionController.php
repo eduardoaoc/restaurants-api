@@ -10,6 +10,8 @@ use App\Http\Requests\Api\V1\Table\OpenTableRequest;
 use App\Http\Resources\Api\V1\TableSessionResource;
 use App\Models\Organization;
 use App\Models\Table;
+use App\Models\User;
+use App\Support\Restaurants\RestaurantScope;
 use App\Support\Tenancy\TenantContext;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
@@ -72,7 +74,7 @@ class TableSessionController extends Controller
     public function open(OpenTableRequest $request, int $table): JsonResponse
     {
         $organization = $this->activeOrganization();
-        $tableModel = $this->tableQuery($organization)->findOrFail($table);
+        $tableModel = $this->tableQuery($organization, $request->user())->findOrFail($table);
 
         $this->authorize('open', $tableModel);
 
@@ -128,7 +130,7 @@ class TableSessionController extends Controller
     public function close(Request $request, int $table): JsonResponse
     {
         $organization = $this->activeOrganization();
-        $tableModel = $this->tableQuery($organization)->findOrFail($table);
+        $tableModel = $this->tableQuery($organization, $request->user())->findOrFail($table);
 
         $activeSession = $tableModel->activeSession;
 
@@ -157,12 +159,22 @@ class TableSessionController extends Controller
     }
 
     /**
-     * Tables scoped to the active organization, via their restaurant.
+     * Tables scoped to the active organization AND to the restaurants the
+     * acting user may operate on (see RestaurantScope). A table outside
+     * either scope resolves as "not found" via findOrFail().
      */
-    private function tableQuery(Organization $organization): Builder
+    private function tableQuery(Organization $organization, User $user): Builder
     {
-        return Table::query()->whereHas('restaurant', function ($query) use ($organization) {
+        $query = Table::query()->whereHas('restaurant', function ($query) use ($organization) {
             $query->where('organization_id', $organization->id);
         });
+
+        $restaurantIds = RestaurantScope::accessibleRestaurantIds($user, $organization);
+
+        if ($restaurantIds !== null) {
+            $query->whereIn('restaurant_id', $restaurantIds);
+        }
+
+        return $query;
     }
 }

@@ -2,7 +2,6 @@
 
 namespace Tests\Feature\TableRequest;
 
-use App\Actions\Tables\CloseTableAction;
 use App\Models\Order;
 use App\Models\Organization;
 use App\Models\Restaurant;
@@ -11,13 +10,14 @@ use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\Concerns\InteractsWithOrders;
+use Tests\Concerns\InteractsWithPayments;
 use Tests\Concerns\InteractsWithTableRequests;
 use Tests\Concerns\InteractsWithTenants;
 use Tests\TestCase;
 
 class TableRequestLifecycleTest extends TestCase
 {
-    use InteractsWithOrders, InteractsWithTableRequests, InteractsWithTenants, RefreshDatabase;
+    use InteractsWithOrders, InteractsWithPayments, InteractsWithTableRequests, InteractsWithTenants, RefreshDatabase;
 
     protected function setUp(): void
     {
@@ -187,18 +187,19 @@ class TableRequestLifecycleTest extends TestCase
 
     // --- TableSession independence -----------------------------------
 
-    public function test_lifecycle_continues_after_the_table_session_is_closed(): void
+    public function test_completed_request_is_unaffected_by_closing_the_session(): void
     {
+        // Bloco 13's close cleanup only touches still-open (pending/
+        // acknowledged) requests — an already-finished one keeps its
+        // terminal status.
         [$organization, $owner, $restaurant] = $this->createTenant();
         $waiter = $this->createStaff($organization, $restaurant, 'waiter', 'W-1');
         $table = $this->createTable($restaurant);
         $session = $this->openSession($table, $owner);
         $tableRequest = $this->createTableRequest($table, TableRequest::TYPE_REQUEST_BILL);
+        $this->advanceTableRequestTo($tableRequest, TableRequest::STATUS_COMPLETED, $waiter);
 
-        app(CloseTableAction::class)->execute($session, $owner);
-
-        $this->actingAs($waiter, 'web')->postJson("/api/v1/table-requests/{$tableRequest->id}/acknowledge")->assertOk();
-        $this->actingAs($waiter, 'web')->postJson("/api/v1/table-requests/{$tableRequest->id}/complete")->assertOk();
+        $this->closeSessionWithFullPayment($session, $owner);
 
         $tableRequest->refresh();
         $this->assertSame(TableRequest::STATUS_COMPLETED, $tableRequest->status);
@@ -209,7 +210,7 @@ class TableRequestLifecycleTest extends TestCase
         [, $owner, $restaurant] = $this->createTenant();
         $table = $this->createTable($restaurant);
         $session = $this->openSession($table, $owner);
-        app(CloseTableAction::class)->execute($session, $owner);
+        $this->closeSessionWithFullPayment($session, $owner);
 
         $this->postJson("/api/v1/public/tables/{$table->public_token}/requests/call-waiter")
             ->assertStatus(409)

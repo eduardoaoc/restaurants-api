@@ -2,15 +2,16 @@
 
 namespace Tests\Feature\Public;
 
-use App\Actions\Tables\CloseTableAction;
 use App\Actions\Tables\OpenTableAction;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\Concerns\InteractsWithOrders;
+use Tests\Concerns\InteractsWithPayments;
 use Tests\Concerns\InteractsWithTenants;
 use Tests\TestCase;
 
 class PublicTableResolutionTest extends TestCase
 {
-    use InteractsWithTenants, RefreshDatabase;
+    use InteractsWithOrders, InteractsWithPayments, InteractsWithTenants, RefreshDatabase;
 
     protected function setUp(): void
     {
@@ -170,7 +171,7 @@ class PublicTableResolutionTest extends TestCase
         [, $owner, $restaurant] = $this->createTenant();
         $table = $this->createTable($restaurant);
         $session = app(OpenTableAction::class)->execute($table, $owner, 4);
-        app(CloseTableAction::class)->execute($session, $owner);
+        $this->closeSessionWithFullPayment($session, $owner);
 
         $this->getJson("/api/v1/public/tables/{$table->public_token}")
             ->assertOk()
@@ -182,7 +183,7 @@ class PublicTableResolutionTest extends TestCase
         [, $owner, $restaurant] = $this->createTenant();
         $table = $this->createTable($restaurant);
         $session = app(OpenTableAction::class)->execute($table, $owner, 4);
-        app(CloseTableAction::class)->execute($session, $owner);
+        $this->closeSessionWithFullPayment($session, $owner);
 
         $this->getJson("/api/v1/public/tables/{$table->public_token}")
             ->assertOk();

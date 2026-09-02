@@ -60,6 +60,16 @@ class Table extends Model
     }
 
     /**
+     * All historical manual payment records for this table.
+     *
+     * @return HasMany<PaymentRecord, $this>
+     */
+    public function paymentRecords(): HasMany
+    {
+        return $this->hasMany(PaymentRecord::class);
+    }
+
+    /**
      * Generate an unpredictable public token that is not derived from the id.
      */
     public static function generateUniquePublicToken(): string

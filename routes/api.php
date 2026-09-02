@@ -20,6 +20,7 @@ use App\Http\Controllers\Api\V1\RestaurantProductController;
 use App\Http\Controllers\Api\V1\StaffController;
 use App\Http\Controllers\Api\V1\TableController;
 use App\Http\Controllers\Api\V1\TableRequestController;
+use App\Http\Controllers\Api\V1\TableSessionBillController;
 use App\Http\Controllers\Api\V1\TableSessionController;
 use Illuminate\Support\Facades\Route;
 
@@ -121,5 +122,8 @@ Route::prefix('v1')->group(function () {
         Route::post('/table-requests/{tableRequest}/acknowledge', [TableRequestController::class, 'acknowledge']);
         Route::post('/table-requests/{tableRequest}/complete', [TableRequestController::class, 'complete']);
         Route::post('/table-requests/{tableRequest}/cancel', [TableRequestController::class, 'cancel']);
+
+        Route::get('/table-sessions/{tableSession}/bill', [TableSessionBillController::class, 'show']);
+        Route::post('/table-sessions/{tableSession}/payments', [TableSessionBillController::class, 'storePayment']);
     });
 });

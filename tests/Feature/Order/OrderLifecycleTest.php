@@ -3,7 +3,7 @@
 namespace Tests\Feature\Order;
 
 use App\Actions\Orders\OrderCreationService;
-use App\Actions\Tables\CloseTableAction;
+use App\Actions\Orders\RejectOrderAction;
 use App\Exceptions\Orders\InvalidOrderItemException;
 use App\Exceptions\Orders\OrderCreationConflictException;
 use App\Models\Order;
@@ -11,12 +11,13 @@ use App\Models\Restaurant;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\Concerns\InteractsWithOrders;
+use Tests\Concerns\InteractsWithPayments;
 use Tests\Concerns\InteractsWithTenants;
 use Tests\TestCase;
 
 class OrderLifecycleTest extends TestCase
 {
-    use InteractsWithOrders, InteractsWithTenants, RefreshDatabase;
+    use InteractsWithOrders, InteractsWithPayments, InteractsWithTenants, RefreshDatabase;
 
     protected function setUp(): void
     {
@@ -88,7 +89,11 @@ class OrderLifecycleTest extends TestCase
 
         $sessionA = $this->openSession($table, $owner);
         $orderA = $this->createCustomerOrder($table, [['restaurant_product_id' => $rp->id, 'quantity' => 1]]);
-        app(CloseTableAction::class)->execute($sessionA, $owner);
+        // orderA stays waiting_approval, which would block close (it's an
+        // "open" order) — reject it so it's out of the way, then close via
+        // the helper's own separate served+paid order.
+        app(RejectOrderAction::class)->execute($orderA, $owner);
+        $this->closeSessionWithFullPayment($sessionA, $owner);
 
         $sessionB = $this->openSession($table, $owner);
         $orderB = $this->createCustomerOrder($table, [['restaurant_product_id' => $rp->id, 'quantity' => 1]]);
@@ -143,7 +148,7 @@ class OrderLifecycleTest extends TestCase
         [, $owner, $restaurant, $rp] = $this->createTenantWithRestaurantProduct();
         $table = $this->createTable($restaurant);
         $session = $this->openSession($table, $owner);
-        app(CloseTableAction::class)->execute($session, $owner);
+        $this->closeSessionWithFullPayment($session, $owner);
 
         $this->expectException(OrderCreationConflictException::class);
 

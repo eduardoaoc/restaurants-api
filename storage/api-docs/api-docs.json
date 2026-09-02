@@ -4343,6 +4343,148 @@
                 ]
             }
         },
+        "/api/v1/table-sessions/{tableSession}/bill": {
+            "get": {
+                "tags": [
+                    "Billing"
+                ],
+                "summary": "Get a table session's bill",
+                "description": "The computed bill for a table session — orders_total/paid_total/\nbalance/can_close, all derived from Orders' persisted totals and\nPaymentRecords, never recalculated from the catalog. Works for\nhistorical (closed) sessions too, not just the active one.",
+                "operationId": "tableSessionsBill",
+                "parameters": [
+                    {
+                        "name": "tableSession",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The bill",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/TableSessionBill"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "The user is not allowed to view this bill"
+                    },
+                    "404": {
+                        "description": "Table session not found"
+                    }
+                },
+                "security": [
+                    {
+                        "sessionCookie": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/table-sessions/{tableSession}/payments": {
+            "post": {
+                "tags": [
+                    "Billing"
+                ],
+                "summary": "Record a manual payment against a table session",
+                "description": "Record a manual payment (cash/card/other) against a table session's\nbill. The frontend only sends intent (method/amount/reference/note)\n— everything else (restaurant/table/session context, who recorded\nit, currency, whether the bill is now fully paid) is derived by the\nbackend.",
+                "operationId": "tableSessionsPayments",
+                "parameters": [
+                    {
+                        "name": "tableSession",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "Idempotency-Key",
+                        "in": "header",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "maxLength": 100
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/CreatePaymentRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Payment recorded",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/PaymentRecord"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "200": {
+                        "description": "Idempotent replay of a previously recorded payment",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/PaymentRecord"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "The user is not allowed to record payments"
+                    },
+                    "404": {
+                        "description": "Table session not found"
+                    },
+                    "409": {
+                        "description": "The session is closed, already paid, has no billable orders, or the idempotency key was reused with a different payload"
+                    },
+                    "422": {
+                        "description": "Invalid payload, or the amount exceeds the current balance"
+                    }
+                },
+                "security": [
+                    {
+                        "sessionCookie": []
+                    }
+                ]
+            }
+        },
         "/api/v1/tables/{table}/open": {
             "post": {
                 "tags": [
@@ -4794,11 +4936,20 @@
                         "type": "string",
                         "example": "occupied"
                     },
+                    "payment_status": {
+                        "type": "string",
+                        "example": "unpaid"
+                    },
                     "opened_at": {
                         "type": "string",
                         "format": "date-time"
                     },
                     "closed_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true
+                    },
+                    "paid_at": {
                         "type": "string",
                         "format": "date-time",
                         "nullable": true
@@ -6207,6 +6358,207 @@
                     }
                 },
                 "type": "object"
+            },
+            "BillOrderSummary": {
+                "required": [
+                    "id",
+                    "status",
+                    "total",
+                    "created_at"
+                ],
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "format": "int64",
+                        "example": 1042
+                    },
+                    "status": {
+                        "type": "string",
+                        "example": "served"
+                    },
+                    "total": {
+                        "type": "string",
+                        "example": "28.80"
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                },
+                "type": "object"
+            },
+            "PaymentRecordActor": {
+                "required": [
+                    "id",
+                    "name"
+                ],
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "format": "int64",
+                        "example": 7
+                    },
+                    "name": {
+                        "type": "string",
+                        "example": "Carlos"
+                    }
+                },
+                "type": "object"
+            },
+            "PaymentRecord": {
+                "required": [
+                    "id",
+                    "method",
+                    "amount",
+                    "currency",
+                    "reference",
+                    "note",
+                    "recorded_at",
+                    "recorded_by"
+                ],
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "format": "int64",
+                        "example": 301
+                    },
+                    "method": {
+                        "type": "string",
+                        "example": "card"
+                    },
+                    "amount": {
+                        "type": "string",
+                        "example": "28.40"
+                    },
+                    "currency": {
+                        "type": "string",
+                        "example": "EUR"
+                    },
+                    "reference": {
+                        "type": "string",
+                        "example": "POS-8292",
+                        "nullable": true
+                    },
+                    "note": {
+                        "type": "string",
+                        "example": null,
+                        "nullable": true
+                    },
+                    "recorded_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "recorded_by": {
+                        "oneOf": [
+                            {
+                                "$ref": "#/components/schemas/PaymentRecordActor"
+                            }
+                        ],
+                        "nullable": true
+                    }
+                },
+                "type": "object"
+            },
+            "TableSessionBill": {
+                "required": [
+                    "table_session_id",
+                    "status",
+                    "payment_status",
+                    "table",
+                    "orders_total",
+                    "paid_total",
+                    "balance",
+                    "can_close",
+                    "orders",
+                    "payments"
+                ],
+                "properties": {
+                    "table_session_id": {
+                        "type": "integer",
+                        "format": "int64",
+                        "example": 88
+                    },
+                    "status": {
+                        "type": "string",
+                        "example": "occupied"
+                    },
+                    "payment_status": {
+                        "type": "string",
+                        "example": "unpaid"
+                    },
+                    "table": {
+                        "properties": {
+                            "id": {
+                                "type": "integer",
+                                "format": "int64",
+                                "example": 12
+                            },
+                            "name": {
+                                "type": "string",
+                                "example": "Mesa 12"
+                            }
+                        },
+                        "type": "object"
+                    },
+                    "orders_total": {
+                        "type": "string",
+                        "example": "58.40"
+                    },
+                    "paid_total": {
+                        "type": "string",
+                        "example": "30.00"
+                    },
+                    "balance": {
+                        "type": "string",
+                        "example": "28.40"
+                    },
+                    "can_close": {
+                        "type": "boolean",
+                        "example": false
+                    },
+                    "orders": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/BillOrderSummary"
+                        }
+                    },
+                    "payments": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/PaymentRecord"
+                        }
+                    }
+                },
+                "type": "object"
+            },
+            "CreatePaymentRequest": {
+                "required": [
+                    "method",
+                    "amount"
+                ],
+                "properties": {
+                    "method": {
+                        "description": "One of: cash, card, other",
+                        "type": "string",
+                        "example": "card"
+                    },
+                    "amount": {
+                        "description": "Decimal string, > 0, at most the current balance. Never a JSON number.",
+                        "type": "string",
+                        "example": "28.40"
+                    },
+                    "reference": {
+                        "type": "string",
+                        "example": "POS-8292",
+                        "nullable": true
+                    },
+                    "note": {
+                        "type": "string",
+                        "example": null,
+                        "nullable": true
+                    }
+                },
+                "type": "object"
             }
         },
         "securitySchemes": {
@@ -6278,6 +6630,10 @@
         {
             "name": "Table Requests",
             "description": "Table Requests"
+        },
+        {
+            "name": "Billing",
+            "description": "Billing"
         }
     ]
 }

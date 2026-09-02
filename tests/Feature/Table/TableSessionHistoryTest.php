@@ -3,15 +3,19 @@
 namespace Tests\Feature\Table;
 
 use App\Actions\Tables\OpenTableAction;
+use App\Models\Order;
 use App\Models\TableSession;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use InvalidArgumentException;
+use Tests\Concerns\InteractsWithOrders;
+use Tests\Concerns\InteractsWithPayments;
 use Tests\Concerns\InteractsWithTenants;
 use Tests\TestCase;
 
 class TableSessionHistoryTest extends TestCase
 {
-    use InteractsWithTenants, RefreshDatabase;
+    use InteractsWithOrders, InteractsWithPayments, InteractsWithTenants, RefreshDatabase;
 
     protected function setUp(): void
     {
@@ -19,6 +23,20 @@ class TableSessionHistoryTest extends TestCase
 
         $this->seedRolesAndPermissions();
         $this->withHeader('Origin', 'http://localhost:5173');
+    }
+
+    /**
+     * Bloco 13 requires a session to have a fully-paid, served bill before
+     * it can close — see CloseTableAction. Build exactly that.
+     */
+    private function makeSessionCloseable(TableSession $session, User $owner): void
+    {
+        $restaurantProduct = $this->createRestaurantProduct($session->restaurant, $this->createProduct($session->restaurant->organization), 10.0);
+        $order = $this->createWaiterOrder($session->table, $owner, [
+            ['restaurant_product_id' => $restaurantProduct->id, 'quantity' => 1],
+        ]);
+        $order = $this->advanceOrderTo($order, Order::STATUS_SERVED, $owner);
+        $this->recordPayment($session, $owner, $order->total);
     }
 
     public function test_reopening_a_table_preserves_history_as_two_sessions(): void
@@ -29,6 +47,9 @@ class TableSessionHistoryTest extends TestCase
         $this->actingAs($owner, 'web')
             ->postJson("/api/v1/tables/{$table->id}/open", ['guest_count' => 2])
             ->assertCreated();
+
+        $firstSession = $table->activeSession()->firstOrFail();
+        $this->makeSessionCloseable($firstSession, $owner);
 
         $this->actingAs($owner, 'web')
             ->postJson("/api/v1/tables/{$table->id}/close")
@@ -54,6 +75,7 @@ class TableSessionHistoryTest extends TestCase
         [, $owner, $restaurant] = $this->createTenant();
         $table = $this->createTable($restaurant);
         $session = app(OpenTableAction::class)->execute($table, $owner, 4);
+        $this->makeSessionCloseable($session, $owner);
 
         $this->actingAs($owner, 'web')
             ->postJson("/api/v1/tables/{$table->id}/close")
