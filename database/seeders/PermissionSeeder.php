@@ -22,6 +22,8 @@ class PermissionSeeder extends Seeder
         'approve_customer_orders' => 'Approve customer orders',
         'create_orders' => 'Create orders',
         'update_kitchen_status' => 'Update kitchen status',
+        'serve_orders' => 'Serve orders to the customer',
+        'handle_table_requests' => 'Handle table requests (call waiter, request bill)',
         'close_bill' => 'Close bill',
         'view_reports' => 'View reports',
         'view_audit' => 'View audit log',

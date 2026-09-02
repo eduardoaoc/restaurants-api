@@ -70,6 +70,16 @@ class TableSession extends Model
         return $this->hasMany(Order::class);
     }
 
+    /**
+     * The call_waiter/request_bill requests placed during this session.
+     *
+     * @return HasMany<TableRequest, $this>
+     */
+    public function tableRequests(): HasMany
+    {
+        return $this->hasMany(TableRequest::class);
+    }
+
     protected static function booted(): void
     {
         static::saving(function (self $session) {

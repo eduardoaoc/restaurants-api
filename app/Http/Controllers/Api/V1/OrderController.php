@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1;
 use App\Actions\Orders\ApproveOrderAction;
 use App\Actions\Orders\CreateStaffOrderAction;
 use App\Actions\Orders\RejectOrderAction;
+use App\Actions\Orders\TransitionOrderStatusAction;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\Order\StoreStaffOrderRequest;
 use App\Http\Resources\Api\V1\OrderResource;
@@ -26,6 +27,7 @@ class OrderController extends Controller
         private readonly CreateStaffOrderAction $createStaffOrder,
         private readonly ApproveOrderAction $approveOrder,
         private readonly RejectOrderAction $rejectOrder,
+        private readonly TransitionOrderStatusAction $transitionOrderStatus,
     ) {}
 
     /**
@@ -277,6 +279,122 @@ class OrderController extends Controller
 
         return response()->json([
             'message' => 'Order rejected successfully.',
+            'data' => ['order' => new OrderResource($updated)],
+        ]);
+    }
+
+    /**
+     * Kitchen accepts a confirmed order: confirmed -> accepted.
+     */
+    #[OA\Post(
+        path: '/api/v1/orders/{order}/accept',
+        operationId: 'ordersAccept',
+        summary: 'Kitchen accepts a confirmed order',
+        security: [['sessionCookie' => []]],
+        tags: ['Orders'],
+        parameters: [new OA\Parameter(name: 'order', in: 'path', required: true, schema: new OA\Schema(type: 'integer'))],
+        responses: [
+            new OA\Response(response: 200, description: 'Order accepted successfully', content: new OA\JsonContent(properties: [new OA\Property(property: 'message', type: 'string'), new OA\Property(property: 'data', properties: [new OA\Property(property: 'order', ref: '#/components/schemas/Order')], type: 'object')])),
+            new OA\Response(response: 401, description: 'Unauthenticated'),
+            new OA\Response(response: 403, description: 'The user is not allowed to accept orders'),
+            new OA\Response(response: 404, description: 'Order not found'),
+            new OA\Response(response: 409, description: 'The order is not confirmed'),
+        ]
+    )]
+    public function accept(Request $request, int $order): JsonResponse
+    {
+        return $this->transition($request, $order, 'accept', fn ($o, $u) => $this->transitionOrderStatus->accept($o, $u), 'Order accepted successfully.');
+    }
+
+    /**
+     * Kitchen starts preparing an accepted order: accepted -> preparing.
+     */
+    #[OA\Post(
+        path: '/api/v1/orders/{order}/preparing',
+        operationId: 'ordersPreparing',
+        summary: 'Kitchen starts preparing an accepted order',
+        security: [['sessionCookie' => []]],
+        tags: ['Orders'],
+        parameters: [new OA\Parameter(name: 'order', in: 'path', required: true, schema: new OA\Schema(type: 'integer'))],
+        responses: [
+            new OA\Response(response: 200, description: 'Order marked as preparing', content: new OA\JsonContent(properties: [new OA\Property(property: 'message', type: 'string'), new OA\Property(property: 'data', properties: [new OA\Property(property: 'order', ref: '#/components/schemas/Order')], type: 'object')])),
+            new OA\Response(response: 401, description: 'Unauthenticated'),
+            new OA\Response(response: 403, description: 'The user is not allowed to update this order'),
+            new OA\Response(response: 404, description: 'Order not found'),
+            new OA\Response(response: 409, description: 'The order is not accepted'),
+        ]
+    )]
+    public function preparing(Request $request, int $order): JsonResponse
+    {
+        return $this->transition($request, $order, 'prepare', fn ($o, $u) => $this->transitionOrderStatus->startPreparing($o, $u), 'Order marked as preparing.');
+    }
+
+    /**
+     * Kitchen marks an order ready: preparing -> ready.
+     */
+    #[OA\Post(
+        path: '/api/v1/orders/{order}/ready',
+        operationId: 'ordersReady',
+        summary: 'Kitchen marks an order ready',
+        security: [['sessionCookie' => []]],
+        tags: ['Orders'],
+        parameters: [new OA\Parameter(name: 'order', in: 'path', required: true, schema: new OA\Schema(type: 'integer'))],
+        responses: [
+            new OA\Response(response: 200, description: 'Order marked as ready', content: new OA\JsonContent(properties: [new OA\Property(property: 'message', type: 'string'), new OA\Property(property: 'data', properties: [new OA\Property(property: 'order', ref: '#/components/schemas/Order')], type: 'object')])),
+            new OA\Response(response: 401, description: 'Unauthenticated'),
+            new OA\Response(response: 403, description: 'The user is not allowed to update this order'),
+            new OA\Response(response: 404, description: 'Order not found'),
+            new OA\Response(response: 409, description: 'The order is not preparing'),
+        ]
+    )]
+    public function ready(Request $request, int $order): JsonResponse
+    {
+        return $this->transition($request, $order, 'markReady', fn ($o, $u) => $this->transitionOrderStatus->markReady($o, $u), 'Order marked as ready.');
+    }
+
+    /**
+     * Waiter serves a ready order to the customer: ready -> served. Does
+     * not touch the TableSession — a session outlives many orders and is
+     * never closed as a side effect of one being served.
+     */
+    #[OA\Post(
+        path: '/api/v1/orders/{order}/served',
+        operationId: 'ordersServed',
+        summary: 'Waiter marks an order as served',
+        security: [['sessionCookie' => []]],
+        tags: ['Orders'],
+        parameters: [new OA\Parameter(name: 'order', in: 'path', required: true, schema: new OA\Schema(type: 'integer'))],
+        responses: [
+            new OA\Response(response: 200, description: 'Order marked as served', content: new OA\JsonContent(properties: [new OA\Property(property: 'message', type: 'string'), new OA\Property(property: 'data', properties: [new OA\Property(property: 'order', ref: '#/components/schemas/Order')], type: 'object')])),
+            new OA\Response(response: 401, description: 'Unauthenticated'),
+            new OA\Response(response: 403, description: 'The user is not allowed to serve orders'),
+            new OA\Response(response: 404, description: 'Order not found'),
+            new OA\Response(response: 409, description: 'The order is not ready'),
+        ]
+    )]
+    public function served(Request $request, int $order): JsonResponse
+    {
+        return $this->transition($request, $order, 'serve', fn ($o, $u) => $this->transitionOrderStatus->serve($o, $u), 'Order marked as served.');
+    }
+
+    /**
+     * Shared plumbing for the four lifecycle transition endpoints: resolve
+     * within tenant + restaurant scope (404 if outside it), authorize the
+     * specific ability (403 if in scope but unauthorized), then run the
+     * transition (409 on an invalid state change).
+     */
+    private function transition(Request $request, int $orderId, string $ability, callable $run, string $message): JsonResponse
+    {
+        $organization = $this->activeOrganization();
+        $user = $request->user();
+        $orderModel = $this->orderQuery($organization, $user)->findOrFail($orderId);
+
+        $this->authorize($ability, $orderModel);
+
+        $updated = $run($orderModel, $user);
+
+        return response()->json([
+            'message' => $message,
             'data' => ['order' => new OrderResource($updated)],
         ]);
     }

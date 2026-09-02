@@ -78,4 +78,14 @@ class Restaurant extends Model
     {
         return $this->hasMany(RestaurantProduct::class);
     }
+
+    /**
+     * All historical call_waiter/request_bill requests for this restaurant.
+     *
+     * @return HasMany<TableRequest, $this>
+     */
+    public function tableRequests(): HasMany
+    {
+        return $this->hasMany(TableRequest::class);
+    }
 }

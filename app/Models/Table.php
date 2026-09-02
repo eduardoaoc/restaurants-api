@@ -49,6 +49,17 @@ class Table extends Model
     }
 
     /**
+     * All historical table requests (call_waiter/request_bill) for this
+     * table, across every session.
+     *
+     * @return HasMany<TableRequest, $this>
+     */
+    public function tableRequests(): HasMany
+    {
+        return $this->hasMany(TableRequest::class);
+    }
+
+    /**
      * Generate an unpredictable public token that is not derived from the id.
      */
     public static function generateUniquePublicToken(): string

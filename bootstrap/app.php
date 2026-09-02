@@ -9,6 +9,8 @@ use App\Exceptions\Orders\TableSessionNotActiveException;
 use App\Exceptions\Public\InvalidPublicLocaleException;
 use App\Exceptions\Public\PublicMenuNotAvailableException;
 use App\Exceptions\Public\PublicTableNotFoundException;
+use App\Exceptions\TableRequests\TableRequestAlreadyOpenException;
+use App\Exceptions\TableRequests\TableRequestStateConflictException;
 use App\Exceptions\TableSessionConflictException;
 use App\Http\Middleware\ResolveTenant;
 use Illuminate\Foundation\Application;
@@ -78,6 +80,14 @@ return Application::configure(basePath: dirname(__DIR__))
             ], 409);
         });
         $exceptions->render(function (OrderStateConflictException $e, Request $request) {
+            return response()->json(['message' => $e->getMessage()], 409);
+        });
+        $exceptions->render(function (TableRequestAlreadyOpenException $e, Request $request) {
+            return response()->json([
+                'error' => ['code' => 'TABLE_REQUEST_ALREADY_OPEN', 'message' => 'A request of this type is already open for this table session.'],
+            ], 409);
+        });
+        $exceptions->render(function (TableRequestStateConflictException $e, Request $request) {
             return response()->json(['message' => $e->getMessage()], 409);
         });
         $exceptions->render(function (ThrottleRequestsException $e, Request $request) {

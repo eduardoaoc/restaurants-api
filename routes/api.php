@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\V1\Auth\AuthController;
 use App\Http\Controllers\Api\V1\CategoryController;
 use App\Http\Controllers\Api\V1\CategoryProductController;
 use App\Http\Controllers\Api\V1\HealthController;
+use App\Http\Controllers\Api\V1\KitchenController;
 use App\Http\Controllers\Api\V1\MenuController;
 use App\Http\Controllers\Api\V1\ModifierGroupController;
 use App\Http\Controllers\Api\V1\ModifierOptionController;
@@ -13,10 +14,12 @@ use App\Http\Controllers\Api\V1\ProductController;
 use App\Http\Controllers\Api\V1\Public\PublicMenuController;
 use App\Http\Controllers\Api\V1\Public\PublicOrderController;
 use App\Http\Controllers\Api\V1\Public\PublicTableController;
+use App\Http\Controllers\Api\V1\Public\PublicTableRequestController;
 use App\Http\Controllers\Api\V1\RestaurantController;
 use App\Http\Controllers\Api\V1\RestaurantProductController;
 use App\Http\Controllers\Api\V1\StaffController;
 use App\Http\Controllers\Api\V1\TableController;
+use App\Http\Controllers\Api\V1\TableRequestController;
 use App\Http\Controllers\Api\V1\TableSessionController;
 use Illuminate\Support\Facades\Route;
 
@@ -43,6 +46,11 @@ Route::prefix('v1')->group(function () {
 
         Route::post('/tables/{publicToken}/orders', [PublicOrderController::class, 'store'])
             ->middleware('throttle:public-orders');
+
+        Route::middleware('throttle:public-table-requests')->group(function () {
+            Route::post('/tables/{publicToken}/requests/call-waiter', [PublicTableRequestController::class, 'callWaiter']);
+            Route::post('/tables/{publicToken}/requests/bill', [PublicTableRequestController::class, 'bill']);
+        });
     });
 
     Route::middleware(['auth:sanctum', 'tenant'])->group(function () {
@@ -101,5 +109,17 @@ Route::prefix('v1')->group(function () {
         Route::get('/orders/{order}', [OrderController::class, 'show']);
         Route::post('/orders/{order}/approve', [OrderController::class, 'approve']);
         Route::post('/orders/{order}/reject', [OrderController::class, 'reject']);
+        Route::post('/orders/{order}/accept', [OrderController::class, 'accept']);
+        Route::post('/orders/{order}/preparing', [OrderController::class, 'preparing']);
+        Route::post('/orders/{order}/ready', [OrderController::class, 'ready']);
+        Route::post('/orders/{order}/served', [OrderController::class, 'served']);
+
+        Route::get('/kitchen/orders', [KitchenController::class, 'orders']);
+
+        Route::get('/table-requests', [TableRequestController::class, 'index']);
+        Route::get('/table-requests/{tableRequest}', [TableRequestController::class, 'show']);
+        Route::post('/table-requests/{tableRequest}/acknowledge', [TableRequestController::class, 'acknowledge']);
+        Route::post('/table-requests/{tableRequest}/complete', [TableRequestController::class, 'complete']);
+        Route::post('/table-requests/{tableRequest}/cancel', [TableRequestController::class, 'cancel']);
     });
 });

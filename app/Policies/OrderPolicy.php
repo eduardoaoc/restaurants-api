@@ -30,7 +30,19 @@ class OrderPolicy
         'create_orders',
         'approve_customer_orders',
         'update_kitchen_status',
+        'serve_orders',
         'close_bill',
+    ];
+
+    /**
+     * Any of these permissions grants visibility into the Kitchen Display
+     * queue — narrower than the full orders list, since it's specifically
+     * about the confirmed/accepted/preparing/ready lifecycle.
+     */
+    private const KITCHEN_VIEW_PERMISSIONS = [
+        'update_kitchen_status',
+        'serve_orders',
+        'approve_customer_orders',
     ];
 
     public function viewAny(User $user, Organization $organization): bool
@@ -40,11 +52,12 @@ class OrderPolicy
 
     public function view(User $user, Order $order): bool
     {
-        $organization = $order->restaurant->organization;
+        return $this->hasAnyPermissionInRestaurantScope($user, $order, self::VIEW_PERMISSIONS);
+    }
 
-        return $this->belongsTo($user, $organization)
-            && $this->hasAnyPermission($user, $organization, self::VIEW_PERMISSIONS)
-            && RestaurantScope::canAccessRestaurant($user, $order->restaurant);
+    public function viewKitchen(User $user, Organization $organization): bool
+    {
+        return $this->belongsTo($user, $organization) && $this->hasAnyPermission($user, $organization, self::KITCHEN_VIEW_PERMISSIONS);
     }
 
     public function create(User $user, Table $table): bool
@@ -58,16 +71,40 @@ class OrderPolicy
 
     public function approve(User $user, Order $order): bool
     {
-        $organization = $order->restaurant->organization;
-
-        return $this->belongsTo($user, $organization)
-            && $user->hasPermission('approve_customer_orders', $organization)
-            && RestaurantScope::canAccessRestaurant($user, $order->restaurant);
+        return $this->hasPermissionInRestaurantScope($user, $order, 'approve_customer_orders');
     }
 
     public function reject(User $user, Order $order): bool
     {
         return $this->approve($user, $order);
+    }
+
+    /**
+     * confirmed -> accepted, accepted -> preparing, preparing -> ready:
+     * kitchen staff's own permission.
+     */
+    public function accept(User $user, Order $order): bool
+    {
+        return $this->hasPermissionInRestaurantScope($user, $order, 'update_kitchen_status');
+    }
+
+    public function prepare(User $user, Order $order): bool
+    {
+        return $this->hasPermissionInRestaurantScope($user, $order, 'update_kitchen_status');
+    }
+
+    public function markReady(User $user, Order $order): bool
+    {
+        return $this->hasPermissionInRestaurantScope($user, $order, 'update_kitchen_status');
+    }
+
+    /**
+     * ready -> served: handing the order to the customer is the waiter's
+     * job, not the kitchen's — a distinct permission from update_kitchen_status.
+     */
+    public function serve(User $user, Order $order): bool
+    {
+        return $this->hasPermissionInRestaurantScope($user, $order, 'serve_orders');
     }
 
     private function belongsTo(User $user, Organization $organization): bool
@@ -87,5 +124,26 @@ class OrderPolicy
         }
 
         return false;
+    }
+
+    private function hasPermissionInRestaurantScope(User $user, Order $order, string $permission): bool
+    {
+        $organization = $order->restaurant->organization;
+
+        return $this->belongsTo($user, $organization)
+            && $user->hasPermission($permission, $organization)
+            && RestaurantScope::canAccessRestaurant($user, $order->restaurant);
+    }
+
+    /**
+     * @param  array<int, string>  $permissions
+     */
+    private function hasAnyPermissionInRestaurantScope(User $user, Order $order, array $permissions): bool
+    {
+        $organization = $order->restaurant->organization;
+
+        return $this->belongsTo($user, $organization)
+            && $this->hasAnyPermission($user, $organization, $permissions)
+            && RestaurantScope::canAccessRestaurant($user, $order->restaurant);
     }
 }

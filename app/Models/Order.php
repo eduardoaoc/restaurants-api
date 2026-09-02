@@ -14,6 +14,10 @@ use InvalidArgumentException;
     'customer_name', 'status', 'subtotal', 'modifiers_total', 'total',
     'customer_note', 'approved_at', 'cancelled_at',
     'idempotency_key', 'idempotency_payload_hash',
+    'accepted_by_user_id', 'accepted_at',
+    'preparing_by_user_id', 'preparing_at',
+    'ready_by_user_id', 'ready_at',
+    'served_by_user_id', 'served_at',
 ])]
 class Order extends Model
 {
@@ -31,6 +35,26 @@ class Order extends Model
 
     public const STATUS_CANCELLED = 'cancelled';
 
+    public const STATUS_ACCEPTED = 'accepted';
+
+    public const STATUS_PREPARING = 'preparing';
+
+    public const STATUS_READY = 'ready';
+
+    public const STATUS_SERVED = 'served';
+
+    /**
+     * The statuses shown on the Kitchen Display System: a confirmed order
+     * not yet handed to the customer. waiting_approval/cancelled/served are
+     * deliberately excluded — see KitchenController.
+     *
+     * @return array<int, string>
+     */
+    public static function kitchenQueueStatuses(): array
+    {
+        return [self::STATUS_CONFIRMED, self::STATUS_ACCEPTED, self::STATUS_PREPARING, self::STATUS_READY];
+    }
+
     /**
      * @return array<string, string>
      */
@@ -42,6 +66,10 @@ class Order extends Model
             'total' => 'decimal:2',
             'approved_at' => 'datetime',
             'cancelled_at' => 'datetime',
+            'accepted_at' => 'datetime',
+            'preparing_at' => 'datetime',
+            'ready_at' => 'datetime',
+            'served_at' => 'datetime',
         ];
     }
 
@@ -91,6 +119,38 @@ class Order extends Model
     public function cancelledBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'cancelled_by_user_id');
+    }
+
+    /**
+     * @return BelongsTo<User, $this>
+     */
+    public function acceptedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'accepted_by_user_id');
+    }
+
+    /**
+     * @return BelongsTo<User, $this>
+     */
+    public function preparingBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'preparing_by_user_id');
+    }
+
+    /**
+     * @return BelongsTo<User, $this>
+     */
+    public function readyBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'ready_by_user_id');
+    }
+
+    /**
+     * @return BelongsTo<User, $this>
+     */
+    public function servedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'served_by_user_id');
     }
 
     /**

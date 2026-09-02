@@ -654,6 +654,77 @@
                 }
             }
         },
+        "/api/v1/kitchen/orders": {
+            "get": {
+                "tags": [
+                    "Kitchen"
+                ],
+                "summary": "List the Kitchen Display queue",
+                "description": "The Kitchen Display queue: confirmed/accepted/preparing/ready orders\nonly — never waiting_approval (not confirmed yet), cancelled, or\nserved (already handled). Scoped to the active organization and the\nacting user's RestaurantScope; an out-of-scope ?restaurant_id\nresolves as 404, exactly like every other operational endpoint.",
+                "operationId": "kitchenOrdersIndex",
+                "parameters": [
+                    {
+                        "name": "restaurant_id",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "status",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "example": "preparing"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The kitchen queue, oldest order first",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "properties": {
+                                                "orders": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "$ref": "#/components/schemas/KitchenOrder"
+                                                    }
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "The user has no kitchen-relevant permission"
+                    },
+                    "404": {
+                        "description": "restaurant_id is outside the organization or the user's restaurant scope"
+                    },
+                    "422": {
+                        "description": "Invalid status filter"
+                    }
+                },
+                "security": [
+                    {
+                        "sessionCookie": []
+                    }
+                ]
+            }
+        },
         "/api/v1/restaurants/{restaurant}/menu": {
             "get": {
                 "tags": [
@@ -1869,6 +1940,254 @@
                 ]
             }
         },
+        "/api/v1/orders/{order}/accept": {
+            "post": {
+                "tags": [
+                    "Orders"
+                ],
+                "summary": "Kitchen accepts a confirmed order",
+                "description": "Kitchen accepts a confirmed order: confirmed -> accepted.",
+                "operationId": "ordersAccept",
+                "parameters": [
+                    {
+                        "name": "order",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Order accepted successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "data": {
+                                            "properties": {
+                                                "order": {
+                                                    "$ref": "#/components/schemas/Order"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "The user is not allowed to accept orders"
+                    },
+                    "404": {
+                        "description": "Order not found"
+                    },
+                    "409": {
+                        "description": "The order is not confirmed"
+                    }
+                },
+                "security": [
+                    {
+                        "sessionCookie": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/orders/{order}/preparing": {
+            "post": {
+                "tags": [
+                    "Orders"
+                ],
+                "summary": "Kitchen starts preparing an accepted order",
+                "description": "Kitchen starts preparing an accepted order: accepted -> preparing.",
+                "operationId": "ordersPreparing",
+                "parameters": [
+                    {
+                        "name": "order",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Order marked as preparing",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "data": {
+                                            "properties": {
+                                                "order": {
+                                                    "$ref": "#/components/schemas/Order"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "The user is not allowed to update this order"
+                    },
+                    "404": {
+                        "description": "Order not found"
+                    },
+                    "409": {
+                        "description": "The order is not accepted"
+                    }
+                },
+                "security": [
+                    {
+                        "sessionCookie": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/orders/{order}/ready": {
+            "post": {
+                "tags": [
+                    "Orders"
+                ],
+                "summary": "Kitchen marks an order ready",
+                "description": "Kitchen marks an order ready: preparing -> ready.",
+                "operationId": "ordersReady",
+                "parameters": [
+                    {
+                        "name": "order",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Order marked as ready",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "data": {
+                                            "properties": {
+                                                "order": {
+                                                    "$ref": "#/components/schemas/Order"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "The user is not allowed to update this order"
+                    },
+                    "404": {
+                        "description": "Order not found"
+                    },
+                    "409": {
+                        "description": "The order is not preparing"
+                    }
+                },
+                "security": [
+                    {
+                        "sessionCookie": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/orders/{order}/served": {
+            "post": {
+                "tags": [
+                    "Orders"
+                ],
+                "summary": "Waiter marks an order as served",
+                "description": "Waiter serves a ready order to the customer: ready -> served. Does\nnot touch the TableSession — a session outlives many orders and is\nnever closed as a side effect of one being served.",
+                "operationId": "ordersServed",
+                "parameters": [
+                    {
+                        "name": "order",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Order marked as served",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "data": {
+                                            "properties": {
+                                                "order": {
+                                                    "$ref": "#/components/schemas/Order"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "The user is not allowed to serve orders"
+                    },
+                    "404": {
+                        "description": "Order not found"
+                    },
+                    "409": {
+                        "description": "The order is not ready"
+                    }
+                },
+                "security": [
+                    {
+                        "sessionCookie": []
+                    }
+                ]
+            }
+        },
         "/api/v1/organization": {
             "get": {
                 "tags": [
@@ -2473,6 +2792,183 @@
                     },
                     "404": {
                         "description": "Table not found or not publicly servable",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PublicApiError"
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "Too many requests",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PublicApiError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/public/tables/{publicToken}/requests/call-waiter": {
+            "post": {
+                "tags": [
+                    "Public"
+                ],
+                "summary": "Call the waiter from the public QR surface",
+                "description": "Call the waiter over. Requires an active table session, exactly like\norder creation — the QR identifies the table, not a standing\nauthorization to act on it.",
+                "operationId": "publicTableRequestsCallWaiter",
+                "parameters": [
+                    {
+                        "name": "publicToken",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": false,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "properties": {
+                                    "note": {
+                                        "type": "string",
+                                        "example": "Necesitamos ayuda con el menú",
+                                        "nullable": true
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Request created",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PublicTableRequest"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Table not found or not publicly servable",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PublicApiError"
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "No active table session, or a call_waiter request is already open for this session",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PublicApiError"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Malformed request",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PublicApiError"
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "Too many requests",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PublicApiError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/public/tables/{publicToken}/requests/bill": {
+            "post": {
+                "tags": [
+                    "Public"
+                ],
+                "summary": "Request the bill from the public QR surface",
+                "description": "Ask for the bill. Does not create a payment or close the table\nsession — that's a later block.",
+                "operationId": "publicTableRequestsBill",
+                "parameters": [
+                    {
+                        "name": "publicToken",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": false,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "properties": {
+                                    "note": {
+                                        "type": "string",
+                                        "nullable": true
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Request created",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PublicTableRequest"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Table not found or not publicly servable",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PublicApiError"
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "No active table session, or a request_bill request is already open for this session",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PublicApiError"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Malformed request",
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -3519,6 +4015,325 @@
                     },
                     "422": {
                         "description": "Validation error"
+                    }
+                },
+                "security": [
+                    {
+                        "sessionCookie": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/table-requests": {
+            "get": {
+                "tags": [
+                    "Table Requests"
+                ],
+                "summary": "List table requests",
+                "description": "List table requests visible to the active organization, scoped to\nthe restaurants the acting user may operate on (see RestaurantScope).",
+                "operationId": "tableRequestsIndex",
+                "parameters": [
+                    {
+                        "name": "restaurant_id",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "status",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "example": "pending"
+                        }
+                    },
+                    {
+                        "name": "type",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "example": "call_waiter"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "List of table requests",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "properties": {
+                                                "table_requests": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "$ref": "#/components/schemas/TableRequest"
+                                                    }
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "The user is not allowed to view table requests"
+                    },
+                    "422": {
+                        "description": "Invalid status/type filter"
+                    }
+                },
+                "security": [
+                    {
+                        "sessionCookie": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/table-requests/{tableRequest}": {
+            "get": {
+                "tags": [
+                    "Table Requests"
+                ],
+                "summary": "Get a table request",
+                "description": "Show a single table request, scoped to the active organization and\nthe acting user's restaurant scope.",
+                "operationId": "tableRequestsShow",
+                "parameters": [
+                    {
+                        "name": "tableRequest",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The table request",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "properties": {
+                                                "table_request": {
+                                                    "$ref": "#/components/schemas/TableRequest"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "The user is not allowed to view this table request"
+                    },
+                    "404": {
+                        "description": "Table request not found"
+                    }
+                },
+                "security": [
+                    {
+                        "sessionCookie": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/table-requests/{tableRequest}/acknowledge": {
+            "post": {
+                "tags": [
+                    "Table Requests"
+                ],
+                "summary": "Acknowledge a pending table request",
+                "description": "Acknowledge a pending request: pending -> acknowledged.",
+                "operationId": "tableRequestsAcknowledge",
+                "parameters": [
+                    {
+                        "name": "tableRequest",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Request acknowledged successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "data": {
+                                            "properties": {
+                                                "table_request": {
+                                                    "$ref": "#/components/schemas/TableRequest"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "The user is not allowed to acknowledge table requests"
+                    },
+                    "404": {
+                        "description": "Table request not found"
+                    },
+                    "409": {
+                        "description": "The request is not pending"
+                    }
+                },
+                "security": [
+                    {
+                        "sessionCookie": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/table-requests/{tableRequest}/complete": {
+            "post": {
+                "tags": [
+                    "Table Requests"
+                ],
+                "summary": "Complete an acknowledged table request",
+                "description": "Complete an acknowledged request: acknowledged -> completed.",
+                "operationId": "tableRequestsComplete",
+                "parameters": [
+                    {
+                        "name": "tableRequest",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Request completed successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "data": {
+                                            "properties": {
+                                                "table_request": {
+                                                    "$ref": "#/components/schemas/TableRequest"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "The user is not allowed to complete table requests"
+                    },
+                    "404": {
+                        "description": "Table request not found"
+                    },
+                    "409": {
+                        "description": "The request is not acknowledged"
+                    }
+                },
+                "security": [
+                    {
+                        "sessionCookie": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/table-requests/{tableRequest}/cancel": {
+            "post": {
+                "tags": [
+                    "Table Requests"
+                ],
+                "summary": "Cancel a pending or acknowledged table request",
+                "description": "Cancel a pending or acknowledged request.",
+                "operationId": "tableRequestsCancel",
+                "parameters": [
+                    {
+                        "name": "tableRequest",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Request cancelled successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "data": {
+                                            "properties": {
+                                                "table_request": {
+                                                    "$ref": "#/components/schemas/TableRequest"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "The user is not allowed to cancel table requests"
+                    },
+                    "404": {
+                        "description": "Table request not found"
+                    },
+                    "409": {
+                        "description": "The request is already completed or cancelled"
                     }
                 },
                 "security": [
@@ -4926,6 +5741,50 @@
                         "format": "date-time",
                         "nullable": true
                     },
+                    "accepted_by_user_id": {
+                        "type": "integer",
+                        "format": "int64",
+                        "example": 8,
+                        "nullable": true
+                    },
+                    "accepted_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true
+                    },
+                    "preparing_by_user_id": {
+                        "type": "integer",
+                        "format": "int64",
+                        "example": 8,
+                        "nullable": true
+                    },
+                    "preparing_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true
+                    },
+                    "ready_by_user_id": {
+                        "type": "integer",
+                        "format": "int64",
+                        "example": 8,
+                        "nullable": true
+                    },
+                    "ready_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true
+                    },
+                    "served_by_user_id": {
+                        "type": "integer",
+                        "format": "int64",
+                        "example": 5,
+                        "nullable": true
+                    },
+                    "served_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true
+                    },
                     "created_at": {
                         "type": "string",
                         "format": "date-time"
@@ -5051,6 +5910,303 @@
                     }
                 },
                 "type": "object"
+            },
+            "KitchenOrderItemModifier": {
+                "required": [
+                    "group_name",
+                    "name"
+                ],
+                "properties": {
+                    "group_name": {
+                        "type": "string",
+                        "example": "Extras"
+                    },
+                    "name": {
+                        "type": "string",
+                        "example": "Bacon"
+                    }
+                },
+                "type": "object"
+            },
+            "KitchenOrderItem": {
+                "required": [
+                    "id",
+                    "name",
+                    "quantity",
+                    "note",
+                    "modifiers"
+                ],
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "format": "int64",
+                        "example": 501
+                    },
+                    "name": {
+                        "description": "Snapshot — never the product's current name.",
+                        "type": "string",
+                        "example": "Hamburguesa Clásica"
+                    },
+                    "quantity": {
+                        "type": "integer",
+                        "example": 2
+                    },
+                    "note": {
+                        "type": "string",
+                        "example": "Sin cebolla",
+                        "nullable": true
+                    },
+                    "modifiers": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/KitchenOrderItemModifier"
+                        }
+                    }
+                },
+                "type": "object"
+            },
+            "KitchenOrder": {
+                "required": [
+                    "id",
+                    "status",
+                    "origin",
+                    "restaurant",
+                    "table",
+                    "order_note",
+                    "created_at",
+                    "elapsed_seconds",
+                    "items"
+                ],
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "format": "int64",
+                        "example": 1042
+                    },
+                    "status": {
+                        "type": "string",
+                        "example": "preparing"
+                    },
+                    "origin": {
+                        "type": "string",
+                        "example": "customer_qr"
+                    },
+                    "restaurant": {
+                        "properties": {
+                            "id": {
+                                "type": "integer",
+                                "format": "int64",
+                                "example": 3
+                            },
+                            "name": {
+                                "type": "string",
+                                "example": "Aforo Centro"
+                            }
+                        },
+                        "type": "object"
+                    },
+                    "table": {
+                        "properties": {
+                            "id": {
+                                "type": "integer",
+                                "format": "int64",
+                                "example": 12
+                            },
+                            "name": {
+                                "type": "string",
+                                "example": "Mesa 12"
+                            },
+                            "number": {
+                                "type": "integer",
+                                "example": 12,
+                                "nullable": true
+                            }
+                        },
+                        "type": "object"
+                    },
+                    "order_note": {
+                        "type": "string",
+                        "example": null,
+                        "nullable": true
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "elapsed_seconds": {
+                        "description": "Seconds since created_at. Computed on read, never persisted.",
+                        "type": "integer",
+                        "example": 300,
+                        "minimum": 0
+                    },
+                    "items": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/KitchenOrderItem"
+                        }
+                    }
+                },
+                "type": "object"
+            },
+            "PublicTableRequest": {
+                "required": [
+                    "id",
+                    "type",
+                    "status",
+                    "created_at"
+                ],
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "format": "int64",
+                        "example": 500
+                    },
+                    "type": {
+                        "type": "string",
+                        "example": "call_waiter"
+                    },
+                    "status": {
+                        "type": "string",
+                        "example": "pending"
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                },
+                "type": "object"
+            },
+            "TableRequestActor": {
+                "required": [
+                    "id",
+                    "name"
+                ],
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "format": "int64",
+                        "example": 8
+                    },
+                    "name": {
+                        "type": "string",
+                        "example": "Carlos"
+                    }
+                },
+                "type": "object"
+            },
+            "TableRequest": {
+                "required": [
+                    "id",
+                    "type",
+                    "status",
+                    "restaurant",
+                    "table",
+                    "note",
+                    "created_at",
+                    "acknowledged_at",
+                    "acknowledged_by",
+                    "completed_at",
+                    "completed_by",
+                    "cancelled_at",
+                    "cancelled_by"
+                ],
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "format": "int64",
+                        "example": 500
+                    },
+                    "type": {
+                        "type": "string",
+                        "example": "call_waiter"
+                    },
+                    "status": {
+                        "type": "string",
+                        "example": "pending"
+                    },
+                    "restaurant": {
+                        "properties": {
+                            "id": {
+                                "type": "integer",
+                                "format": "int64",
+                                "example": 3
+                            },
+                            "name": {
+                                "type": "string",
+                                "example": "Aforo Centro"
+                            }
+                        },
+                        "type": "object"
+                    },
+                    "table": {
+                        "properties": {
+                            "id": {
+                                "type": "integer",
+                                "format": "int64",
+                                "example": 12
+                            },
+                            "name": {
+                                "type": "string",
+                                "example": "Mesa 12"
+                            },
+                            "number": {
+                                "type": "integer",
+                                "example": 12,
+                                "nullable": true
+                            }
+                        },
+                        "type": "object"
+                    },
+                    "note": {
+                        "type": "string",
+                        "example": null,
+                        "nullable": true
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "acknowledged_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true
+                    },
+                    "acknowledged_by": {
+                        "oneOf": [
+                            {
+                                "$ref": "#/components/schemas/TableRequestActor"
+                            }
+                        ],
+                        "nullable": true
+                    },
+                    "completed_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true
+                    },
+                    "completed_by": {
+                        "oneOf": [
+                            {
+                                "$ref": "#/components/schemas/TableRequestActor"
+                            }
+                        ],
+                        "nullable": true
+                    },
+                    "cancelled_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true
+                    },
+                    "cancelled_by": {
+                        "oneOf": [
+                            {
+                                "$ref": "#/components/schemas/TableRequestActor"
+                            }
+                        ],
+                        "nullable": true
+                    }
+                },
+                "type": "object"
             }
         },
         "securitySchemes": {
@@ -5074,6 +6230,10 @@
         {
             "name": "System",
             "description": "System"
+        },
+        {
+            "name": "Kitchen",
+            "description": "Kitchen"
         },
         {
             "name": "Menu",
@@ -5114,6 +6274,10 @@
         {
             "name": "Tables",
             "description": "Tables"
+        },
+        {
+            "name": "Table Requests",
+            "description": "Table Requests"
         }
     ]
 }

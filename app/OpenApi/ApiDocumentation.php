@@ -491,6 +491,14 @@ use OpenApi\Attributes as OA;
         new OA\Property(property: 'cancelled_by_user_id', type: 'integer', format: 'int64', example: null, nullable: true),
         new OA\Property(property: 'approved_at', type: 'string', format: 'date-time', nullable: true),
         new OA\Property(property: 'cancelled_at', type: 'string', format: 'date-time', nullable: true),
+        new OA\Property(property: 'accepted_by_user_id', type: 'integer', format: 'int64', example: 8, nullable: true),
+        new OA\Property(property: 'accepted_at', type: 'string', format: 'date-time', nullable: true),
+        new OA\Property(property: 'preparing_by_user_id', type: 'integer', format: 'int64', example: 8, nullable: true),
+        new OA\Property(property: 'preparing_at', type: 'string', format: 'date-time', nullable: true),
+        new OA\Property(property: 'ready_by_user_id', type: 'integer', format: 'int64', example: 8, nullable: true),
+        new OA\Property(property: 'ready_at', type: 'string', format: 'date-time', nullable: true),
+        new OA\Property(property: 'served_by_user_id', type: 'integer', format: 'int64', example: 5, nullable: true),
+        new OA\Property(property: 'served_at', type: 'string', format: 'date-time', nullable: true),
         new OA\Property(property: 'created_at', type: 'string', format: 'date-time'),
         new OA\Property(property: 'updated_at', type: 'string', format: 'date-time'),
         new OA\Property(
@@ -547,6 +555,121 @@ use OpenApi\Attributes as OA;
             type: 'array',
             items: new OA\Items(ref: '#/components/schemas/OrderItem')
         ),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
+    schema: 'KitchenOrderItemModifier',
+    required: ['group_name', 'name'],
+    properties: [
+        new OA\Property(property: 'group_name', type: 'string', example: 'Extras'),
+        new OA\Property(property: 'name', type: 'string', example: 'Bacon'),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
+    schema: 'KitchenOrderItem',
+    required: ['id', 'name', 'quantity', 'note', 'modifiers'],
+    properties: [
+        new OA\Property(property: 'id', type: 'integer', format: 'int64', example: 501),
+        new OA\Property(property: 'name', type: 'string', example: 'Hamburguesa Clásica', description: 'Snapshot — never the product\'s current name.'),
+        new OA\Property(property: 'quantity', type: 'integer', example: 2),
+        new OA\Property(property: 'note', type: 'string', example: 'Sin cebolla', nullable: true),
+        new OA\Property(
+            property: 'modifiers',
+            type: 'array',
+            items: new OA\Items(ref: '#/components/schemas/KitchenOrderItemModifier')
+        ),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
+    schema: 'KitchenOrder',
+    required: ['id', 'status', 'origin', 'restaurant', 'table', 'order_note', 'created_at', 'elapsed_seconds', 'items'],
+    properties: [
+        new OA\Property(property: 'id', type: 'integer', format: 'int64', example: 1042),
+        new OA\Property(property: 'status', type: 'string', example: 'preparing'),
+        new OA\Property(property: 'origin', type: 'string', example: 'customer_qr'),
+        new OA\Property(
+            property: 'restaurant',
+            properties: [
+                new OA\Property(property: 'id', type: 'integer', format: 'int64', example: 3),
+                new OA\Property(property: 'name', type: 'string', example: 'Aforo Centro'),
+            ],
+            type: 'object'
+        ),
+        new OA\Property(
+            property: 'table',
+            properties: [
+                new OA\Property(property: 'id', type: 'integer', format: 'int64', example: 12),
+                new OA\Property(property: 'name', type: 'string', example: 'Mesa 12'),
+                new OA\Property(property: 'number', type: 'integer', example: 12, nullable: true),
+            ],
+            type: 'object'
+        ),
+        new OA\Property(property: 'order_note', type: 'string', example: null, nullable: true),
+        new OA\Property(property: 'created_at', type: 'string', format: 'date-time'),
+        new OA\Property(property: 'elapsed_seconds', type: 'integer', example: 300, minimum: 0, description: 'Seconds since created_at. Computed on read, never persisted.'),
+        new OA\Property(
+            property: 'items',
+            type: 'array',
+            items: new OA\Items(ref: '#/components/schemas/KitchenOrderItem')
+        ),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
+    schema: 'PublicTableRequest',
+    required: ['id', 'type', 'status', 'created_at'],
+    properties: [
+        new OA\Property(property: 'id', type: 'integer', format: 'int64', example: 500),
+        new OA\Property(property: 'type', type: 'string', example: 'call_waiter'),
+        new OA\Property(property: 'status', type: 'string', example: 'pending'),
+        new OA\Property(property: 'created_at', type: 'string', format: 'date-time'),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
+    schema: 'TableRequestActor',
+    required: ['id', 'name'],
+    properties: [
+        new OA\Property(property: 'id', type: 'integer', format: 'int64', example: 8),
+        new OA\Property(property: 'name', type: 'string', example: 'Carlos'),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
+    schema: 'TableRequest',
+    required: ['id', 'type', 'status', 'restaurant', 'table', 'note', 'created_at', 'acknowledged_at', 'acknowledged_by', 'completed_at', 'completed_by', 'cancelled_at', 'cancelled_by'],
+    properties: [
+        new OA\Property(property: 'id', type: 'integer', format: 'int64', example: 500),
+        new OA\Property(property: 'type', type: 'string', example: 'call_waiter'),
+        new OA\Property(property: 'status', type: 'string', example: 'pending'),
+        new OA\Property(
+            property: 'restaurant',
+            properties: [
+                new OA\Property(property: 'id', type: 'integer', format: 'int64', example: 3),
+                new OA\Property(property: 'name', type: 'string', example: 'Aforo Centro'),
+            ],
+            type: 'object'
+        ),
+        new OA\Property(
+            property: 'table',
+            properties: [
+                new OA\Property(property: 'id', type: 'integer', format: 'int64', example: 12),
+                new OA\Property(property: 'name', type: 'string', example: 'Mesa 12'),
+                new OA\Property(property: 'number', type: 'integer', example: 12, nullable: true),
+            ],
+            type: 'object'
+        ),
+        new OA\Property(property: 'note', type: 'string', example: null, nullable: true),
+        new OA\Property(property: 'created_at', type: 'string', format: 'date-time'),
+        new OA\Property(property: 'acknowledged_at', type: 'string', format: 'date-time', nullable: true),
+        new OA\Property(property: 'acknowledged_by', ref: '#/components/schemas/TableRequestActor', nullable: true),
+        new OA\Property(property: 'completed_at', type: 'string', format: 'date-time', nullable: true),
+        new OA\Property(property: 'completed_by', ref: '#/components/schemas/TableRequestActor', nullable: true),
+        new OA\Property(property: 'cancelled_at', type: 'string', format: 'date-time', nullable: true),
+        new OA\Property(property: 'cancelled_by', ref: '#/components/schemas/TableRequestActor', nullable: true),
     ],
     type: 'object'
 )]

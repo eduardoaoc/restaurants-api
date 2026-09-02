@@ -27,6 +27,8 @@ class RolePermissionSeeder extends Seeder
             'approve_customer_orders',
             'create_orders',
             'update_kitchen_status',
+            'serve_orders',
+            'handle_table_requests',
             'close_bill',
             'view_reports',
             'view_audit',
@@ -40,6 +42,8 @@ class RolePermissionSeeder extends Seeder
             'approve_customer_orders',
             'create_orders',
             'update_kitchen_status',
+            'serve_orders',
+            'handle_table_requests',
             'close_bill',
             'view_reports',
             'view_audit',
@@ -47,6 +51,8 @@ class RolePermissionSeeder extends Seeder
         'waiter' => [
             'create_orders',
             'approve_customer_orders',
+            'serve_orders',
+            'handle_table_requests',
             'manage_tables',
             'close_bill',
         ],
@@ -54,6 +60,7 @@ class RolePermissionSeeder extends Seeder
             'update_kitchen_status',
         ],
         'cashier' => [
+            'handle_table_requests',
             'close_bill',
         ],
     ];
