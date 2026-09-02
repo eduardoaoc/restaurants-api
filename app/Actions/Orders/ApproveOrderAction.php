@@ -3,8 +3,10 @@
 namespace App\Actions\Orders;
 
 use App\Exceptions\Orders\OrderStateConflictException;
+use App\Models\AuditLog;
 use App\Models\Order;
 use App\Models\User;
+use App\Support\Audit\AuditLogger;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -16,6 +18,8 @@ use Illuminate\Support\Facades\DB;
  */
 class ApproveOrderAction
 {
+    public function __construct(private readonly AuditLogger $auditLogger) {}
+
     public function execute(Order $order, User $approvedBy): Order
     {
         return DB::transaction(function () use ($order, $approvedBy) {
@@ -25,13 +29,28 @@ class ApproveOrderAction
                 throw new OrderStateConflictException('This order cannot be approved.');
             }
 
+            $previousStatus = $locked->status;
+
             $locked->update([
                 'status' => Order::STATUS_CONFIRMED,
                 'approved_by_user_id' => $approvedBy->id,
                 'approved_at' => now(),
             ]);
 
-            return $locked->fresh(['items.modifiers', 'restaurant', 'table']);
+            $fresh = $locked->fresh(['items.modifiers', 'restaurant', 'table']);
+
+            $this->auditLogger->log(
+                organizationId: $fresh->restaurant->organization_id,
+                restaurantId: $fresh->restaurant_id,
+                actorType: AuditLog::ACTOR_USER,
+                actor: $approvedBy,
+                event: AuditLog::EVENT_ORDER_APPROVED,
+                resourceType: AuditLog::RESOURCE_ORDER,
+                resourceId: $fresh->id,
+                metadata: ['previous_status' => $previousStatus, 'new_status' => Order::STATUS_CONFIRMED],
+            );
+
+            return $fresh;
         });
     }
 }

@@ -4,10 +4,12 @@ namespace App\Actions\Orders;
 
 use App\Exceptions\Billing\TableSessionAlreadyPaidException;
 use App\Exceptions\Orders\OrderCreationConflictException;
+use App\Models\AuditLog;
 use App\Models\Order;
 use App\Models\Table;
 use App\Models\TableSession;
 use App\Models\User;
+use App\Support\Audit\AuditLogger;
 use App\Support\Money\Money;
 use Illuminate\Support\Facades\DB;
 
@@ -26,7 +28,10 @@ use Illuminate\Support\Facades\DB;
  */
 class OrderCreationService
 {
-    public function __construct(private readonly BuildOrderItemsAction $buildOrderItems) {}
+    public function __construct(
+        private readonly BuildOrderItemsAction $buildOrderItems,
+        private readonly AuditLogger $auditLogger,
+    ) {}
 
     /**
      * @param  array<int, array<string, mixed>>  $items
@@ -96,6 +101,17 @@ class OrderCreationService
                     $orderItem->modifiers()->create($modifierSpec);
                 }
             }
+
+            $this->auditLogger->log(
+                organizationId: $table->restaurant->organization_id,
+                restaurantId: $table->restaurant_id,
+                actorType: $createdBy ? AuditLog::ACTOR_USER : AuditLog::ACTOR_PUBLIC,
+                actor: $createdBy,
+                event: AuditLog::EVENT_ORDER_CREATED,
+                resourceType: AuditLog::RESOURCE_ORDER,
+                resourceId: $order->id,
+                metadata: ['origin' => $origin],
+            );
 
             return $order->load('items.modifiers');
         });

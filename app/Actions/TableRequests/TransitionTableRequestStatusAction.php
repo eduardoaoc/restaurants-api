@@ -3,8 +3,10 @@
 namespace App\Actions\TableRequests;
 
 use App\Exceptions\TableRequests\TableRequestStateConflictException;
+use App\Models\AuditLog;
 use App\Models\TableRequest;
 use App\Models\User;
+use App\Support\Audit\AuditLogger;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -26,6 +28,17 @@ use Illuminate\Support\Facades\DB;
  */
 class TransitionTableRequestStatusAction
 {
+    /**
+     * @var array<string, string>
+     */
+    private const EVENTS = [
+        TableRequest::STATUS_ACKNOWLEDGED => AuditLog::EVENT_TABLE_REQUEST_ACKNOWLEDGED,
+        TableRequest::STATUS_COMPLETED => AuditLog::EVENT_TABLE_REQUEST_COMPLETED,
+        TableRequest::STATUS_CANCELLED => AuditLog::EVENT_TABLE_REQUEST_CANCELLED,
+    ];
+
+    public function __construct(private readonly AuditLogger $auditLogger) {}
+
     public function acknowledge(TableRequest $request, User $actor): TableRequest
     {
         return $this->transition($request, [TableRequest::STATUS_PENDING], TableRequest::STATUS_ACKNOWLEDGED, 'acknowledged', $actor);
@@ -59,13 +72,28 @@ class TransitionTableRequestStatusAction
                 throw new TableRequestStateConflictException("This table request cannot transition to '{$to}'.");
             }
 
+            $previousStatus = $locked->status;
+
             $locked->update([
                 'status' => $to,
                 "{$auditFieldPrefix}_by_user_id" => $actor->id,
                 "{$auditFieldPrefix}_at" => now(),
             ]);
 
-            return $locked->fresh(['restaurant', 'table']);
+            $fresh = $locked->fresh(['restaurant', 'table']);
+
+            $this->auditLogger->log(
+                organizationId: $fresh->restaurant->organization_id,
+                restaurantId: $fresh->restaurant_id,
+                actorType: AuditLog::ACTOR_USER,
+                actor: $actor,
+                event: self::EVENTS[$to],
+                resourceType: AuditLog::RESOURCE_TABLE_REQUEST,
+                resourceId: $fresh->id,
+                metadata: ['previous_status' => $previousStatus, 'new_status' => $to, 'type' => $fresh->type],
+            );
+
+            return $fresh;
         });
     }
 }

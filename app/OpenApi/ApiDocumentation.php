@@ -963,4 +963,82 @@ use OpenApi\Attributes as OA;
     ],
     type: 'object'
 )]
+#[OA\Schema(
+    schema: 'AuditActor',
+    description: 'type is always "user", "public" or "system". user is null for "public"/"system" — never a synthetic User.',
+    required: ['type', 'user'],
+    properties: [
+        new OA\Property(property: 'type', type: 'string', example: 'user'),
+        new OA\Property(
+            property: 'user',
+            properties: [
+                new OA\Property(property: 'id', type: 'integer', format: 'int64', example: 17),
+                new OA\Property(property: 'name', type: 'string', example: 'Carlos'),
+            ],
+            type: 'object',
+            nullable: true
+        ),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
+    schema: 'AuditRestaurant',
+    properties: [
+        new OA\Property(property: 'id', type: 'integer', format: 'int64', example: 3),
+        new OA\Property(property: 'name', type: 'string', example: 'Aforo Centro'),
+    ],
+    type: 'object',
+    nullable: true
+)]
+#[OA\Schema(
+    schema: 'AuditResource',
+    description: 'A logical reference only (resource_type + resource_id) — never a live-loaded copy of the original Model, so the audit log survives even if the referenced row is later deleted.',
+    required: ['type', 'id'],
+    properties: [
+        new OA\Property(property: 'type', type: 'string', example: 'order'),
+        new OA\Property(property: 'id', type: 'integer', format: 'int64', example: 412, nullable: true),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
+    schema: 'AuditLog',
+    required: ['id', 'event', 'actor', 'restaurant', 'resource', 'changes', 'metadata', 'created_at'],
+    properties: [
+        new OA\Property(property: 'id', type: 'integer', format: 'int64', example: 921),
+        new OA\Property(property: 'event', type: 'string', example: 'order.served'),
+        new OA\Property(property: 'actor', ref: '#/components/schemas/AuditActor'),
+        new OA\Property(property: 'restaurant', ref: '#/components/schemas/AuditRestaurant'),
+        new OA\Property(property: 'resource', ref: '#/components/schemas/AuditResource'),
+        new OA\Property(
+            property: 'changes',
+            description: 'Explicit old/new whitelist for a small set of events (e.g. staff.updated). null for most events — see metadata instead.',
+            type: 'object',
+            nullable: true,
+            example: null
+        ),
+        new OA\Property(
+            property: 'metadata',
+            description: 'Event context — e.g. {previous_status, new_status}. Never comments, references, or other freeform/sensitive fields.',
+            properties: [
+                new OA\Property(property: 'previous_status', type: 'string', example: 'ready'),
+                new OA\Property(property: 'new_status', type: 'string', example: 'served'),
+            ],
+            type: 'object',
+            nullable: true
+        ),
+        new OA\Property(property: 'created_at', type: 'string', format: 'date-time'),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
+    schema: 'AuditLogPaginationMeta',
+    required: ['current_page', 'per_page', 'total', 'last_page'],
+    properties: [
+        new OA\Property(property: 'current_page', type: 'integer', example: 1),
+        new OA\Property(property: 'per_page', type: 'integer', example: 25),
+        new OA\Property(property: 'total', type: 'integer', example: 118),
+        new OA\Property(property: 'last_page', type: 'integer', example: 5),
+    ],
+    type: 'object'
+)]
 class ApiDocumentation {}

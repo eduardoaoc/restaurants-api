@@ -3,9 +3,11 @@
 namespace App\Actions\Tables;
 
 use App\Exceptions\TableSessionConflictException;
+use App\Models\AuditLog;
 use App\Models\Table;
 use App\Models\TableSession;
 use App\Models\User;
+use App\Support\Audit\AuditLogger;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 
@@ -17,6 +19,8 @@ use Illuminate\Support\Facades\DB;
  */
 class OpenTableAction
 {
+    public function __construct(private readonly AuditLogger $auditLogger) {}
+
     public function execute(Table $table, User $openedBy, int $guestCount): TableSession
     {
         return DB::transaction(function () use ($table, $openedBy, $guestCount) {
@@ -25,7 +29,7 @@ class OpenTableAction
             }
 
             try {
-                return TableSession::query()->create([
+                $session = TableSession::query()->create([
                     'restaurant_id' => $table->restaurant_id,
                     'table_id' => $table->id,
                     'opened_by_user_id' => $openedBy->id,
@@ -36,6 +40,19 @@ class OpenTableAction
             } catch (UniqueConstraintViolationException $e) {
                 throw new TableSessionConflictException('This table already has an active session.', previous: $e);
             }
+
+            $this->auditLogger->log(
+                organizationId: $table->restaurant->organization_id,
+                restaurantId: $table->restaurant_id,
+                actorType: AuditLog::ACTOR_USER,
+                actor: $openedBy,
+                event: AuditLog::EVENT_TABLE_SESSION_OPENED,
+                resourceType: AuditLog::RESOURCE_TABLE_SESSION,
+                resourceId: $session->id,
+                metadata: ['table_id' => $table->id, 'status' => $session->status],
+            );
+
+            return $session;
         });
     }
 }

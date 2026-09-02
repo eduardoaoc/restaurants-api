@@ -6,8 +6,10 @@ use App\Actions\Public\ResolvePublicTableAction;
 use App\Exceptions\Billing\TableSessionAlreadyPaidException;
 use App\Exceptions\Orders\TableSessionNotActiveException;
 use App\Exceptions\TableRequests\TableRequestAlreadyOpenException;
+use App\Models\AuditLog;
 use App\Models\TableRequest;
 use App\Models\TableSession;
+use App\Support\Audit\AuditLogger;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 
@@ -26,7 +28,10 @@ use Illuminate\Support\Facades\DB;
  */
 class CreatePublicTableRequestAction
 {
-    public function __construct(private readonly ResolvePublicTableAction $resolvePublicTable) {}
+    public function __construct(
+        private readonly ResolvePublicTableAction $resolvePublicTable,
+        private readonly AuditLogger $auditLogger,
+    ) {}
 
     public function execute(string $publicToken, string $type, ?string $note): TableRequest
     {
@@ -59,7 +64,7 @@ class CreatePublicTableRequestAction
             }
 
             try {
-                return TableRequest::query()->create([
+                $tableRequest = TableRequest::query()->create([
                     'restaurant_id' => $table->restaurant_id,
                     'table_id' => $table->id,
                     'table_session_id' => $lockedSession->id,
@@ -73,6 +78,23 @@ class CreatePublicTableRequestAction
                 // check above is only a friendlier fast path.
                 throw new TableRequestAlreadyOpenException(previous: $e);
             }
+
+            $this->auditLogger->log(
+                organizationId: $table->restaurant->organization_id,
+                restaurantId: $table->restaurant_id,
+                actorType: AuditLog::ACTOR_PUBLIC,
+                actor: null,
+                event: AuditLog::EVENT_TABLE_REQUEST_CREATED,
+                resourceType: AuditLog::RESOURCE_TABLE_REQUEST,
+                resourceId: $tableRequest->id,
+                metadata: [
+                    'type' => $tableRequest->type,
+                    'status' => $tableRequest->status,
+                    'table_session_id' => $tableRequest->table_session_id,
+                ],
+            );
+
+            return $tableRequest;
         });
     }
 }

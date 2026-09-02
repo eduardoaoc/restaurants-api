@@ -2,10 +2,12 @@
 
 namespace App\Actions\Staff;
 
+use App\Models\AuditLog;
 use App\Models\Organization;
 use App\Models\Role;
 use App\Models\User;
 use App\Models\UserRole;
+use App\Support\Audit\AuditLogger;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -14,12 +16,18 @@ use Illuminate\Support\Facades\DB;
  */
 class CreateStaffAction
 {
+    public function __construct(private readonly AuditLogger $auditLogger) {}
+
     /**
      * @param  array{name: string, email: string, password: string, restaurant_id: int, role: string, sub_id: string}  $data
+     *
+     * $actor is optional so direct/internal callers (e.g. test fixtures)
+     * aren't forced to supply one — an audit event is only recorded when
+     * an actor is given, which every real HTTP call site does.
      */
-    public function execute(Organization $organization, array $data): User
+    public function execute(Organization $organization, array $data, ?User $actor = null): User
     {
-        return DB::transaction(function () use ($organization, $data) {
+        return DB::transaction(function () use ($organization, $data, $actor) {
             $user = User::query()->create([
                 'name' => $data['name'],
                 'email' => $data['email'],
@@ -42,6 +50,19 @@ class CreateStaffAction
                 'organization_id' => $organization->id,
                 'restaurant_id' => $restaurant->id,
             ]);
+
+            if ($actor) {
+                $this->auditLogger->log(
+                    organizationId: $organization->id,
+                    restaurantId: $restaurant->id,
+                    actorType: AuditLog::ACTOR_USER,
+                    actor: $actor,
+                    event: AuditLog::EVENT_STAFF_CREATED,
+                    resourceType: AuditLog::RESOURCE_STAFF,
+                    resourceId: $user->id,
+                    metadata: ['restaurant_id' => $restaurant->id],
+                );
+            }
 
             return $user;
         });

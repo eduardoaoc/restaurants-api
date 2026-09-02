@@ -7,9 +7,11 @@ use App\Exceptions\Billing\PaymentIdempotencyKeyReusedException;
 use App\Exceptions\Billing\TableSessionAlreadyPaidException;
 use App\Exceptions\Billing\TableSessionClosedException;
 use App\Exceptions\Billing\TableSessionHasNoBillableOrdersException;
+use App\Models\AuditLog;
 use App\Models\PaymentRecord;
 use App\Models\TableSession;
 use App\Models\User;
+use App\Support\Audit\AuditLogger;
 use App\Support\Billing\SessionBillCalculator;
 use App\Support\Money\Money;
 use Illuminate\Database\UniqueConstraintViolationException;
@@ -32,6 +34,8 @@ use Illuminate\Support\Facades\DB;
  */
 class RecordPaymentAction
 {
+    public function __construct(private readonly AuditLogger $auditLogger) {}
+
     /**
      * @param  array{method: string, amount: string, reference?: ?string, note?: ?string, idempotency_key?: ?string}  $data
      * @return array{payment: PaymentRecord, replayed: bool}
@@ -107,6 +111,22 @@ class RecordPaymentAction
 
                 return $this->replayOrConflict($existing, $payloadHash);
             }
+
+            $this->auditLogger->log(
+                organizationId: $locked->restaurant->organization_id,
+                restaurantId: $locked->restaurant_id,
+                actorType: AuditLog::ACTOR_USER,
+                actor: $recordedBy,
+                event: AuditLog::EVENT_PAYMENT_RECORD_CREATED,
+                resourceType: AuditLog::RESOURCE_PAYMENT_RECORD,
+                resourceId: $payment->id,
+                metadata: [
+                    'table_session_id' => $locked->id,
+                    'method' => $payment->method,
+                    'amount' => $payment->amount,
+                    'currency' => $payment->currency,
+                ],
+            );
 
             $newPaidTotalCents = $summary['paidTotalCents'] + $amountCents;
 

@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\V1\AuditLogController;
 use App\Http\Controllers\Api\V1\Auth\AuthController;
 use App\Http\Controllers\Api\V1\BillReceiptController;
 use App\Http\Controllers\Api\V1\CategoryController;
@@ -59,6 +60,8 @@ Route::prefix('v1')->group(function () {
     });
 
     Route::middleware(['auth:sanctum', 'tenant'])->group(function () {
+        Route::get('/audit-logs', [AuditLogController::class, 'index']);
+
         Route::get('/organization', [OrganizationController::class, 'show']);
         Route::patch('/organization', [OrganizationController::class, 'update']);
 

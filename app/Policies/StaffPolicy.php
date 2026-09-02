@@ -3,6 +3,7 @@
 namespace App\Policies;
 
 use App\Models\Organization;
+use App\Models\Restaurant;
 use App\Models\User;
 use App\Support\Restaurants\RestaurantScope;
 
@@ -12,6 +13,15 @@ use App\Support\Restaurants\RestaurantScope;
  * belong to the organization and to hold the manage_users permission there —
  * there is no role-name shortcut; owner and manager only pass because their
  * seeded role grants manage_users.
+ *
+ * view/update/create additionally require the target's restaurant (the
+ * staff member's own restaurant for view/update; the restaurant_id being
+ * assigned for create) to be within the requester's RestaurantScope. This
+ * is defense in depth, not the primary gate — StaffController::staffQuery()
+ * / restaurantQuery() already scope the query so an out-of-scope target
+ * resolves as 404 via findOrFail before the policy ever runs; the policy
+ * still re-checks scope in case a caller is ever added that skips the
+ * scoped query.
  */
 class StaffPolicy
 {
@@ -22,17 +32,18 @@ class StaffPolicy
 
     public function view(User $user, User $staff, Organization $organization): bool
     {
-        return $this->canManageUsers($user, $organization);
+        return $this->canAccessStaff($user, $staff, $organization, 'manage_users');
     }
 
-    public function create(User $user, Organization $organization): bool
+    public function create(User $user, Organization $organization, Restaurant $restaurant): bool
     {
-        return $this->canManageUsers($user, $organization);
+        return $this->canManageUsers($user, $organization)
+            && RestaurantScope::canAccessRestaurant($user, $restaurant);
     }
 
     public function update(User $user, User $staff, Organization $organization): bool
     {
-        return $this->canManageUsers($user, $organization);
+        return $this->canAccessStaff($user, $staff, $organization, 'manage_users');
     }
 
     /**

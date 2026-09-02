@@ -1,5 +1,6 @@
 <?php
 
+use App\Exceptions\Audit\InvalidAuditPeriodException;
 use App\Exceptions\Billing\PaymentExceedsBalanceException;
 use App\Exceptions\Billing\PaymentIdempotencyKeyReusedException;
 use App\Exceptions\Billing\TableSessionAlreadyPaidException;
@@ -139,6 +140,11 @@ return Application::configure(basePath: dirname(__DIR__))
             return response()->json([
                 'error' => ['code' => 'ORDER_NOT_PRINTABLE', 'message' => 'This order cannot be printed in its current state.'],
             ], 409);
+        });
+        $exceptions->render(function (InvalidAuditPeriodException $e, Request $request) {
+            return response()->json([
+                'error' => ['code' => 'INVALID_AUDIT_PERIOD', 'message' => 'The audit log period is invalid.'],
+            ], 422);
         });
         $exceptions->render(function (CannotReviewSelfException $e, Request $request) {
             return response()->json([

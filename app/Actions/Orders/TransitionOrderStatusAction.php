@@ -3,8 +3,10 @@
 namespace App\Actions\Orders;
 
 use App\Exceptions\Orders\OrderStateConflictException;
+use App\Models\AuditLog;
 use App\Models\Order;
 use App\Models\User;
+use App\Support\Audit\AuditLogger;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -28,6 +30,18 @@ use Illuminate\Support\Facades\DB;
  */
 class TransitionOrderStatusAction
 {
+    /**
+     * @var array<string, string>
+     */
+    private const EVENTS = [
+        Order::STATUS_ACCEPTED => AuditLog::EVENT_ORDER_ACCEPTED,
+        Order::STATUS_PREPARING => AuditLog::EVENT_ORDER_PREPARING,
+        Order::STATUS_READY => AuditLog::EVENT_ORDER_READY,
+        Order::STATUS_SERVED => AuditLog::EVENT_ORDER_SERVED,
+    ];
+
+    public function __construct(private readonly AuditLogger $auditLogger) {}
+
     public function accept(Order $order, User $actor): Order
     {
         return $this->transition($order, Order::STATUS_CONFIRMED, Order::STATUS_ACCEPTED, 'accepted', $actor);
@@ -63,7 +77,20 @@ class TransitionOrderStatusAction
                 "{$auditFieldPrefix}_at" => now(),
             ]);
 
-            return $locked->fresh(['items.modifiers', 'restaurant', 'table']);
+            $fresh = $locked->fresh(['items.modifiers', 'restaurant', 'table']);
+
+            $this->auditLogger->log(
+                organizationId: $fresh->restaurant->organization_id,
+                restaurantId: $fresh->restaurant_id,
+                actorType: AuditLog::ACTOR_USER,
+                actor: $actor,
+                event: self::EVENTS[$to],
+                resourceType: AuditLog::RESOURCE_ORDER,
+                resourceId: $fresh->id,
+                metadata: ['previous_status' => $expectedFrom, 'new_status' => $to],
+            );
+
+            return $fresh;
         });
     }
 }

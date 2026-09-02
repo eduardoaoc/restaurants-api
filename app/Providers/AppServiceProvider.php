@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Models\AuditLog;
 use App\Models\Category;
 use App\Models\Menu;
 use App\Models\ModifierGroup;
@@ -15,6 +16,7 @@ use App\Models\Table;
 use App\Models\TableRequest;
 use App\Models\TableSession;
 use App\Models\User;
+use App\Policies\AuditLogPolicy;
 use App\Policies\CategoryPolicy;
 use App\Policies\MenuPolicy;
 use App\Policies\ModifierGroupPolicy;
@@ -88,5 +90,6 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(ModifierOption::class, ModifierOptionPolicy::class);
         Gate::policy(Order::class, OrderPolicy::class);
         Gate::policy(TableRequest::class, TableRequestPolicy::class);
+        Gate::policy(AuditLog::class, AuditLogPolicy::class);
     }
 }

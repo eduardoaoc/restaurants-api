@@ -4,10 +4,12 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Actions\Printing\BuildBillReceiptAction;
 use App\Http\Controllers\Controller;
+use App\Models\AuditLog;
 use App\Models\Organization;
 use App\Models\PrintRecord;
 use App\Models\TableSession;
 use App\Models\User;
+use App\Support\Audit\AuditLogger;
 use App\Support\Restaurants\RestaurantScope;
 use App\Support\Tenancy\TenantContext;
 use Illuminate\Database\Eloquent\Builder;
@@ -20,6 +22,7 @@ class BillReceiptController extends Controller
     public function __construct(
         private readonly TenantContext $tenantContext,
         private readonly BuildBillReceiptAction $buildBillReceipt,
+        private readonly AuditLogger $auditLogger,
     ) {}
 
     /**
@@ -73,8 +76,10 @@ class BillReceiptController extends Controller
         $session = $this->resolveSession($request, $tableSession);
         $user = $request->user();
 
+        $organization = $this->activeOrganization();
+
         $printRecord = PrintRecord::query()->create([
-            'organization_id' => $this->activeOrganization()->id,
+            'organization_id' => $organization->id,
             'restaurant_id' => $session->restaurant_id,
             'document_type' => PrintRecord::DOCUMENT_TYPE_BILL_RECEIPT,
             'order_id' => null,
@@ -82,6 +87,21 @@ class BillReceiptController extends Controller
             'requested_by_user_id' => $user->id,
             'generated_at' => now(),
         ]);
+
+        $this->auditLogger->log(
+            organizationId: $organization->id,
+            restaurantId: $session->restaurant_id,
+            actorType: AuditLog::ACTOR_USER,
+            actor: $user,
+            event: AuditLog::EVENT_PRINT_RECORD_CREATED,
+            resourceType: AuditLog::RESOURCE_PRINT_RECORD,
+            resourceId: $printRecord->id,
+            metadata: [
+                'document_type' => PrintRecord::DOCUMENT_TYPE_BILL_RECEIPT,
+                'order_id' => null,
+                'table_session_id' => $session->id,
+            ],
+        );
 
         return response()->json([
             'data' => [
