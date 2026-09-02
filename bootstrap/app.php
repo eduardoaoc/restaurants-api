@@ -13,9 +13,12 @@ use App\Exceptions\Orders\InvalidOrderItemException;
 use App\Exceptions\Orders\OrderCreationConflictException;
 use App\Exceptions\Orders\OrderStateConflictException;
 use App\Exceptions\Orders\TableSessionNotActiveException;
+use App\Exceptions\Printing\OrderNotPrintableException;
 use App\Exceptions\Public\InvalidPublicLocaleException;
 use App\Exceptions\Public\PublicMenuNotAvailableException;
 use App\Exceptions\Public\PublicTableNotFoundException;
+use App\Exceptions\Staff\CannotReviewSelfException;
+use App\Exceptions\Staff\InvalidPerformancePeriodException;
 use App\Exceptions\TableRequests\TableRequestAlreadyOpenException;
 use App\Exceptions\TableRequests\TableRequestStateConflictException;
 use App\Exceptions\TableSessionConflictException;
@@ -131,6 +134,21 @@ return Application::configure(basePath: dirname(__DIR__))
             return response()->json([
                 'error' => ['code' => 'PAYMENT_IDEMPOTENCY_KEY_REUSED', 'message' => 'This idempotency key was already used with a different payment.'],
             ], 409);
+        });
+        $exceptions->render(function (OrderNotPrintableException $e, Request $request) {
+            return response()->json([
+                'error' => ['code' => 'ORDER_NOT_PRINTABLE', 'message' => 'This order cannot be printed in its current state.'],
+            ], 409);
+        });
+        $exceptions->render(function (CannotReviewSelfException $e, Request $request) {
+            return response()->json([
+                'error' => ['code' => 'CANNOT_REVIEW_SELF', 'message' => 'A staff member cannot review themselves.'],
+            ], 422);
+        });
+        $exceptions->render(function (InvalidPerformancePeriodException $e, Request $request) {
+            return response()->json([
+                'error' => ['code' => 'INVALID_PERFORMANCE_PERIOD', 'message' => 'The performance period is invalid.'],
+            ], 422);
         });
         $exceptions->render(function (ThrottleRequestsException $e, Request $request) {
             if (! $request->is('api/v1/public/*')) {

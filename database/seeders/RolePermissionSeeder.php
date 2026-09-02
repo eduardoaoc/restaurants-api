@@ -33,6 +33,7 @@ class RolePermissionSeeder extends Seeder
             'close_bill',
             'view_reports',
             'view_audit',
+            'manage_staff_reviews',
         ],
         'manager' => [
             'manage_restaurants',
@@ -49,6 +50,7 @@ class RolePermissionSeeder extends Seeder
             'close_bill',
             'view_reports',
             'view_audit',
+            'manage_staff_reviews',
         ],
         'waiter' => [
             'create_orders',

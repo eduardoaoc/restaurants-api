@@ -753,4 +753,214 @@ use OpenApi\Attributes as OA;
     ],
     type: 'object'
 )]
+#[OA\Schema(
+    schema: 'KitchenTicket',
+    required: ['document_type', 'restaurant', 'order', 'table', 'order_note', 'items', 'generated_at'],
+    description: 'Reuses KitchenOrderItem/KitchenOrderItemModifier (Bloco 11) for items — it is the exact same snapshot-only, no-price shape the Kitchen Display already shows on screen.',
+    properties: [
+        new OA\Property(property: 'document_type', type: 'string', example: 'kitchen_ticket'),
+        new OA\Property(property: 'restaurant', ref: '#/components/schemas/PublicRestaurant'),
+        new OA\Property(
+            property: 'order',
+            required: ['id', 'status', 'origin', 'created_at'],
+            properties: [
+                new OA\Property(property: 'id', type: 'integer', format: 'int64', example: 1042),
+                new OA\Property(property: 'status', type: 'string', example: 'confirmed'),
+                new OA\Property(property: 'origin', type: 'string', example: 'customer_qr'),
+                new OA\Property(property: 'created_at', type: 'string', format: 'date-time'),
+            ],
+            type: 'object'
+        ),
+        new OA\Property(property: 'table', ref: '#/components/schemas/PublicTable'),
+        new OA\Property(property: 'order_note', type: 'string', example: null, nullable: true),
+        new OA\Property(
+            property: 'items',
+            type: 'array',
+            items: new OA\Items(ref: '#/components/schemas/KitchenOrderItem')
+        ),
+        new OA\Property(property: 'generated_at', type: 'string', format: 'date-time', description: 'Computed on read, never persisted.'),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
+    schema: 'BillReceiptModifier',
+    required: ['name', 'price_delta'],
+    properties: [
+        new OA\Property(property: 'name', type: 'string', example: 'Bacon'),
+        new OA\Property(property: 'price_delta', type: 'string', example: '1.50'),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
+    schema: 'BillReceiptItem',
+    required: ['name', 'quantity', 'unit_price', 'modifiers', 'line_total'],
+    properties: [
+        new OA\Property(property: 'name', type: 'string', example: 'Hamburguesa Clásica'),
+        new OA\Property(property: 'quantity', type: 'integer', example: 2),
+        new OA\Property(property: 'unit_price', type: 'string', example: '10.00'),
+        new OA\Property(
+            property: 'modifiers',
+            type: 'array',
+            items: new OA\Items(ref: '#/components/schemas/BillReceiptModifier')
+        ),
+        new OA\Property(property: 'line_total', type: 'string', example: '23.00'),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
+    schema: 'BillReceiptOrder',
+    required: ['id', 'total', 'items'],
+    properties: [
+        new OA\Property(property: 'id', type: 'integer', format: 'int64', example: 1042),
+        new OA\Property(property: 'total', type: 'string', example: '25.00'),
+        new OA\Property(
+            property: 'items',
+            type: 'array',
+            items: new OA\Items(ref: '#/components/schemas/BillReceiptItem')
+        ),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
+    schema: 'BillReceipt',
+    required: ['document_type', 'restaurant', 'table', 'table_session_id', 'opened_at', 'closed_at', 'orders', 'orders_total', 'paid_total', 'balance', 'payment_status', 'payments', 'generated_at'],
+    description: 'An operational receipt, not a fiscal document — no VAT breakdown, invoice number, or legal identifiers. Totals are always computed via SessionBillCalculator, identical to GET /table-sessions/{id}/bill.',
+    properties: [
+        new OA\Property(property: 'document_type', type: 'string', example: 'bill_receipt'),
+        new OA\Property(property: 'restaurant', ref: '#/components/schemas/PublicRestaurant'),
+        new OA\Property(property: 'table', ref: '#/components/schemas/PublicTable'),
+        new OA\Property(property: 'table_session_id', type: 'integer', format: 'int64', example: 88),
+        new OA\Property(property: 'opened_at', type: 'string', format: 'date-time'),
+        new OA\Property(property: 'closed_at', type: 'string', format: 'date-time', nullable: true),
+        new OA\Property(
+            property: 'orders',
+            type: 'array',
+            items: new OA\Items(ref: '#/components/schemas/BillReceiptOrder')
+        ),
+        new OA\Property(property: 'orders_total', type: 'string', example: '45.00'),
+        new OA\Property(property: 'paid_total', type: 'string', example: '0.00'),
+        new OA\Property(property: 'balance', type: 'string', example: '45.00'),
+        new OA\Property(property: 'payment_status', type: 'string', example: 'unpaid'),
+        new OA\Property(
+            property: 'payments',
+            type: 'array',
+            items: new OA\Items(ref: '#/components/schemas/PaymentRecord')
+        ),
+        new OA\Property(property: 'generated_at', type: 'string', format: 'date-time', description: 'Computed on read, never persisted.'),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
+    schema: 'PrintRequestResponse',
+    required: ['data'],
+    description: 'print_record_id is an audit-trail reference: it means the document was generated/requested for printing, never that a physical printer confirmed the job.',
+    properties: [
+        new OA\Property(
+            property: 'data',
+            required: ['print_record_id', 'document'],
+            properties: [
+                new OA\Property(property: 'print_record_id', type: 'integer', format: 'int64', example: 91),
+                new OA\Property(property: 'document', description: 'The KitchenTicket or BillReceipt document, depending on the endpoint.', type: 'object'),
+            ],
+            type: 'object'
+        ),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
+    schema: 'StaffPerformanceStaff',
+    required: ['id', 'name', 'restaurant'],
+    properties: [
+        new OA\Property(property: 'id', type: 'integer', format: 'int64', example: 42),
+        new OA\Property(property: 'name', type: 'string', example: 'Carlos'),
+        new OA\Property(
+            property: 'restaurant',
+            properties: [
+                new OA\Property(property: 'id', type: 'integer', format: 'int64', example: 3),
+                new OA\Property(property: 'name', type: 'string', example: 'Aforo Centro'),
+            ],
+            type: 'object',
+            nullable: true,
+            description: 'null only for an organization-wide caller viewing their own /me/performance — every other case has exactly one restaurant.'
+        ),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
+    schema: 'PerformancePeriod',
+    required: ['from', 'to'],
+    properties: [
+        new OA\Property(property: 'from', type: 'string', format: 'date', example: '2026-09-01'),
+        new OA\Property(property: 'to', type: 'string', format: 'date', example: '2026-09-30', description: 'Inclusive — the underlying query filters as a half-open range internally.'),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
+    schema: 'StaffPerformanceMetrics',
+    description: 'Objective counts derived from operational history. Never combined into a score.',
+    required: ['tables_served', 'orders_created', 'orders_served', 'customer_orders_approved', 'table_requests_handled', 'sessions_closed'],
+    properties: [
+        new OA\Property(property: 'tables_served', type: 'integer', example: 12, description: 'Distinct table sessions with at least one order served by this staff member.'),
+        new OA\Property(property: 'orders_created', type: 'integer', example: 30),
+        new OA\Property(property: 'orders_served', type: 'integer', example: 28),
+        new OA\Property(property: 'customer_orders_approved', type: 'integer', example: 15),
+        new OA\Property(property: 'table_requests_handled', type: 'integer', example: 9, description: 'Only requests actually completed by this staff member — acknowledging alone does not count.'),
+        new OA\Property(property: 'sessions_closed', type: 'integer', example: 7),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
+    schema: 'StaffRatingSummary',
+    description: 'Subjective rating summary, deliberately kept separate from the objective metrics — never merged into a single score.',
+    required: ['average', 'review_count'],
+    properties: [
+        new OA\Property(property: 'average', type: 'string', example: '4.67', nullable: true, description: 'null when review_count is 0, never "0.00".'),
+        new OA\Property(property: 'review_count', type: 'integer', example: 3),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
+    schema: 'StaffPerformance',
+    required: ['staff', 'scope', 'period', 'metrics', 'rating'],
+    description: 'Never exposes review comments or reviewer identity — see StaffReview for that, gated behind manage_staff_reviews.',
+    properties: [
+        new OA\Property(property: 'staff', ref: '#/components/schemas/StaffPerformanceStaff'),
+        new OA\Property(property: 'scope', type: 'string', example: 'restaurant', description: '"restaurant" or "organization". Only /me/performance for an organization-wide caller can be "organization".'),
+        new OA\Property(property: 'period', ref: '#/components/schemas/PerformancePeriod'),
+        new OA\Property(property: 'metrics', ref: '#/components/schemas/StaffPerformanceMetrics'),
+        new OA\Property(property: 'rating', ref: '#/components/schemas/StaffRatingSummary'),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
+    schema: 'StaffReviewActor',
+    required: ['id', 'name'],
+    properties: [
+        new OA\Property(property: 'id', type: 'integer', format: 'int64', example: 7),
+        new OA\Property(property: 'name', type: 'string', example: 'Ana'),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
+    schema: 'StaffReview',
+    required: ['id', 'rating', 'comment', 'reviewer', 'created_at'],
+    properties: [
+        new OA\Property(property: 'id', type: 'integer', format: 'int64', example: 15),
+        new OA\Property(property: 'rating', type: 'integer', example: 5),
+        new OA\Property(property: 'comment', type: 'string', example: 'Great shift, very attentive.', nullable: true),
+        new OA\Property(property: 'reviewer', ref: '#/components/schemas/StaffReviewActor', nullable: true),
+        new OA\Property(property: 'created_at', type: 'string', format: 'date-time'),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
+    schema: 'CreateStaffReviewRequest',
+    required: ['rating'],
+    description: 'organization_id, restaurant_id, staff_user_id and reviewer_user_id are always derived server-side and never accepted from the client, even if present in the body.',
+    properties: [
+        new OA\Property(property: 'rating', type: 'integer', example: 5, description: 'Integer between 1 and 5.'),
+        new OA\Property(property: 'comment', type: 'string', example: 'Great shift, very attentive.', nullable: true, description: 'Up to 1000 characters.'),
+    ],
+    type: 'object'
+)]
 class ApiDocumentation {}

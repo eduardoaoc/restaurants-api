@@ -16,6 +16,9 @@ use App\Support\Restaurants\RestaurantScope;
  * OR set as close(), plus record_payments (a cashier or waiter about to
  * take payment needs to see the balance first).
  * recordPayment(): record_payments specifically.
+ * viewReceipt(): record_payments OR close_bill (Bloco 14) — no dedicated
+ * permission; the right to print the bill follows from the right to
+ * handle payment/closing it, not a separate grant.
  *
  * Every ability also requires RestaurantScope::canAccessRestaurant() —
  * organization membership alone is not enough for operational staff. This
@@ -37,6 +40,11 @@ class TableSessionPolicy
     public function recordPayment(User $user, TableSession $session): bool
     {
         return $this->hasAnyPermissionInRestaurantScope($user, $session, ['record_payments']);
+    }
+
+    public function viewReceipt(User $user, TableSession $session): bool
+    {
+        return $this->hasAnyPermissionInRestaurantScope($user, $session, ['record_payments', 'close_bill']);
     }
 
     private function belongsTo(User $user, Organization $organization): bool

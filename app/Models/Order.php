@@ -68,6 +68,20 @@ class Order extends Model
     }
 
     /**
+     * Statuses a kitchen ticket may be generated for. Same values as
+     * billableStatuses() today, but kept as its own method: printability
+     * and billability are different concerns that happen to coincide right
+     * now, not the same rule. waiting_approval is excluded (not yet
+     * accepted) and cancelled is excluded (must never reach the kitchen).
+     *
+     * @return array<int, string>
+     */
+    public static function printableStatuses(): array
+    {
+        return self::billableStatuses();
+    }
+
+    /**
      * Statuses that represent unfinished kitchen/approval work — a session
      * cannot close while any order is still in one of these, even if the
      * order itself isn't billable yet (waiting_approval).

@@ -107,6 +107,18 @@ class OrderPolicy
         return $this->hasPermissionInRestaurantScope($user, $order, 'serve_orders');
     }
 
+    /**
+     * Kitchen ticket preview and print share this same ability (Bloco 14:
+     * "não permitir GET permitido / POST negado sem razão"). No dedicated
+     * print_kitchen_ticket permission — anyone who can already act on the
+     * kitchen queue (update_kitchen_status) or place orders (create_orders,
+     * e.g. a waiter re-printing their own ticket) may generate one.
+     */
+    public function viewKitchenTicket(User $user, Order $order): bool
+    {
+        return $this->hasAnyPermissionInRestaurantScope($user, $order, ['update_kitchen_status', 'create_orders']);
+    }
+
     private function belongsTo(User $user, Organization $organization): bool
     {
         return $user->organizations()->whereKey($organization->id)->exists();

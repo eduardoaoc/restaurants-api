@@ -28,6 +28,7 @@ class PermissionSeeder extends Seeder
         'close_bill' => 'Close bill',
         'view_reports' => 'View reports',
         'view_audit' => 'View audit log',
+        'manage_staff_reviews' => 'Manage staff reviews',
     ];
 
     /**

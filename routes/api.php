@@ -1,10 +1,12 @@
 <?php
 
 use App\Http\Controllers\Api\V1\Auth\AuthController;
+use App\Http\Controllers\Api\V1\BillReceiptController;
 use App\Http\Controllers\Api\V1\CategoryController;
 use App\Http\Controllers\Api\V1\CategoryProductController;
 use App\Http\Controllers\Api\V1\HealthController;
 use App\Http\Controllers\Api\V1\KitchenController;
+use App\Http\Controllers\Api\V1\KitchenTicketController;
 use App\Http\Controllers\Api\V1\MenuController;
 use App\Http\Controllers\Api\V1\ModifierGroupController;
 use App\Http\Controllers\Api\V1\ModifierOptionController;
@@ -18,6 +20,8 @@ use App\Http\Controllers\Api\V1\Public\PublicTableRequestController;
 use App\Http\Controllers\Api\V1\RestaurantController;
 use App\Http\Controllers\Api\V1\RestaurantProductController;
 use App\Http\Controllers\Api\V1\StaffController;
+use App\Http\Controllers\Api\V1\StaffPerformanceController;
+use App\Http\Controllers\Api\V1\StaffReviewController;
 use App\Http\Controllers\Api\V1\TableController;
 use App\Http\Controllers\Api\V1\TableRequestController;
 use App\Http\Controllers\Api\V1\TableSessionBillController;
@@ -68,6 +72,11 @@ Route::prefix('v1')->group(function () {
         Route::get('/staff/{user}', [StaffController::class, 'show']);
         Route::patch('/staff/{user}', [StaffController::class, 'update']);
 
+        Route::get('/me/performance', [StaffPerformanceController::class, 'me']);
+        Route::get('/staff/{staff}/performance', [StaffPerformanceController::class, 'show']);
+        Route::post('/staff/{staff}/reviews', [StaffReviewController::class, 'store']);
+        Route::get('/staff/{staff}/reviews', [StaffReviewController::class, 'index']);
+
         Route::get('/restaurants/{restaurant}/tables', [TableController::class, 'index']);
         Route::post('/restaurants/{restaurant}/tables', [TableController::class, 'store']);
         Route::get('/tables/{table}', [TableController::class, 'show']);
@@ -114,6 +123,8 @@ Route::prefix('v1')->group(function () {
         Route::post('/orders/{order}/preparing', [OrderController::class, 'preparing']);
         Route::post('/orders/{order}/ready', [OrderController::class, 'ready']);
         Route::post('/orders/{order}/served', [OrderController::class, 'served']);
+        Route::get('/orders/{order}/kitchen-ticket', [KitchenTicketController::class, 'show']);
+        Route::post('/orders/{order}/kitchen-ticket/print', [KitchenTicketController::class, 'print']);
 
         Route::get('/kitchen/orders', [KitchenController::class, 'orders']);
 
@@ -125,5 +136,7 @@ Route::prefix('v1')->group(function () {
 
         Route::get('/table-sessions/{tableSession}/bill', [TableSessionBillController::class, 'show']);
         Route::post('/table-sessions/{tableSession}/payments', [TableSessionBillController::class, 'storePayment']);
+        Route::get('/table-sessions/{tableSession}/receipt', [BillReceiptController::class, 'show']);
+        Route::post('/table-sessions/{tableSession}/receipt/print', [BillReceiptController::class, 'print']);
     });
 });

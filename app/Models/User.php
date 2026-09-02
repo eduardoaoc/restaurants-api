@@ -78,6 +78,17 @@ class User extends Authenticatable
     }
 
     /**
+     * The internal reviews received by this user as an operational staff
+     * member (this user as the reviewed party, not the reviewer).
+     *
+     * @return HasMany<StaffReview, $this>
+     */
+    public function staffReviews(): HasMany
+    {
+        return $this->hasMany(StaffReview::class, 'staff_user_id');
+    }
+
+    /**
      * Determine whether this user holds a role within the given organization
      * that grants the given permission slug.
      */
