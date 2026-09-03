@@ -6,7 +6,6 @@ use App\Actions\Catalog\CreateCategoryAction;
 use App\Actions\Catalog\CreateModifierGroupAction;
 use App\Actions\Catalog\CreateModifierOptionAction;
 use App\Actions\Catalog\CreateProductAction;
-use App\Actions\Staff\CreateStaffAction;
 use App\Models\Category;
 use App\Models\Menu;
 use App\Models\ModifierGroup;
@@ -54,7 +53,20 @@ trait InteractsWithTenants
 
     /**
      * Create a fully-wired operational staff member (user + organization_users
-     * + restaurant_users + user_roles) via the real creation action.
+     * + restaurant_users + user_roles) directly — fixture setup, not a test
+     * of CreateStaffAction itself.
+     *
+     * Deliberately does NOT call CreateStaffAction: that Action requires a
+     * real actor and always records staff.created (Bloco 16's audit-actor
+     * hardening — see report). A generic test fixture has no real acting
+     * user and must not invent one just to produce an AuditLog nobody
+     * asked for. Tests that actually exercise staff creation as a domain
+     * operation (transaction behavior, AuditLog content, ...) must call
+     * CreateStaffAction directly with an explicit actor instead of this
+     * helper — see StaffTransactionTest and the AuditLog staff tests.
+     *
+     * Mirrors CreateStaffAction's wiring exactly: organization_users
+     * attach, restaurant_users attach with sub_id, one user_roles row.
      */
     protected function createStaff(
         Organization $organization,
@@ -64,14 +76,25 @@ trait InteractsWithTenants
         ?string $email = null,
         ?string $name = null,
     ): User {
-        return app(CreateStaffAction::class)->execute($organization, [
+        $user = User::factory()->create([
             'name' => $name ?? 'Staff Member',
             'email' => $email ?? sprintf('staff-%s@example.com', uniqid()),
             'password' => 'password123',
-            'restaurant_id' => $restaurant->id,
-            'role' => $role,
-            'sub_id' => $subId,
         ]);
+
+        $organization->users()->attach($user->id);
+        $restaurant->users()->attach($user->id, ['sub_id' => $subId]);
+
+        $roleModel = Role::query()->where('slug', $role)->firstOrFail();
+
+        UserRole::query()->create([
+            'user_id' => $user->id,
+            'role_id' => $roleModel->id,
+            'organization_id' => $organization->id,
+            'restaurant_id' => $restaurant->id,
+        ]);
+
+        return $user;
     }
 
     /**

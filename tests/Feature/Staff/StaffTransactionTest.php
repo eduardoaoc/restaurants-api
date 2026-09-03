@@ -5,6 +5,7 @@ namespace Tests\Feature\Staff;
 use App\Actions\Staff\CreateStaffAction;
 use App\Models\Organization;
 use App\Models\Restaurant;
+use App\Models\User;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\Concerns\InteractsWithTenants;
@@ -48,7 +49,7 @@ class StaffTransactionTest extends TestCase
                 'restaurant_id' => $restaurantFromOtherOrganization->id,
                 'role' => 'waiter',
                 'sub_id' => 'W-1',
-            ]);
+            ], User::factory()->create());
 
             $this->fail('Expected the action to throw because the restaurant does not belong to the organization.');
         } catch (ModelNotFoundException) {

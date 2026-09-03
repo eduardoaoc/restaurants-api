@@ -21,11 +21,13 @@ class CreateStaffAction
     /**
      * @param  array{name: string, email: string, password: string, restaurant_id: int, role: string, sub_id: string}  $data
      *
-     * $actor is optional so direct/internal callers (e.g. test fixtures)
-     * aren't forced to supply one — an audit event is only recorded when
-     * an actor is given, which every real HTTP call site does.
+     * $actor is mandatory — there is no fallback to a "system" actor and
+     * no silent audit skip. Every caller, including test fixtures, must
+     * supply a real acting user; see InteractsWithTenants::createStaff()
+     * for how test fixtures satisfy this without testing the Action
+     * itself.
      */
-    public function execute(Organization $organization, array $data, ?User $actor = null): User
+    public function execute(Organization $organization, array $data, User $actor): User
     {
         return DB::transaction(function () use ($organization, $data, $actor) {
             $user = User::query()->create([
@@ -51,18 +53,16 @@ class CreateStaffAction
                 'restaurant_id' => $restaurant->id,
             ]);
 
-            if ($actor) {
-                $this->auditLogger->log(
-                    organizationId: $organization->id,
-                    restaurantId: $restaurant->id,
-                    actorType: AuditLog::ACTOR_USER,
-                    actor: $actor,
-                    event: AuditLog::EVENT_STAFF_CREATED,
-                    resourceType: AuditLog::RESOURCE_STAFF,
-                    resourceId: $user->id,
-                    metadata: ['restaurant_id' => $restaurant->id],
-                );
-            }
+            $this->auditLogger->log(
+                organizationId: $organization->id,
+                restaurantId: $restaurant->id,
+                actorType: AuditLog::ACTOR_USER,
+                actor: $actor,
+                event: AuditLog::EVENT_STAFF_CREATED,
+                resourceType: AuditLog::RESOURCE_STAFF,
+                resourceId: $user->id,
+                metadata: ['restaurant_id' => $restaurant->id],
+            );
 
             return $user;
         });

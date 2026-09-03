@@ -22,13 +22,15 @@ class UpdateStaffAction
     /**
      * @param  array{name?: string, email?: string, restaurant_id?: int, role?: string, sub_id?: string}  $data
      *
-     * $actor is optional (see CreateStaffAction). Audit `changes` is an
-     * explicit whitelist — name, restaurant_id, role, sub_id — never
-     * email (PII minimization, even though the field can be updated) and
-     * never a raw dirty-attributes dump. No audit event at all is
-     * recorded when nothing in the whitelist actually changed.
+     * $actor is mandatory — no fallback, no silent audit skip (see
+     * CreateStaffAction). Audit `changes` is an explicit whitelist — name,
+     * restaurant_id, role, sub_id — never email (PII minimization, even
+     * though the field can be updated) and never a raw dirty-attributes
+     * dump. No audit event at all is recorded when nothing in the
+     * whitelist actually changed — a real actor does not mean a no-op
+     * update gets logged.
      */
-    public function execute(Organization $organization, User $staff, array $data, ?User $actor = null): User
+    public function execute(Organization $organization, User $staff, array $data, User $actor): User
     {
         return DB::transaction(function () use ($organization, $staff, $data, $actor) {
             $originalName = $staff->name;
@@ -74,38 +76,36 @@ class UpdateStaffAction
                 }
             }
 
-            if ($actor) {
-                $changes = [];
+            $changes = [];
 
-                if ($staff->wasChanged('name')) {
-                    $changes['name'] = ['old' => $originalName, 'new' => $staff->name];
-                }
+            if ($staff->wasChanged('name')) {
+                $changes['name'] = ['old' => $originalName, 'new' => $staff->name];
+            }
 
-                if ($restaurantUser && $restaurantUser->wasChanged('restaurant_id')) {
-                    $changes['restaurant_id'] = ['old' => $originalRestaurantId, 'new' => $restaurantUser->restaurant_id];
-                }
+            if ($restaurantUser && $restaurantUser->wasChanged('restaurant_id')) {
+                $changes['restaurant_id'] = ['old' => $originalRestaurantId, 'new' => $restaurantUser->restaurant_id];
+            }
 
-                if ($restaurantUser && $restaurantUser->wasChanged('sub_id')) {
-                    $changes['sub_id'] = ['old' => $originalSubId, 'new' => $restaurantUser->sub_id];
-                }
+            if ($restaurantUser && $restaurantUser->wasChanged('sub_id')) {
+                $changes['sub_id'] = ['old' => $originalSubId, 'new' => $restaurantUser->sub_id];
+            }
 
-                if ($newRole && $originalRoleId !== $newRole->id) {
-                    $oldRoleSlug = $originalRoleId ? Role::query()->whereKey($originalRoleId)->value('slug') : null;
-                    $changes['role'] = ['old' => $oldRoleSlug, 'new' => $newRole->slug];
-                }
+            if ($newRole && $originalRoleId !== $newRole->id) {
+                $oldRoleSlug = $originalRoleId ? Role::query()->whereKey($originalRoleId)->value('slug') : null;
+                $changes['role'] = ['old' => $oldRoleSlug, 'new' => $newRole->slug];
+            }
 
-                if ($changes !== []) {
-                    $this->auditLogger->log(
-                        organizationId: $organization->id,
-                        restaurantId: $restaurantId,
-                        actorType: AuditLog::ACTOR_USER,
-                        actor: $actor,
-                        event: AuditLog::EVENT_STAFF_UPDATED,
-                        resourceType: AuditLog::RESOURCE_STAFF,
-                        resourceId: $staff->id,
-                        changes: $changes,
-                    );
-                }
+            if ($changes !== []) {
+                $this->auditLogger->log(
+                    organizationId: $organization->id,
+                    restaurantId: $restaurantId,
+                    actorType: AuditLog::ACTOR_USER,
+                    actor: $actor,
+                    event: AuditLog::EVENT_STAFF_UPDATED,
+                    resourceType: AuditLog::RESOURCE_STAFF,
+                    resourceId: $staff->id,
+                    changes: $changes,
+                );
             }
 
             return $staff;
