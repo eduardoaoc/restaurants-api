@@ -5,6 +5,8 @@ namespace App\Actions\TableRequests;
 use App\Actions\Public\ResolvePublicTableAction;
 use App\Exceptions\Billing\TableSessionAlreadyPaidException;
 use App\Exceptions\Orders\TableSessionNotActiveException;
+use App\Exceptions\Public\BillRequestDisabledException;
+use App\Exceptions\Public\WaiterCallDisabledException;
 use App\Exceptions\TableRequests\TableRequestAlreadyOpenException;
 use App\Models\AuditLog;
 use App\Models\TableRequest;
@@ -36,6 +38,19 @@ class CreatePublicTableRequestAction
     public function execute(string $publicToken, string $type, ?string $note): TableRequest
     {
         $table = $this->resolvePublicTable->execute($publicToken);
+
+        // Feature-enabled check before the active-session check — same
+        // ordering as CreatePublicOrderAction, see report.
+        $settings = $table->restaurant->settings;
+
+        if ($type === TableRequest::TYPE_CALL_WAITER && ! $settings->waiter_call_enabled) {
+            throw new WaiterCallDisabledException;
+        }
+
+        if ($type === TableRequest::TYPE_REQUEST_BILL && ! $settings->bill_request_enabled) {
+            throw new BillRequestDisabledException;
+        }
+
         $session = $table->activeSession;
 
         if (! $session) {

@@ -36,7 +36,7 @@ class PublicTableRequestController extends Controller
         responses: [
             new OA\Response(response: 201, description: 'Request created', content: new OA\JsonContent(ref: '#/components/schemas/PublicTableRequest')),
             new OA\Response(response: 404, description: 'Table not found or not publicly servable', content: new OA\JsonContent(ref: '#/components/schemas/PublicApiError')),
-            new OA\Response(response: 409, description: 'No active table session, or a call_waiter request is already open for this session', content: new OA\JsonContent(ref: '#/components/schemas/PublicApiError')),
+            new OA\Response(response: 409, description: 'No active table session, a call_waiter request is already open for this session, or WAITER_CALL_DISABLED', content: new OA\JsonContent(ref: '#/components/schemas/PublicApiError')),
             new OA\Response(response: 422, description: 'Malformed request', content: new OA\JsonContent(ref: '#/components/schemas/PublicApiError')),
             new OA\Response(response: 429, description: 'Too many requests', content: new OA\JsonContent(ref: '#/components/schemas/PublicApiError')),
         ]
@@ -67,7 +67,7 @@ class PublicTableRequestController extends Controller
         responses: [
             new OA\Response(response: 201, description: 'Request created', content: new OA\JsonContent(ref: '#/components/schemas/PublicTableRequest')),
             new OA\Response(response: 404, description: 'Table not found or not publicly servable', content: new OA\JsonContent(ref: '#/components/schemas/PublicApiError')),
-            new OA\Response(response: 409, description: 'No active table session, or a request_bill request is already open for this session', content: new OA\JsonContent(ref: '#/components/schemas/PublicApiError')),
+            new OA\Response(response: 409, description: 'No active table session, a request_bill request is already open for this session, or BILL_REQUEST_DISABLED', content: new OA\JsonContent(ref: '#/components/schemas/PublicApiError')),
             new OA\Response(response: 422, description: 'Malformed request', content: new OA\JsonContent(ref: '#/components/schemas/PublicApiError')),
             new OA\Response(response: 429, description: 'Too many requests', content: new OA\JsonContent(ref: '#/components/schemas/PublicApiError')),
         ]

@@ -63,6 +63,7 @@ class KitchenTicketTest extends TestCase
     public function test_waiting_approval_order_is_not_printable(): void
     {
         [, $owner, $restaurant, $rp] = $this->createTenantWithRestaurantProduct();
+        $this->requireOrderApproval($restaurant);
         $table = $this->createTable($restaurant);
         $this->openSession($table, $owner);
         $order = $this->createCustomerOrder($table, [['restaurant_product_id' => $rp->id, 'quantity' => 1]]);
@@ -77,6 +78,7 @@ class KitchenTicketTest extends TestCase
     public function test_cancelled_order_is_not_printable(): void
     {
         [, $owner, $restaurant, $rp] = $this->createTenantWithRestaurantProduct();
+        $this->requireOrderApproval($restaurant);
         $table = $this->createTable($restaurant);
         $this->openSession($table, $owner);
         $order = $this->createCustomerOrder($table, [['restaurant_product_id' => $rp->id, 'quantity' => 1]]);
@@ -91,6 +93,7 @@ class KitchenTicketTest extends TestCase
     public function test_not_printable_applies_equally_to_print_endpoint(): void
     {
         [, $owner, $restaurant, $rp] = $this->createTenantWithRestaurantProduct();
+        $this->requireOrderApproval($restaurant);
         $table = $this->createTable($restaurant);
         $this->openSession($table, $owner);
         $order = $this->createCustomerOrder($table, [['restaurant_product_id' => $rp->id, 'quantity' => 1]]);

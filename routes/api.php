@@ -19,7 +19,9 @@ use App\Http\Controllers\Api\V1\Public\PublicOrderController;
 use App\Http\Controllers\Api\V1\Public\PublicTableController;
 use App\Http\Controllers\Api\V1\Public\PublicTableRequestController;
 use App\Http\Controllers\Api\V1\RestaurantController;
+use App\Http\Controllers\Api\V1\RestaurantDashboardController;
 use App\Http\Controllers\Api\V1\RestaurantProductController;
+use App\Http\Controllers\Api\V1\RestaurantSettingsController;
 use App\Http\Controllers\Api\V1\StaffController;
 use App\Http\Controllers\Api\V1\StaffPerformanceController;
 use App\Http\Controllers\Api\V1\StaffReviewController;
@@ -69,6 +71,9 @@ Route::prefix('v1')->group(function () {
         Route::post('/restaurants', [RestaurantController::class, 'store']);
         Route::get('/restaurants/{restaurant}', [RestaurantController::class, 'show']);
         Route::patch('/restaurants/{restaurant}', [RestaurantController::class, 'update']);
+        Route::get('/restaurants/{restaurant}/dashboard', [RestaurantDashboardController::class, 'show']);
+        Route::get('/restaurants/{restaurant}/settings', [RestaurantSettingsController::class, 'show']);
+        Route::patch('/restaurants/{restaurant}/settings', [RestaurantSettingsController::class, 'update']);
 
         Route::get('/staff', [StaffController::class, 'index']);
         Route::post('/staff', [StaffController::class, 'store']);
@@ -76,9 +81,9 @@ Route::prefix('v1')->group(function () {
         Route::patch('/staff/{user}', [StaffController::class, 'update']);
 
         Route::get('/me/performance', [StaffPerformanceController::class, 'me']);
-        Route::get('/staff/{staff}/performance', [StaffPerformanceController::class, 'show']);
-        Route::post('/staff/{staff}/reviews', [StaffReviewController::class, 'store']);
-        Route::get('/staff/{staff}/reviews', [StaffReviewController::class, 'index']);
+        Route::get('/restaurants/{restaurant}/staff/{staff}/performance', [StaffPerformanceController::class, 'show']);
+        Route::post('/restaurants/{restaurant}/staff/{staff}/reviews', [StaffReviewController::class, 'store']);
+        Route::get('/restaurants/{restaurant}/staff/{staff}/reviews', [StaffReviewController::class, 'index']);
 
         Route::get('/restaurants/{restaurant}/tables', [TableController::class, 'index']);
         Route::post('/restaurants/{restaurant}/tables', [TableController::class, 'store']);

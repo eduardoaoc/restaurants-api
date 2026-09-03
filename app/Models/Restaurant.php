@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
-#[Fillable(['organization_id', 'name', 'slug', 'status', 'timezone', 'default_locale'])]
+#[Fillable(['organization_id', 'name', 'slug', 'status'])]
 class Restaurant extends Model
 {
     /** @use HasFactory<RestaurantFactory> */
@@ -67,6 +67,17 @@ class Restaurant extends Model
     public function menu(): HasOne
     {
         return $this->hasOne(Menu::class);
+    }
+
+    /**
+     * This restaurant's operational configuration — always present for a
+     * real Restaurant (see RestaurantSettings::createDefaultsFor()).
+     *
+     * @return HasOne<RestaurantSettings, $this>
+     */
+    public function settings(): HasOne
+    {
+        return $this->hasOne(RestaurantSettings::class);
     }
 
     /**

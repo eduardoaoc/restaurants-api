@@ -10,13 +10,24 @@ use App\Models\User;
  * Determines which restaurants of an organization a user may operate on
  * for restaurant-scoped operational data (Orders).
  *
- * Organization membership alone is not enough: a user holding at least one
- * organization-wide role assignment (user_roles.restaurant_id is null —
- * this is how the owner is set up; see InteractsWithTenants::assignRole())
- * may operate on every restaurant of the organization. A user whose role
- * assignments are all restaurant-scoped (operational staff, wired up by
- * CreateStaffAction alongside restaurant_users) is restricted to exactly
- * those restaurants.
+ * Three separate concepts (Bloco 18 — see report):
+ *   - Organization membership (organization_users) — is this user part of
+ *     the tenant at all. Not this class's concern.
+ *   - Restaurant membership/scope (restaurant_users) — which specific
+ *     restaurants an operational user may operate on. THIS class.
+ *   - Role/permission (user_roles + roles.permissions) — what an
+ *     authenticated user is allowed to DO, entirely independent of which
+ *     restaurants they can reach. Membership in a restaurant never widens
+ *     what a role permits, and a permission never widens which restaurants
+ *     are reachable.
+ *
+ * A user holding at least one organization-wide role assignment
+ * (user_roles.restaurant_id is null — this is how the owner is set up; see
+ * InteractsWithTenants::assignRole()) may operate on every restaurant of
+ * the organization, resolved dynamically (never one restaurant_users row
+ * per restaurant for the owner — see CreateStaffAction/report). Every
+ * other user (operational staff) is restricted to exactly the restaurants
+ * they hold an explicit restaurant_users row for — 1..N, never a wildcard.
  */
 class RestaurantScope
 {
@@ -34,11 +45,9 @@ class RestaurantScope
             return null;
         }
 
-        return $user->userRoles()
-            ->where('organization_id', $organization->id)
-            ->whereNotNull('restaurant_id')
-            ->distinct()
-            ->pluck('restaurant_id')
+        return $user->restaurants()
+            ->where('restaurants.organization_id', $organization->id)
+            ->pluck('restaurants.id')
             ->all();
     }
 

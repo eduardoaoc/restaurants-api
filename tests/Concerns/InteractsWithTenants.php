@@ -6,6 +6,7 @@ use App\Actions\Catalog\CreateCategoryAction;
 use App\Actions\Catalog\CreateModifierGroupAction;
 use App\Actions\Catalog\CreateModifierOptionAction;
 use App\Actions\Catalog\CreateProductAction;
+use App\Actions\Staff\CreateStaffAction;
 use App\Models\Category;
 use App\Models\Menu;
 use App\Models\ModifierGroup;
@@ -95,6 +96,50 @@ trait InteractsWithTenants
         ]);
 
         return $user;
+    }
+
+    /**
+     * Create a staff member linked to several restaurants at once (Carlos
+     * -> A + B), through the real CreateStaffAction — unlike createStaff()
+     * above, this exercises the multi-restaurant assignment wiring itself,
+     * so it goes through the Action rather than a direct fixture insert.
+     *
+     * @param  array<int, Restaurant>  $restaurants
+     */
+    protected function createStaffAcrossRestaurants(
+        Organization $organization,
+        array $restaurants,
+        string $role,
+        User $actor,
+        ?string $email = null,
+        ?string $name = null,
+    ): User {
+        return app(CreateStaffAction::class)->execute($organization, [
+            'name' => $name ?? 'Multi Restaurant Staff',
+            'email' => $email ?? sprintf('staff-%s@example.com', uniqid()),
+            'password' => 'password123',
+            'role' => $role,
+            'restaurant_assignments' => collect($restaurants)
+                ->map(fn (Restaurant $restaurant) => [
+                    'restaurant_id' => $restaurant->id,
+                    'sub_id' => 'MS-'.$restaurant->id,
+                ])
+                ->values()
+                ->all(),
+        ], $actor);
+    }
+
+    /**
+     * Switch a restaurant to the pre-Bloco-18 controlled-approval flow:
+     * a customer_qr order starts waiting_approval and needs a waiter to
+     * approve it. Restaurants default to customer_order_requires_approval
+     * = false (auto-confirm) since Bloco 18 — tests that specifically
+     * exercise the controlled flow must opt into it explicitly here rather
+     * than relying on the old default.
+     */
+    protected function requireOrderApproval(Restaurant $restaurant): void
+    {
+        $restaurant->settings()->update(['customer_order_requires_approval' => true]);
     }
 
     /**

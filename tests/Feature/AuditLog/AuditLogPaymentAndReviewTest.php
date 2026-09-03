@@ -79,7 +79,7 @@ class AuditLogPaymentAndReviewTest extends TestCase
         $waiter = $this->createStaff($organization, $restaurant, 'waiter', 'W-1');
 
         $this->actingAs($owner, 'web')
-            ->postJson("/api/v1/staff/{$waiter->id}/reviews", [
+            ->postJson("/api/v1/restaurants/{$restaurant->id}/staff/{$waiter->id}/reviews", [
                 'rating' => 4,
                 'comment' => 'Very secret comment',
             ])
@@ -99,7 +99,7 @@ class AuditLogPaymentAndReviewTest extends TestCase
         $manager = $this->createStaff($organization, $restaurant, 'manager', 'M-1');
 
         $this->actingAs($manager, 'web')
-            ->postJson("/api/v1/staff/{$manager->id}/reviews", ['rating' => 5])
+            ->postJson("/api/v1/restaurants/{$restaurant->id}/staff/{$manager->id}/reviews", ['rating' => 5])
             ->assertStatus(422);
 
         $this->assertSame(0, AuditLog::query()->where('event', AuditLog::EVENT_STAFF_REVIEW_CREATED)->count());

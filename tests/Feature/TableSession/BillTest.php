@@ -73,6 +73,7 @@ class BillTest extends TestCase
     public function test_waiting_approval_order_is_excluded_from_the_total(): void
     {
         [, $owner, $restaurant, $rp] = $this->createTenantWithRestaurantProduct();
+        $this->requireOrderApproval($restaurant);
         $table = $this->createTable($restaurant);
         $session = $this->openSession($table, $owner);
         $this->createCustomerOrder($table, [['restaurant_product_id' => $rp->id, 'quantity' => 1]]);

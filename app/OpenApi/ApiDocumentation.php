@@ -48,15 +48,13 @@ use OpenApi\Attributes as OA;
 )]
 #[OA\Schema(
     schema: 'Restaurant',
-    required: ['id', 'organization_id', 'name', 'slug', 'status', 'timezone', 'default_locale'],
+    required: ['id', 'organization_id', 'name', 'slug', 'status'],
     properties: [
         new OA\Property(property: 'id', type: 'integer', format: 'int64', example: 1),
         new OA\Property(property: 'organization_id', type: 'integer', format: 'int64', example: 1),
         new OA\Property(property: 'name', type: 'string', example: 'Downtown Branch'),
         new OA\Property(property: 'slug', type: 'string', example: 'downtown-branch'),
         new OA\Property(property: 'status', type: 'string', example: 'active'),
-        new OA\Property(property: 'timezone', type: 'string', example: 'America/Sao_Paulo'),
-        new OA\Property(property: 'default_locale', type: 'string', example: 'pt-BR'),
         new OA\Property(property: 'created_at', type: 'string', format: 'date-time'),
         new OA\Property(property: 'updated_at', type: 'string', format: 'date-time'),
     ],
@@ -64,14 +62,15 @@ use OpenApi\Attributes as OA;
 )]
 #[OA\Schema(
     schema: 'Staff',
-    required: ['id', 'name', 'email', 'sub_id', 'role', 'restaurant'],
+    description: 'An operational staff member with 1..N restaurant assignments — never a wildcard/all-restaurants marker (see report).',
+    required: ['id', 'name', 'email', 'role', 'restaurants'],
     properties: [
         new OA\Property(property: 'id', type: 'integer', format: 'int64', example: 10),
         new OA\Property(property: 'name', type: 'string', example: 'Carlos'),
         new OA\Property(property: 'email', type: 'string', format: 'email', example: 'carlos@example.com'),
-        new OA\Property(property: 'sub_id', type: 'string', example: 'W-023'),
         new OA\Property(
             property: 'role',
+            description: 'The same operational role applies across every one of this staff member\'s restaurants in this MVP.',
             properties: [
                 new OA\Property(property: 'id', type: 'integer', format: 'int64', example: 3),
                 new OA\Property(property: 'slug', type: 'string', example: 'waiter'),
@@ -79,15 +78,63 @@ use OpenApi\Attributes as OA;
             type: 'object'
         ),
         new OA\Property(
-            property: 'restaurant',
-            properties: [
-                new OA\Property(property: 'id', type: 'integer', format: 'int64', example: 2),
-                new OA\Property(property: 'name', type: 'string', example: 'Restaurante Centro'),
-            ],
-            type: 'object'
+            property: 'restaurants',
+            type: 'array',
+            items: new OA\Items(ref: '#/components/schemas/StaffRestaurantAssignment')
         ),
         new OA\Property(property: 'created_at', type: 'string', format: 'date-time'),
         new OA\Property(property: 'updated_at', type: 'string', format: 'date-time'),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
+    schema: 'StaffRestaurantAssignment',
+    required: ['id', 'name', 'sub_id'],
+    properties: [
+        new OA\Property(property: 'id', type: 'integer', format: 'int64', example: 2),
+        new OA\Property(property: 'name', type: 'string', example: 'Restaurante Centro'),
+        new OA\Property(property: 'sub_id', type: 'string', example: 'W-023'),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
+    schema: 'StaffRestaurantAssignmentInput',
+    required: ['restaurant_id', 'sub_id'],
+    properties: [
+        new OA\Property(property: 'restaurant_id', type: 'integer', format: 'int64', example: 10),
+        new OA\Property(property: 'sub_id', type: 'string', example: 'W-014'),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
+    schema: 'CreateStaffRequest',
+    required: ['name', 'email', 'password', 'role', 'restaurant_assignments'],
+    properties: [
+        new OA\Property(property: 'name', type: 'string', example: 'Carlos García'),
+        new OA\Property(property: 'email', type: 'string', format: 'email', example: 'carlos@example.com'),
+        new OA\Property(property: 'password', type: 'string', format: 'password', example: 'TemporaryPassword123!'),
+        new OA\Property(property: 'role', type: 'string', example: 'waiter'),
+        new OA\Property(
+            property: 'restaurant_assignments',
+            description: 'At least 1 required. Every restaurant_id must belong to the active organization and be reachable via the requester\'s own restaurant scope.',
+            type: 'array',
+            items: new OA\Items(ref: '#/components/schemas/StaffRestaurantAssignmentInput')
+        ),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
+    schema: 'UpdateStaffRequest',
+    properties: [
+        new OA\Property(property: 'name', type: 'string', example: 'Carlos García'),
+        new OA\Property(property: 'email', type: 'string', format: 'email', example: 'carlos@example.com'),
+        new OA\Property(property: 'role', type: 'string', example: 'waiter'),
+        new OA\Property(
+            property: 'restaurant_assignments',
+            description: 'When sent, REPLACES the staff member\'s full restaurant set (at least 1 entry required — never empty).',
+            type: 'array',
+            items: new OA\Items(ref: '#/components/schemas/StaffRestaurantAssignmentInput')
+        ),
     ],
     type: 'object'
 )]
@@ -277,10 +324,22 @@ use OpenApi\Attributes as OA;
 )]
 #[OA\Schema(
     schema: 'PublicRestaurant',
-    required: ['id', 'name'],
+    required: ['id', 'name', 'default_locale', 'enabled_locales', 'capabilities'],
     properties: [
         new OA\Property(property: 'id', type: 'integer', format: 'int64', example: 3),
         new OA\Property(property: 'name', type: 'string', example: 'Aforo Centro'),
+        new OA\Property(property: 'default_locale', type: 'string', example: 'es-ES'),
+        new OA\Property(property: 'enabled_locales', type: 'array', items: new OA\Items(type: 'string'), example: ['es-ES', 'ca-ES-valencia', 'en-GB']),
+        new OA\Property(
+            property: 'capabilities',
+            description: 'Lets the frontend hide disabled actions. Never includes customer_order_requires_approval — the backend alone decides an order\'s status.',
+            properties: [
+                new OA\Property(property: 'customer_ordering', type: 'boolean', example: true),
+                new OA\Property(property: 'waiter_call', type: 'boolean', example: true),
+                new OA\Property(property: 'bill_request', type: 'boolean', example: true),
+            ],
+            type: 'object'
+        ),
     ],
     type: 'object'
 )]
@@ -1038,6 +1097,182 @@ use OpenApi\Attributes as OA;
         new OA\Property(property: 'per_page', type: 'integer', example: 25),
         new OA\Property(property: 'total', type: 'integer', example: 118),
         new OA\Property(property: 'last_page', type: 'integer', example: 5),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
+    schema: 'DashboardRestaurant',
+    required: ['id', 'name'],
+    properties: [
+        new OA\Property(property: 'id', type: 'integer', format: 'int64', example: 3),
+        new OA\Property(property: 'name', type: 'string', example: 'Aforo Centro'),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
+    schema: 'DashboardPeriod',
+    required: ['from', 'to'],
+    properties: [
+        new OA\Property(property: 'from', type: 'string', format: 'date', example: '2026-09-01'),
+        new OA\Property(property: 'to', type: 'string', format: 'date', example: '2026-09-30', description: 'Inclusive — the underlying query filters as a half-open range internally.'),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
+    schema: 'DashboardSales',
+    description: 'sales.total is SUM(payment_records.amount) recorded in the period — money actually collected, never Order totals or a fiscal revenue figure.',
+    required: ['total', 'average_ticket', 'sessions_with_payments'],
+    properties: [
+        new OA\Property(property: 'total', type: 'string', example: '1250.00'),
+        new OA\Property(property: 'average_ticket', type: 'string', example: '31.25', description: 'total / sessions_with_payments. "0.00" (never null) when sessions_with_payments is 0.'),
+        new OA\Property(property: 'sessions_with_payments', type: 'integer', example: 40, description: 'Distinct table sessions with at least one payment recorded in the period — includes partially paid sessions, not only fully-settled ones.'),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
+    schema: 'DashboardOrders',
+    required: ['created', 'served', 'cancelled', 'customer_qr', 'staff_created'],
+    properties: [
+        new OA\Property(property: 'created', type: 'integer', example: 95, description: 'Filtered by created_at.'),
+        new OA\Property(property: 'served', type: 'integer', example: 88, description: 'Filtered by served_at — may include orders created in an earlier period.'),
+        new OA\Property(property: 'cancelled', type: 'integer', example: 4, description: 'status=cancelled, filtered by cancelled_at.'),
+        new OA\Property(property: 'customer_qr', type: 'integer', example: 52, description: 'origin=customer_qr, filtered by created_at.'),
+        new OA\Property(property: 'staff_created', type: 'integer', example: 43, description: 'origin!=customer_qr, filtered by created_at.'),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
+    schema: 'DashboardTables',
+    required: ['sessions_opened', 'sessions_closed', 'current_active'],
+    properties: [
+        new OA\Property(property: 'sessions_opened', type: 'integer', example: 44, description: 'Filtered by opened_at.'),
+        new OA\Property(property: 'sessions_closed', type: 'integer', example: 40, description: 'Filtered by closed_at.'),
+        new OA\Property(property: 'current_active', type: 'integer', example: 3, description: 'A snapshot of right now (status != closed) — does NOT respect the ?from=/?to= period.'),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
+    schema: 'DashboardPaymentMethod',
+    required: ['count', 'amount'],
+    properties: [
+        new OA\Property(property: 'count', type: 'integer', example: 14),
+        new OA\Property(property: 'amount', type: 'string', example: '390.00'),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
+    schema: 'DashboardPayments',
+    required: ['total_records', 'by_method'],
+    properties: [
+        new OA\Property(property: 'total_records', type: 'integer', example: 43),
+        new OA\Property(
+            property: 'by_method',
+            description: 'Always includes cash/card/other, zero-filled when a method had no records in the period.',
+            properties: [
+                new OA\Property(property: 'cash', ref: '#/components/schemas/DashboardPaymentMethod'),
+                new OA\Property(property: 'card', ref: '#/components/schemas/DashboardPaymentMethod'),
+                new OA\Property(property: 'other', ref: '#/components/schemas/DashboardPaymentMethod'),
+            ],
+            type: 'object'
+        ),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
+    schema: 'DashboardRequests',
+    description: 'Response-time metrics (pending->acknowledged->completed durations) are out of scope for this endpoint.',
+    required: ['call_waiter', 'request_bill', 'completed'],
+    properties: [
+        new OA\Property(property: 'call_waiter', type: 'integer', example: 21, description: 'Filtered by created_at.'),
+        new OA\Property(property: 'request_bill', type: 'integer', example: 17, description: 'Filtered by created_at.'),
+        new OA\Property(property: 'completed', type: 'integer', example: 35, description: 'status=completed, filtered by completed_at.'),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
+    schema: 'DashboardTopStaff',
+    required: ['staff', 'orders_served'],
+    properties: [
+        new OA\Property(
+            property: 'staff',
+            required: ['id', 'name'],
+            properties: [
+                new OA\Property(property: 'id', type: 'integer', format: 'int64', example: 10),
+                new OA\Property(property: 'name', type: 'string', example: 'Carlos'),
+            ],
+            type: 'object'
+        ),
+        new OA\Property(property: 'orders_served', type: 'integer', example: 42),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
+    schema: 'DashboardStaff',
+    description: 'A purely factual ordering by orders served — never a performance score or rating (see StaffPerformance for that).',
+    required: ['top_by_orders_served'],
+    properties: [
+        new OA\Property(
+            property: 'top_by_orders_served',
+            type: 'array',
+            maxItems: 5,
+            items: new OA\Items(ref: '#/components/schemas/DashboardTopStaff')
+        ),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
+    schema: 'RestaurantDashboard',
+    required: ['restaurant', 'period', 'sales', 'orders', 'tables', 'payments', 'requests', 'staff'],
+    properties: [
+        new OA\Property(property: 'restaurant', ref: '#/components/schemas/DashboardRestaurant'),
+        new OA\Property(property: 'period', ref: '#/components/schemas/DashboardPeriod'),
+        new OA\Property(property: 'sales', ref: '#/components/schemas/DashboardSales'),
+        new OA\Property(property: 'orders', ref: '#/components/schemas/DashboardOrders'),
+        new OA\Property(property: 'tables', ref: '#/components/schemas/DashboardTables'),
+        new OA\Property(property: 'payments', ref: '#/components/schemas/DashboardPayments'),
+        new OA\Property(property: 'requests', ref: '#/components/schemas/DashboardRequests'),
+        new OA\Property(property: 'staff', ref: '#/components/schemas/DashboardStaff'),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
+    schema: 'RestaurantSettings',
+    description: 'A restaurant\'s operational configuration. Money presentation stays server-side-neutral — "12.50"/currency, never localized here.',
+    required: [
+        'default_locale', 'enabled_locales', 'currency', 'timezone',
+        'customer_ordering_enabled', 'customer_order_requires_approval',
+        'waiter_call_enabled', 'bill_request_enabled',
+        'kitchen_ticket_printing_enabled', 'bill_receipt_printing_enabled',
+    ],
+    properties: [
+        new OA\Property(property: 'default_locale', type: 'string', example: 'es-ES', description: 'One of es-ES / ca-ES-valencia / en-GB. Always a member of enabled_locales.'),
+        new OA\Property(property: 'enabled_locales', type: 'array', items: new OA\Items(type: 'string'), example: ['es-ES', 'ca-ES-valencia', 'en-GB']),
+        new OA\Property(property: 'currency', type: 'string', example: 'EUR', description: 'ISO 4217. Only EUR is accepted in this MVP.'),
+        new OA\Property(property: 'timezone', type: 'string', example: 'Europe/Madrid'),
+        new OA\Property(property: 'customer_ordering_enabled', type: 'boolean', example: true),
+        new OA\Property(property: 'customer_order_requires_approval', type: 'boolean', example: false, description: 'false: a customer_qr order is auto-confirmed straight into the KDS. true: it waits for waiter approval (the pre-Bloco-18 flow).'),
+        new OA\Property(property: 'waiter_call_enabled', type: 'boolean', example: true),
+        new OA\Property(property: 'bill_request_enabled', type: 'boolean', example: true),
+        new OA\Property(property: 'kitchen_ticket_printing_enabled', type: 'boolean', example: true, description: 'Gates POST .../kitchen-ticket/print only — the GET preview is always available.'),
+        new OA\Property(property: 'bill_receipt_printing_enabled', type: 'boolean', example: true, description: 'Gates POST .../receipt/print only — the GET preview is always available.'),
+        new OA\Property(property: 'updated_at', type: 'string', format: 'date-time'),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
+    schema: 'UpdateRestaurantSettingsRequest',
+    description: 'Every field is optional (PATCH semantics). organization_id/restaurant_id are never accepted.',
+    properties: [
+        new OA\Property(property: 'default_locale', type: 'string', example: 'ca-ES-valencia'),
+        new OA\Property(property: 'enabled_locales', type: 'array', items: new OA\Items(type: 'string'), example: ['es-ES', 'en-GB']),
+        new OA\Property(property: 'currency', type: 'string', example: 'EUR'),
+        new OA\Property(property: 'timezone', type: 'string', example: 'Europe/Madrid'),
+        new OA\Property(property: 'customer_ordering_enabled', type: 'boolean', example: true),
+        new OA\Property(property: 'customer_order_requires_approval', type: 'boolean', example: false),
+        new OA\Property(property: 'waiter_call_enabled', type: 'boolean', example: true),
+        new OA\Property(property: 'bill_request_enabled', type: 'boolean', example: true),
+        new OA\Property(property: 'kitchen_ticket_printing_enabled', type: 'boolean', example: true),
+        new OA\Property(property: 'bill_receipt_printing_enabled', type: 'boolean', example: true),
     ],
     type: 'object'
 )]

@@ -28,9 +28,10 @@ class AuditLogStaffTest extends TestCase
             'name' => 'Carlos',
             'email' => 'carlos-'.uniqid().'@example.com',
             'password' => 'password123',
-            'restaurant_id' => $restaurant->id,
             'role' => 'waiter',
-            'sub_id' => 'W-1',
+            'restaurant_assignments' => [
+                ['restaurant_id' => $restaurant->id, 'sub_id' => 'W-1'],
+            ],
         ])->assertCreated();
 
         $this->assertSame(1, AuditLog::query()->where('event', AuditLog::EVENT_STAFF_CREATED)->count());
@@ -41,7 +42,28 @@ class AuditLogStaffTest extends TestCase
         $this->assertSame($owner->id, $log->actor_user_id);
         $this->assertSame(AuditLog::ACTOR_USER, $log->actor_type);
         $this->assertSame(AuditLog::RESOURCE_STAFF, $log->resource_type);
-        $this->assertEquals(['restaurant_id' => $restaurant->id], $log->metadata);
+        $this->assertEquals(['restaurant_ids' => [$restaurant->id]], $log->metadata);
+    }
+
+    public function test_multi_restaurant_staff_created_records_null_restaurant_id_with_full_list_in_metadata(): void
+    {
+        [$organization, $owner, $restaurantA] = $this->createTenant();
+        $restaurantB = Restaurant::factory()->create(['organization_id' => $organization->id]);
+
+        $this->actingAs($owner, 'web')->postJson('/api/v1/staff', [
+            'name' => 'Carlos',
+            'email' => 'carlos-'.uniqid().'@example.com',
+            'password' => 'password123',
+            'role' => 'waiter',
+            'restaurant_assignments' => [
+                ['restaurant_id' => $restaurantA->id, 'sub_id' => 'W-A'],
+                ['restaurant_id' => $restaurantB->id, 'sub_id' => 'W-B'],
+            ],
+        ])->assertCreated();
+
+        $log = AuditLog::query()->where('event', AuditLog::EVENT_STAFF_CREATED)->first();
+        $this->assertNull($log->restaurant_id);
+        $this->assertEqualsCanonicalizing([$restaurantA->id, $restaurantB->id], $log->metadata['restaurant_ids']);
     }
 
     public function test_staff_updated_records_name_change(): void
@@ -85,6 +107,28 @@ class AuditLogStaffTest extends TestCase
             ->assertOk();
 
         $log = AuditLog::query()->where('event', AuditLog::EVENT_STAFF_UPDATED)->first();
+        $this->assertArrayNotHasKey('email', $log->changes);
+    }
+
+    public function test_staff_updated_records_restaurant_ids_change(): void
+    {
+        [$organization, $owner, $restaurantA] = $this->createTenant();
+        $restaurantB = Restaurant::factory()->create(['organization_id' => $organization->id]);
+        $staff = $this->createStaff($organization, $restaurantA, 'waiter', 'W-1');
+
+        $this->actingAs($owner, 'web')
+            ->patchJson("/api/v1/staff/{$staff->id}", [
+                'restaurant_assignments' => [
+                    ['restaurant_id' => $restaurantB->id, 'sub_id' => 'W-1'],
+                ],
+            ])
+            ->assertOk();
+
+        $log = AuditLog::query()->where('event', AuditLog::EVENT_STAFF_UPDATED)->first();
+        $this->assertEquals(
+            ['old' => [$restaurantA->id], 'new' => [$restaurantB->id]],
+            $log->changes['restaurant_ids'],
+        );
         $this->assertArrayNotHasKey('email', $log->changes);
     }
 

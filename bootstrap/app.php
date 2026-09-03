@@ -14,10 +14,16 @@ use App\Exceptions\Orders\InvalidOrderItemException;
 use App\Exceptions\Orders\OrderCreationConflictException;
 use App\Exceptions\Orders\OrderStateConflictException;
 use App\Exceptions\Orders\TableSessionNotActiveException;
+use App\Exceptions\Printing\BillReceiptPrintingDisabledException;
+use App\Exceptions\Printing\KitchenTicketPrintingDisabledException;
 use App\Exceptions\Printing\OrderNotPrintableException;
+use App\Exceptions\Public\BillRequestDisabledException;
+use App\Exceptions\Public\CustomerOrderingDisabledException;
 use App\Exceptions\Public\InvalidPublicLocaleException;
 use App\Exceptions\Public\PublicMenuNotAvailableException;
 use App\Exceptions\Public\PublicTableNotFoundException;
+use App\Exceptions\Public\WaiterCallDisabledException;
+use App\Exceptions\Reports\InvalidReportPeriodException;
 use App\Exceptions\Staff\CannotReviewSelfException;
 use App\Exceptions\Staff\InvalidPerformancePeriodException;
 use App\Exceptions\TableRequests\TableRequestAlreadyOpenException;
@@ -155,6 +161,36 @@ return Application::configure(basePath: dirname(__DIR__))
             return response()->json([
                 'error' => ['code' => 'INVALID_PERFORMANCE_PERIOD', 'message' => 'The performance period is invalid.'],
             ], 422);
+        });
+        $exceptions->render(function (InvalidReportPeriodException $e, Request $request) {
+            return response()->json([
+                'error' => ['code' => 'INVALID_REPORT_PERIOD', 'message' => 'The report period is invalid.'],
+            ], 422);
+        });
+        $exceptions->render(function (CustomerOrderingDisabledException $e, Request $request) {
+            return response()->json([
+                'error' => ['code' => 'CUSTOMER_ORDERING_DISABLED', 'message' => 'Customer ordering is disabled for this restaurant.'],
+            ], 409);
+        });
+        $exceptions->render(function (WaiterCallDisabledException $e, Request $request) {
+            return response()->json([
+                'error' => ['code' => 'WAITER_CALL_DISABLED', 'message' => 'Calling the waiter is disabled for this restaurant.'],
+            ], 409);
+        });
+        $exceptions->render(function (BillRequestDisabledException $e, Request $request) {
+            return response()->json([
+                'error' => ['code' => 'BILL_REQUEST_DISABLED', 'message' => 'Requesting the bill is disabled for this restaurant.'],
+            ], 409);
+        });
+        $exceptions->render(function (KitchenTicketPrintingDisabledException $e, Request $request) {
+            return response()->json([
+                'error' => ['code' => 'KITCHEN_TICKET_PRINTING_DISABLED', 'message' => 'Kitchen ticket printing is disabled for this restaurant.'],
+            ], 409);
+        });
+        $exceptions->render(function (BillReceiptPrintingDisabledException $e, Request $request) {
+            return response()->json([
+                'error' => ['code' => 'BILL_RECEIPT_PRINTING_DISABLED', 'message' => 'Bill receipt printing is disabled for this restaurant.'],
+            ], 409);
         });
         $exceptions->render(function (ThrottleRequestsException $e, Request $request) {
             if (! $request->is('api/v1/public/*')) {

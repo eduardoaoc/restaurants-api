@@ -46,7 +46,7 @@ class StaffPerformanceMetricsTest extends TestCase
         $this->advanceOrderTo($order2, Order::STATUS_SERVED, $waiter);
 
         $this->actingAs($owner, 'web')
-            ->getJson("/api/v1/staff/{$waiter->id}/performance")
+            ->getJson("/api/v1/restaurants/{$restaurant->id}/staff/{$waiter->id}/performance")
             ->assertOk()
             ->assertJsonPath('data.performance.metrics.tables_served', 1)
             ->assertJsonPath('data.performance.metrics.orders_served', 2);
@@ -64,7 +64,7 @@ class StaffPerformanceMetricsTest extends TestCase
         $this->createWaiterOrder($table, $waiter, [['restaurant_product_id' => $rp->id, 'quantity' => 1]]);
 
         $this->actingAs($owner, 'web')
-            ->getJson("/api/v1/staff/{$waiter->id}/performance")
+            ->getJson("/api/v1/restaurants/{$restaurant->id}/staff/{$waiter->id}/performance")
             ->assertOk()
             ->assertJsonPath('data.performance.metrics.orders_created', 2);
     }
@@ -72,6 +72,7 @@ class StaffPerformanceMetricsTest extends TestCase
     public function test_customer_orders_approved_counts_by_approved_by_and_approved_at(): void
     {
         [$organization, $owner, $restaurant] = $this->createTenant();
+        $this->requireOrderApproval($restaurant);
         $waiter = $this->createStaff($organization, $restaurant, 'waiter', 'W-1');
         $table = $this->createTable($restaurant);
         $this->openSession($table, $waiter);
@@ -85,7 +86,7 @@ class StaffPerformanceMetricsTest extends TestCase
         app(ApproveOrderAction::class)->execute($customerOrder, $waiter);
 
         $this->actingAs($owner, 'web')
-            ->getJson("/api/v1/staff/{$waiter->id}/performance")
+            ->getJson("/api/v1/restaurants/{$restaurant->id}/staff/{$waiter->id}/performance")
             ->assertOk()
             ->assertJsonPath('data.performance.metrics.customer_orders_approved', 1)
             // The approval doesn't make the waiter the order's creator.
@@ -106,7 +107,7 @@ class StaffPerformanceMetricsTest extends TestCase
         $this->advanceTableRequestTo($requestCompleted, TableRequest::STATUS_COMPLETED, $waiter);
 
         $this->actingAs($owner, 'web')
-            ->getJson("/api/v1/staff/{$waiter->id}/performance")
+            ->getJson("/api/v1/restaurants/{$restaurant->id}/staff/{$waiter->id}/performance")
             ->assertOk()
             ->assertJsonPath('data.performance.metrics.table_requests_handled', 1);
     }
@@ -121,7 +122,7 @@ class StaffPerformanceMetricsTest extends TestCase
         $this->closeSessionWithFullPayment($session, $waiter);
 
         $this->actingAs($owner, 'web')
-            ->getJson("/api/v1/staff/{$waiter->id}/performance")
+            ->getJson("/api/v1/restaurants/{$restaurant->id}/staff/{$waiter->id}/performance")
             ->assertOk()
             ->assertJsonPath('data.performance.metrics.sessions_closed', 1);
     }
@@ -143,14 +144,14 @@ class StaffPerformanceMetricsTest extends TestCase
         // January window: created_at falls inside, served_at does not —
         // orders_created counts it, orders_served does not.
         $this->actingAs($owner, 'web')
-            ->getJson("/api/v1/staff/{$waiter->id}/performance?from=2026-01-01&to=2026-01-31")
+            ->getJson("/api/v1/restaurants/{$restaurant->id}/staff/{$waiter->id}/performance?from=2026-01-01&to=2026-01-31")
             ->assertOk()
             ->assertJsonPath('data.performance.metrics.orders_created', 1)
             ->assertJsonPath('data.performance.metrics.orders_served', 0);
 
         // February window: the reverse.
         $this->actingAs($owner, 'web')
-            ->getJson("/api/v1/staff/{$waiter->id}/performance?from=2026-02-01&to=2026-02-28")
+            ->getJson("/api/v1/restaurants/{$restaurant->id}/staff/{$waiter->id}/performance?from=2026-02-01&to=2026-02-28")
             ->assertOk()
             ->assertJsonPath('data.performance.metrics.orders_created', 0)
             ->assertJsonPath('data.performance.metrics.orders_served', 1);
@@ -166,7 +167,7 @@ class StaffPerformanceMetricsTest extends TestCase
         app(CreateStaffReviewAction::class)->execute($organization, $restaurant, $waiter, $owner, 5, null);
 
         $this->actingAs($owner, 'web')
-            ->getJson("/api/v1/staff/{$waiter->id}/performance")
+            ->getJson("/api/v1/restaurants/{$restaurant->id}/staff/{$waiter->id}/performance")
             ->assertOk()
             ->assertJsonPath('data.performance.rating.average', '4.67')
             ->assertJsonPath('data.performance.rating.review_count', 3);

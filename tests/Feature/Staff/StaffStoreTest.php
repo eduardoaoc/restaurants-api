@@ -34,16 +34,17 @@ class StaffStoreTest extends TestCase
                 'name' => 'Carlos',
                 'email' => 'carlos@example.com',
                 'password' => 'TemporaryPassword123!',
-                'restaurant_id' => $restaurant->id,
                 'role' => 'waiter',
-                'sub_id' => 'W-023',
+                'restaurant_assignments' => [
+                    ['restaurant_id' => $restaurant->id, 'sub_id' => 'W-023'],
+                ],
             ])
             ->assertCreated()
             ->assertJsonPath('data.staff.name', 'Carlos')
             ->assertJsonPath('data.staff.email', 'carlos@example.com')
-            ->assertJsonPath('data.staff.sub_id', 'W-023')
             ->assertJsonPath('data.staff.role.slug', 'waiter')
-            ->assertJsonPath('data.staff.restaurant.id', $restaurant->id)
+            ->assertJsonPath('data.staff.restaurants.0.id', $restaurant->id)
+            ->assertJsonPath('data.staff.restaurants.0.sub_id', 'W-023')
             ->assertJsonMissingPath('data.staff.password');
     }
 
@@ -59,9 +60,10 @@ class StaffStoreTest extends TestCase
                 'name' => 'Ana',
                 'email' => 'ana@example.com',
                 'password' => 'TemporaryPassword123!',
-                'restaurant_id' => $restaurant->id,
                 'role' => 'kitchen',
-                'sub_id' => 'K-001',
+                'restaurant_assignments' => [
+                    ['restaurant_id' => $restaurant->id, 'sub_id' => 'K-001'],
+                ],
             ])
             ->assertCreated();
     }
@@ -77,9 +79,10 @@ class StaffStoreTest extends TestCase
                 'name' => 'Ana',
                 'email' => 'ana@example.com',
                 'password' => 'TemporaryPassword123!',
-                'restaurant_id' => $restaurant->id,
                 'role' => 'kitchen',
-                'sub_id' => 'K-001',
+                'restaurant_assignments' => [
+                    ['restaurant_id' => $restaurant->id, 'sub_id' => 'K-001'],
+                ],
             ])
             ->assertForbidden();
 
@@ -98,9 +101,10 @@ class StaffStoreTest extends TestCase
                 'name' => 'Carlos',
                 'email' => 'carlos@example.com',
                 'password' => 'TemporaryPassword123!',
-                'restaurant_id' => $restaurant->id,
                 'role' => 'waiter',
-                'sub_id' => 'W-023',
+                'restaurant_assignments' => [
+                    ['restaurant_id' => $restaurant->id, 'sub_id' => 'W-023'],
+                ],
             ])
             ->assertCreated();
 
@@ -125,6 +129,79 @@ class StaffStoreTest extends TestCase
         $this->assertSame('waiter', $role->slug);
     }
 
+    public function test_creates_a_staff_member_assigned_to_multiple_restaurants(): void
+    {
+        $organization = Organization::factory()->create();
+        $owner = User::factory()->create();
+        $this->assignRole($owner, 'owner', $organization);
+        $restaurantA = Restaurant::factory()->create(['organization_id' => $organization->id]);
+        $restaurantB = Restaurant::factory()->create(['organization_id' => $organization->id]);
+
+        $response = $this->actingAs($owner, 'web')
+            ->postJson('/api/v1/staff', [
+                'name' => 'Carlos',
+                'email' => 'carlos@example.com',
+                'password' => 'TemporaryPassword123!',
+                'role' => 'waiter',
+                'restaurant_assignments' => [
+                    ['restaurant_id' => $restaurantA->id, 'sub_id' => 'W-014'],
+                    ['restaurant_id' => $restaurantB->id, 'sub_id' => 'W-032'],
+                ],
+            ])
+            ->assertCreated();
+
+        $restaurantIds = collect($response->json('data.staff.restaurants'))->pluck('id')->sort()->values()->all();
+        $this->assertSame([$restaurantA->id, $restaurantB->id], $restaurantIds);
+
+        $user = User::query()->where('email', 'carlos@example.com')->firstOrFail();
+        $this->assertDatabaseHas('restaurant_users', ['user_id' => $user->id, 'restaurant_id' => $restaurantA->id, 'sub_id' => 'W-014']);
+        $this->assertDatabaseHas('restaurant_users', ['user_id' => $user->id, 'restaurant_id' => $restaurantB->id, 'sub_id' => 'W-032']);
+        $this->assertDatabaseHas('user_roles', ['user_id' => $user->id, 'restaurant_id' => $restaurantA->id]);
+        $this->assertDatabaseHas('user_roles', ['user_id' => $user->id, 'restaurant_id' => $restaurantB->id]);
+    }
+
+    public function test_empty_restaurant_assignments_is_rejected(): void
+    {
+        $organization = Organization::factory()->create();
+        $owner = User::factory()->create();
+        $this->assignRole($owner, 'owner', $organization);
+
+        $this->actingAs($owner, 'web')
+            ->postJson('/api/v1/staff', [
+                'name' => 'Carlos',
+                'email' => 'carlos@example.com',
+                'password' => 'TemporaryPassword123!',
+                'role' => 'waiter',
+                'restaurant_assignments' => [],
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('restaurant_assignments');
+
+        $this->assertDatabaseMissing('users', ['email' => 'carlos@example.com']);
+    }
+
+    public function test_duplicate_restaurant_id_within_the_payload_is_rejected(): void
+    {
+        $organization = Organization::factory()->create();
+        $owner = User::factory()->create();
+        $this->assignRole($owner, 'owner', $organization);
+        $restaurant = Restaurant::factory()->create(['organization_id' => $organization->id]);
+
+        $this->actingAs($owner, 'web')
+            ->postJson('/api/v1/staff', [
+                'name' => 'Carlos',
+                'email' => 'carlos@example.com',
+                'password' => 'TemporaryPassword123!',
+                'role' => 'waiter',
+                'restaurant_assignments' => [
+                    ['restaurant_id' => $restaurant->id, 'sub_id' => 'W-1'],
+                    ['restaurant_id' => $restaurant->id, 'sub_id' => 'W-2'],
+                ],
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('restaurant_assignments.0.restaurant_id');
+    }
+
     public function test_password_is_stored_hashed(): void
     {
         $organization = Organization::factory()->create();
@@ -137,9 +214,10 @@ class StaffStoreTest extends TestCase
                 'name' => 'Carlos',
                 'email' => 'carlos@example.com',
                 'password' => 'TemporaryPassword123!',
-                'restaurant_id' => $restaurant->id,
                 'role' => 'waiter',
-                'sub_id' => 'W-023',
+                'restaurant_assignments' => [
+                    ['restaurant_id' => $restaurant->id, 'sub_id' => 'W-023'],
+                ],
             ])
             ->assertCreated();
 
@@ -163,12 +241,13 @@ class StaffStoreTest extends TestCase
                 'name' => 'Carlos',
                 'email' => 'carlos@example.com',
                 'password' => 'TemporaryPassword123!',
-                'restaurant_id' => $otherRestaurant->id,
                 'role' => 'waiter',
-                'sub_id' => 'W-023',
+                'restaurant_assignments' => [
+                    ['restaurant_id' => $otherRestaurant->id, 'sub_id' => 'W-023'],
+                ],
             ])
             ->assertUnprocessable()
-            ->assertJsonValidationErrors('restaurant_id');
+            ->assertJsonValidationErrors('restaurant_assignments.0.restaurant_id');
 
         $this->assertDatabaseMissing('users', ['email' => 'carlos@example.com']);
     }
@@ -185,9 +264,10 @@ class StaffStoreTest extends TestCase
                 'name' => 'Another Owner',
                 'email' => 'owner2@example.com',
                 'password' => 'TemporaryPassword123!',
-                'restaurant_id' => $restaurant->id,
                 'role' => 'owner',
-                'sub_id' => 'O-1',
+                'restaurant_assignments' => [
+                    ['restaurant_id' => $restaurant->id, 'sub_id' => 'O-1'],
+                ],
             ])
             ->assertUnprocessable()
             ->assertJsonValidationErrors('role');
@@ -207,9 +287,10 @@ class StaffStoreTest extends TestCase
                 'name' => 'Carlos',
                 'email' => 'carlos@example.com',
                 'password' => 'TemporaryPassword123!',
-                'restaurant_id' => $restaurant->id,
                 'role' => 'waiter',
-                'sub_id' => 'W-023',
+                'restaurant_assignments' => [
+                    ['restaurant_id' => $restaurant->id, 'sub_id' => 'W-023'],
+                ],
             ])
             ->assertUnprocessable()
             ->assertJsonValidationErrors('email');
@@ -228,12 +309,13 @@ class StaffStoreTest extends TestCase
                 'name' => 'Second Waiter',
                 'email' => 'second@example.com',
                 'password' => 'TemporaryPassword123!',
-                'restaurant_id' => $restaurant->id,
                 'role' => 'waiter',
-                'sub_id' => 'W-023',
+                'restaurant_assignments' => [
+                    ['restaurant_id' => $restaurant->id, 'sub_id' => 'W-023'],
+                ],
             ])
             ->assertUnprocessable()
-            ->assertJsonValidationErrors('sub_id');
+            ->assertJsonValidationErrors('restaurant_assignments.0.sub_id');
     }
 
     public function test_same_sub_id_can_exist_in_a_different_restaurant(): void
@@ -250,9 +332,10 @@ class StaffStoreTest extends TestCase
                 'name' => 'Another Waiter',
                 'email' => 'another@example.com',
                 'password' => 'TemporaryPassword123!',
-                'restaurant_id' => $restaurantB->id,
                 'role' => 'waiter',
-                'sub_id' => 'W-1',
+                'restaurant_assignments' => [
+                    ['restaurant_id' => $restaurantB->id, 'sub_id' => 'W-1'],
+                ],
             ])
             ->assertCreated();
     }

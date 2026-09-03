@@ -72,6 +72,8 @@ class AuditLog extends Model
 
     public const EVENT_PRINT_RECORD_CREATED = 'print_record.created';
 
+    public const EVENT_RESTAURANT_SETTINGS_UPDATED = 'restaurant.settings_updated';
+
     /**
      * @var array<int, string>
      */
@@ -94,9 +96,12 @@ class AuditLog extends Model
         self::EVENT_PAYMENT_RECORD_CREATED,
         self::EVENT_STAFF_REVIEW_CREATED,
         self::EVENT_PRINT_RECORD_CREATED,
+        self::EVENT_RESTAURANT_SETTINGS_UPDATED,
     ];
 
     public const RESOURCE_STAFF = 'staff';
+
+    public const RESOURCE_RESTAURANT = 'restaurant';
 
     public const RESOURCE_TABLE_SESSION = 'table_session';
 
@@ -121,6 +126,7 @@ class AuditLog extends Model
         self::RESOURCE_PAYMENT_RECORD,
         self::RESOURCE_STAFF_REVIEW,
         self::RESOURCE_PRINT_RECORD,
+        self::RESOURCE_RESTAURANT,
     ];
 
     /**

@@ -85,17 +85,7 @@ class StaffController extends Controller
         tags: ['Staff'],
         requestBody: new OA\RequestBody(
             required: true,
-            content: new OA\JsonContent(
-                required: ['name', 'email', 'password', 'restaurant_id', 'role', 'sub_id'],
-                properties: [
-                    new OA\Property(property: 'name', type: 'string', example: 'Carlos'),
-                    new OA\Property(property: 'email', type: 'string', format: 'email', example: 'carlos@example.com'),
-                    new OA\Property(property: 'password', type: 'string', format: 'password', example: 'TemporaryPassword123!'),
-                    new OA\Property(property: 'restaurant_id', type: 'integer', example: 3),
-                    new OA\Property(property: 'role', type: 'string', example: 'waiter'),
-                    new OA\Property(property: 'sub_id', type: 'string', example: 'W-023'),
-                ]
-            )
+            content: new OA\JsonContent(ref: '#/components/schemas/CreateStaffRequest')
         ),
         responses: [
             new OA\Response(
@@ -124,13 +114,17 @@ class StaffController extends Controller
     {
         $organization = $this->activeOrganization();
 
-        // Scope before permission: a restaurant outside the requester's
-        // RestaurantScope resolves as 404, exactly like show()/update() —
-        // it never even reaches the create permission check.
-        $restaurant = $this->restaurantQuery($organization, $request->user())
-            ->findOrFail($request->validated('restaurant_id'));
+        // Scope before permission: any restaurant_assignments entry
+        // outside the requester's RestaurantScope resolves as 404, exactly
+        // like show()/update() — it never even reaches the create
+        // permission check, and nothing is created if any single
+        // assignment is out of scope (all lookups happen before the
+        // Action ever runs).
+        $restaurants = collect($request->validated('restaurant_assignments'))
+            ->map(fn (array $assignment) => $this->restaurantQuery($organization, $request->user())
+                ->findOrFail($assignment['restaurant_id']));
 
-        $this->authorize('create', [User::class, $organization, $restaurant]);
+        $this->authorize('create', [User::class, $organization, $restaurants->first()]);
 
         $staff = $this->createStaffAction->execute($organization, $request->validated(), $request->user());
 
@@ -206,15 +200,7 @@ class StaffController extends Controller
         ],
         requestBody: new OA\RequestBody(
             required: false,
-            content: new OA\JsonContent(
-                properties: [
-                    new OA\Property(property: 'name', type: 'string', example: 'Carlos'),
-                    new OA\Property(property: 'email', type: 'string', format: 'email', example: 'carlos@example.com'),
-                    new OA\Property(property: 'restaurant_id', type: 'integer', example: 3),
-                    new OA\Property(property: 'role', type: 'string', example: 'waiter'),
-                    new OA\Property(property: 'sub_id', type: 'string', example: 'W-023'),
-                ]
-            )
+            content: new OA\JsonContent(ref: '#/components/schemas/UpdateStaffRequest')
         ),
         responses: [
             new OA\Response(
@@ -246,6 +232,16 @@ class StaffController extends Controller
         $staff = $this->staffQuery($organization, $request->user())->findOrFail($user);
 
         $this->authorize('update', [$staff, $organization]);
+
+        // Every restaurant_assignments entry (if sent) must itself be
+        // within the requester's RestaurantScope — resolved before the
+        // Action ever runs, so an out-of-scope restaurant_id yields 404
+        // with no partial mutation, exactly like store().
+        if ($request->has('restaurant_assignments')) {
+            collect($request->validated('restaurant_assignments'))
+                ->each(fn (array $assignment) => $this->restaurantQuery($organization, $request->user())
+                    ->findOrFail($assignment['restaurant_id']));
+        }
 
         $staff = $this->updateStaffAction->execute($organization, $staff, $request->validated(), $request->user());
 

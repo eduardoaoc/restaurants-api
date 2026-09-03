@@ -536,6 +536,11 @@ class PublicMenuTest extends TestCase
     public function test_locale_query_selects_the_matching_translation(): void
     {
         [, , $restaurant] = $this->createTenant();
+        // enabled_locales gates an EXPLICIT ?locale= selection (Bloco 18);
+        // widened here since this test deliberately exercises arbitrary
+        // language codes to prove the generic fallback mechanics, not the
+        // Spain-specific allowlist (see PublicLocaleTest for that).
+        $restaurant->settings()->update(['enabled_locales' => ['es-ES', 'en-GB', 'es', 'en', 'pt']]);
         $table = $this->createTable($restaurant);
         $menu = $this->createMenu($restaurant);
         $category = $this->createCategory($menu, 'cat', [
@@ -555,6 +560,7 @@ class PublicMenuTest extends TestCase
     public function test_regional_locale_falls_back_to_base_language(): void
     {
         [, , $restaurant] = $this->createTenant();
+        $restaurant->settings()->update(['enabled_locales' => ['es-ES', 'en-GB', 'pt-BR']]);
         $table = $this->createTable($restaurant);
         $menu = $this->createMenu($restaurant);
         $category = $this->createCategory($menu, 'cat', [['locale' => 'pt', 'name' => 'Categoria PT']]);
@@ -583,6 +589,7 @@ class PublicMenuTest extends TestCase
     public function test_fallback_chain_reaches_es_then_first_available(): void
     {
         [, , $restaurant] = $this->createTenant();
+        $restaurant->settings()->update(['enabled_locales' => ['es-ES', 'en-GB', 'fr']]);
         $table = $this->createTable($restaurant);
         $menu = $this->createMenu($restaurant);
 
@@ -597,6 +604,7 @@ class PublicMenuTest extends TestCase
     public function test_fallback_chain_falls_back_to_es_when_requested_locale_and_base_are_absent(): void
     {
         [, , $restaurant] = $this->createTenant();
+        $restaurant->settings()->update(['enabled_locales' => ['es-ES', 'en-GB', 'de']]);
         $table = $this->createTable($restaurant);
         $menu = $this->createMenu($restaurant);
         $category = $this->createCategory($menu, 'cat', [
@@ -614,6 +622,7 @@ class PublicMenuTest extends TestCase
     public function test_fallback_chain_falls_back_to_first_translation_when_no_es_exists(): void
     {
         [, , $restaurant] = $this->createTenant();
+        $restaurant->settings()->update(['enabled_locales' => ['es-ES', 'en-GB', 'de']]);
         $table = $this->createTable($restaurant);
         $menu = $this->createMenu($restaurant);
         $category = $this->createCategory($menu, 'cat', [['locale' => 'en', 'name' => 'Only EN']]);
@@ -646,6 +655,7 @@ class PublicMenuTest extends TestCase
     public function test_query_locale_wins_over_accept_language_header(): void
     {
         [, , $restaurant] = $this->createTenant();
+        $restaurant->settings()->update(['enabled_locales' => ['es-ES', 'en-GB', 'pt']]);
         $table = $this->createTable($restaurant);
         $menu = $this->createMenu($restaurant);
         $category = $this->createCategory($menu, 'cat', [
@@ -690,6 +700,7 @@ class PublicMenuTest extends TestCase
     public function test_locale_casing_is_normalized(): void
     {
         [, , $restaurant] = $this->createTenant();
+        $restaurant->settings()->update(['enabled_locales' => ['es-ES', 'en-GB', 'pt-BR']]);
         $table = $this->createTable($restaurant);
         $this->createMenu($restaurant);
 

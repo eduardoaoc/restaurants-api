@@ -65,19 +65,100 @@ class StaffUpdateTest extends TestCase
         $staff = $this->createStaff($organization, $restaurantA, 'waiter', 'W-1');
 
         $this->actingAs($owner, 'web')
-            ->patchJson("/api/v1/staff/{$staff->id}", ['restaurant_id' => $restaurantB->id])
+            ->patchJson("/api/v1/staff/{$staff->id}", [
+                'restaurant_assignments' => [
+                    ['restaurant_id' => $restaurantB->id, 'sub_id' => 'W-1'],
+                ],
+            ])
             ->assertOk()
-            ->assertJsonPath('data.staff.restaurant.id', $restaurantB->id);
+            ->assertJsonPath('data.staff.restaurants.0.id', $restaurantB->id);
 
         $this->assertDatabaseHas('restaurant_users', [
             'user_id' => $staff->id,
             'restaurant_id' => $restaurantB->id,
+        ]);
+        $this->assertDatabaseMissing('restaurant_users', [
+            'user_id' => $staff->id,
+            'restaurant_id' => $restaurantA->id,
         ]);
         $this->assertDatabaseHas('user_roles', [
             'user_id' => $staff->id,
             'organization_id' => $organization->id,
             'restaurant_id' => $restaurantB->id,
         ]);
+        $this->assertDatabaseMissing('user_roles', [
+            'user_id' => $staff->id,
+            'restaurant_id' => $restaurantA->id,
+        ]);
+    }
+
+    public function test_owner_can_add_a_second_restaurant(): void
+    {
+        $organization = Organization::factory()->create();
+        $owner = User::factory()->create();
+        $this->assignRole($owner, 'owner', $organization);
+        $restaurantA = Restaurant::factory()->create(['organization_id' => $organization->id]);
+        $restaurantB = Restaurant::factory()->create(['organization_id' => $organization->id]);
+        $staff = $this->createStaff($organization, $restaurantA, 'waiter', 'W-A');
+
+        $response = $this->actingAs($owner, 'web')
+            ->patchJson("/api/v1/staff/{$staff->id}", [
+                'restaurant_assignments' => [
+                    ['restaurant_id' => $restaurantA->id, 'sub_id' => 'W-A'],
+                    ['restaurant_id' => $restaurantB->id, 'sub_id' => 'W-B'],
+                ],
+            ])
+            ->assertOk();
+
+        $restaurantIds = collect($response->json('data.staff.restaurants'))->pluck('id')->sort()->values()->all();
+        $this->assertSame([$restaurantA->id, $restaurantB->id], $restaurantIds);
+
+        $this->assertDatabaseHas('restaurant_users', ['user_id' => $staff->id, 'restaurant_id' => $restaurantA->id]);
+        $this->assertDatabaseHas('restaurant_users', ['user_id' => $staff->id, 'restaurant_id' => $restaurantB->id]);
+    }
+
+    public function test_replacing_a_plus_b_with_b_plus_c_removes_a_keeps_b_and_adds_c(): void
+    {
+        $organization = Organization::factory()->create();
+        $owner = User::factory()->create();
+        $this->assignRole($owner, 'owner', $organization);
+        $restaurantA = Restaurant::factory()->create(['organization_id' => $organization->id]);
+        $restaurantB = Restaurant::factory()->create(['organization_id' => $organization->id]);
+        $restaurantC = Restaurant::factory()->create(['organization_id' => $organization->id]);
+        $staff = $this->createStaffAcrossRestaurants($organization, [$restaurantA, $restaurantB], 'waiter', $owner);
+
+        $this->actingAs($owner, 'web')
+            ->patchJson("/api/v1/staff/{$staff->id}", [
+                'restaurant_assignments' => [
+                    ['restaurant_id' => $restaurantB->id, 'sub_id' => 'MS-'.$restaurantB->id],
+                    ['restaurant_id' => $restaurantC->id, 'sub_id' => 'MS-'.$restaurantC->id],
+                ],
+            ])
+            ->assertOk();
+
+        $this->assertDatabaseMissing('restaurant_users', ['user_id' => $staff->id, 'restaurant_id' => $restaurantA->id]);
+        $this->assertDatabaseHas('restaurant_users', ['user_id' => $staff->id, 'restaurant_id' => $restaurantB->id]);
+        $this->assertDatabaseHas('restaurant_users', ['user_id' => $staff->id, 'restaurant_id' => $restaurantC->id]);
+        $this->assertDatabaseMissing('user_roles', ['user_id' => $staff->id, 'restaurant_id' => $restaurantA->id]);
+        $this->assertDatabaseHas('user_roles', ['user_id' => $staff->id, 'restaurant_id' => $restaurantB->id]);
+        $this->assertDatabaseHas('user_roles', ['user_id' => $staff->id, 'restaurant_id' => $restaurantC->id]);
+        $this->assertSame(2, RestaurantUser::query()->where('user_id', $staff->id)->count());
+    }
+
+    public function test_empty_restaurant_assignments_is_rejected(): void
+    {
+        $organization = Organization::factory()->create();
+        $owner = User::factory()->create();
+        $this->assignRole($owner, 'owner', $organization);
+        $restaurant = Restaurant::factory()->create(['organization_id' => $organization->id]);
+        $staff = $this->createStaff($organization, $restaurant, 'waiter', 'W-1');
+
+        $this->actingAs($owner, 'web')
+            ->patchJson("/api/v1/staff/{$staff->id}", ['restaurant_assignments' => []])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('restaurant_assignments');
+
+        $this->assertDatabaseHas('restaurant_users', ['user_id' => $staff->id, 'restaurant_id' => $restaurant->id]);
     }
 
     public function test_owner_can_change_the_role(): void
@@ -94,6 +175,23 @@ class StaffUpdateTest extends TestCase
             ->assertJsonPath('data.staff.role.slug', 'cashier');
     }
 
+    public function test_role_change_applies_to_every_assigned_restaurant(): void
+    {
+        $organization = Organization::factory()->create();
+        $owner = User::factory()->create();
+        $this->assignRole($owner, 'owner', $organization);
+        $restaurantA = Restaurant::factory()->create(['organization_id' => $organization->id]);
+        $restaurantB = Restaurant::factory()->create(['organization_id' => $organization->id]);
+        $staff = $this->createStaffAcrossRestaurants($organization, [$restaurantA, $restaurantB], 'waiter', $owner);
+
+        $this->actingAs($owner, 'web')
+            ->patchJson("/api/v1/staff/{$staff->id}", ['role' => 'cashier'])
+            ->assertOk();
+
+        $roleSlugs = UserRole::query()->where('user_id', $staff->id)->with('role')->get()->pluck('role.slug')->unique();
+        $this->assertSame(['cashier'], $roleSlugs->values()->all());
+    }
+
     public function test_owner_can_change_the_sub_id(): void
     {
         $organization = Organization::factory()->create();
@@ -103,9 +201,13 @@ class StaffUpdateTest extends TestCase
         $staff = $this->createStaff($organization, $restaurant, 'waiter', 'W-1');
 
         $this->actingAs($owner, 'web')
-            ->patchJson("/api/v1/staff/{$staff->id}", ['sub_id' => 'W-999'])
+            ->patchJson("/api/v1/staff/{$staff->id}", [
+                'restaurant_assignments' => [
+                    ['restaurant_id' => $restaurant->id, 'sub_id' => 'W-999'],
+                ],
+            ])
             ->assertOk()
-            ->assertJsonPath('data.staff.sub_id', 'W-999');
+            ->assertJsonPath('data.staff.restaurants.0.sub_id', 'W-999');
 
         $this->assertDatabaseHas('restaurant_users', [
             'user_id' => $staff->id,
@@ -137,9 +239,10 @@ class StaffUpdateTest extends TestCase
 
         $this->actingAs($owner, 'web')
             ->patchJson("/api/v1/staff/{$staff->id}", [
-                'restaurant_id' => $restaurantB->id,
                 'role' => 'kitchen',
-                'sub_id' => 'K-5',
+                'restaurant_assignments' => [
+                    ['restaurant_id' => $restaurantB->id, 'sub_id' => 'K-5'],
+                ],
             ])
             ->assertOk();
 
@@ -165,9 +268,13 @@ class StaffUpdateTest extends TestCase
         $otherRestaurant = Restaurant::factory()->create(['organization_id' => $otherOrganization->id]);
 
         $this->actingAs($owner, 'web')
-            ->patchJson("/api/v1/staff/{$staff->id}", ['restaurant_id' => $otherRestaurant->id])
+            ->patchJson("/api/v1/staff/{$staff->id}", [
+                'restaurant_assignments' => [
+                    ['restaurant_id' => $otherRestaurant->id, 'sub_id' => 'W-1'],
+                ],
+            ])
             ->assertUnprocessable()
-            ->assertJsonValidationErrors('restaurant_id');
+            ->assertJsonValidationErrors('restaurant_assignments.0.restaurant_id');
     }
 
     public function test_staff_from_another_organization_returns_not_found(): void

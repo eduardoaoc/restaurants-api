@@ -38,8 +38,6 @@ class UpdateRestaurantRequest extends FormRequest
                     ->ignore($restaurantId),
             ],
             'status' => ['sometimes', Rule::in(['active', 'inactive'])],
-            'timezone' => ['sometimes', 'timezone'],
-            'default_locale' => ['sometimes', 'string', 'regex:/^[a-z]{2}(-[A-Z]{2})?$/'],
         ];
     }
 

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Actions\Printing\BuildBillReceiptAction;
+use App\Exceptions\Printing\BillReceiptPrintingDisabledException;
 use App\Http\Controllers\Controller;
 use App\Models\AuditLog;
 use App\Models\Organization;
@@ -69,6 +70,7 @@ class BillReceiptController extends Controller
             new OA\Response(response: 401, description: 'Unauthenticated'),
             new OA\Response(response: 403, description: 'The user is not allowed to print this table session\'s receipt'),
             new OA\Response(response: 404, description: 'Table session not found'),
+            new OA\Response(response: 409, description: 'bill_receipt_printing_enabled is false for this restaurant'),
         ]
     )]
     public function print(Request $request, int $tableSession): JsonResponse
@@ -77,6 +79,10 @@ class BillReceiptController extends Controller
         $user = $request->user();
 
         $organization = $this->activeOrganization();
+
+        if (! $session->restaurant->settings->bill_receipt_printing_enabled) {
+            throw new BillReceiptPrintingDisabledException;
+        }
 
         $printRecord = PrintRecord::query()->create([
             'organization_id' => $organization->id,

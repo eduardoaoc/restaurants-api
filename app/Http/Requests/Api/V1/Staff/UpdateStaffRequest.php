@@ -2,7 +2,6 @@
 
 namespace App\Http\Requests\Api\V1\Staff;
 
-use App\Models\RestaurantUser;
 use App\Support\Tenancy\TenantContext;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -20,6 +19,14 @@ class UpdateStaffRequest extends FormRequest
     /**
      * Get the validation rules that apply to the request.
      *
+     * restaurant_assignments, when sent, REPLACES the staff member's full
+     * restaurant set — it must still have at least 1 entry: an empty array
+     * would silently strip every restaurant link and, combined with
+     * user_roles.restaurant_id becoming ambiguous, risks turning an
+     * operational staff member into something resembling an
+     * organization-wide assignment. The Staff API must never be able to
+     * produce that escalation, so `min:1` is enforced even on update.
+     *
      * @return array<string, mixed>
      */
     public function rules(TenantContext $tenantContext): array
@@ -27,32 +34,36 @@ class UpdateStaffRequest extends FormRequest
         $organizationId = $tenantContext->getOrganizationId();
         $staffId = (int) $this->route('user');
 
-        $currentRestaurantId = RestaurantUser::query()->where('user_id', $staffId)->value('restaurant_id');
-        $restaurantId = $this->input('restaurant_id', $currentRestaurantId);
-
-        return [
+        $rules = [
             'name' => ['sometimes', 'string', 'max:255'],
             'email' => ['sometimes', 'email', 'max:255', Rule::unique('users', 'email')->ignore($staffId)],
-            'restaurant_id' => [
-                'sometimes',
-                'integer',
-                Rule::exists('restaurants', 'id')->where('organization_id', $organizationId),
-            ],
             'role' => [
                 'sometimes',
                 'string',
                 Rule::exists('roles', 'slug'),
                 Rule::in(StoreStaffRequest::ALLOWED_ROLES),
             ],
-            'sub_id' => [
-                'sometimes',
+            'restaurant_assignments' => ['sometimes', 'array', 'min:1'],
+            'restaurant_assignments.*.restaurant_id' => [
+                'required_with:restaurant_assignments',
+                'integer',
+                'distinct',
+                Rule::exists('restaurants', 'id')->where('organization_id', $organizationId),
+            ],
+        ];
+
+        foreach ((array) $this->input('restaurant_assignments', []) as $index => $assignment) {
+            $rules["restaurant_assignments.{$index}.sub_id"] = [
+                'required_with:restaurant_assignments',
                 'string',
                 'max:255',
                 Rule::unique('restaurant_users', 'sub_id')
-                    ->where('restaurant_id', $restaurantId)
+                    ->where('restaurant_id', $assignment['restaurant_id'] ?? null)
                     ->ignore($staffId, 'user_id'),
-            ],
-        ];
+            ];
+        }
+
+        return $rules;
     }
 
     /**
@@ -66,9 +77,17 @@ class UpdateStaffRequest extends FormRequest
             ]);
         }
 
-        if ($this->has('sub_id')) {
+        if (is_array($this->input('restaurant_assignments'))) {
             $this->merge([
-                'sub_id' => trim((string) $this->input('sub_id')),
+                'restaurant_assignments' => collect($this->input('restaurant_assignments'))
+                    ->map(function ($assignment) {
+                        if (is_array($assignment) && isset($assignment['sub_id'])) {
+                            $assignment['sub_id'] = trim((string) $assignment['sub_id']);
+                        }
+
+                        return $assignment;
+                    })
+                    ->all(),
             ]);
         }
     }

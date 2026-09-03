@@ -210,6 +210,7 @@ class PaymentTest extends TestCase
     public function test_payment_with_only_waiting_approval_order_returns_409(): void
     {
         [, $owner, $restaurant, $rp] = $this->createTenantWithRestaurantProduct();
+        $this->requireOrderApproval($restaurant);
         $table = $this->createTable($restaurant);
         $session = $this->openSession($table, $owner);
         $this->createCustomerOrder($table, [['restaurant_product_id' => $rp->id, 'quantity' => 1]]);

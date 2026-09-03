@@ -34,6 +34,7 @@ class KitchenQueueTest extends TestCase
     public function test_only_confirmed_accepted_preparing_ready_appear(): void
     {
         [$organization, $owner, $restaurant, $rp] = $this->createTenantWithRestaurantProduct();
+        $this->requireOrderApproval($restaurant);
         $kitchen = $this->createStaff($organization, $restaurant, 'kitchen', 'K-1');
         $table = $this->createTable($restaurant);
         $this->openSession($table, $owner);
@@ -91,6 +92,7 @@ class KitchenQueueTest extends TestCase
     public function test_customer_order_appears_only_after_approval(): void
     {
         [, $owner, $restaurant, $rp] = $this->createTenantWithRestaurantProduct();
+        $this->requireOrderApproval($restaurant);
         $table = $this->createTable($restaurant);
         $this->openSession($table, $owner);
         $order = $this->createCustomerOrder($table, [['restaurant_product_id' => $rp->id, 'quantity' => 1]]);

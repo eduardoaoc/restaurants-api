@@ -28,7 +28,7 @@ class StaffReviewStoreTest extends TestCase
         $waiter = $this->createStaff($organization, $restaurant, 'waiter', 'W-1');
 
         $response = $this->actingAs($manager, 'web')
-            ->postJson("/api/v1/staff/{$waiter->id}/reviews", [
+            ->postJson("/api/v1/restaurants/{$restaurant->id}/staff/{$waiter->id}/reviews", [
                 'rating' => 5,
                 'comment' => 'Great shift.',
             ])
@@ -56,18 +56,18 @@ class StaffReviewStoreTest extends TestCase
         $waiter = $this->createStaff($organization, $restaurant, 'waiter', 'W-1');
 
         $this->actingAs($owner, 'web')
-            ->postJson("/api/v1/staff/{$waiter->id}/reviews", ['rating' => 3])
+            ->postJson("/api/v1/restaurants/{$restaurant->id}/staff/{$waiter->id}/reviews", ['rating' => 3])
             ->assertCreated();
     }
 
-    public function test_client_supplied_restaurant_id_is_ignored_and_derived_server_side(): void
+    public function test_client_supplied_restaurant_id_in_body_is_ignored_and_derived_from_the_route(): void
     {
         [$organization, $owner, $restaurant] = $this->createTenant();
         $otherRestaurant = Restaurant::factory()->create(['organization_id' => $organization->id]);
         $waiter = $this->createStaff($organization, $restaurant, 'waiter', 'W-1');
 
         $this->actingAs($owner, 'web')
-            ->postJson("/api/v1/staff/{$waiter->id}/reviews", [
+            ->postJson("/api/v1/restaurants/{$restaurant->id}/staff/{$waiter->id}/reviews", [
                 'rating' => 4,
                 'restaurant_id' => $otherRestaurant->id,
                 'organization_id' => 999999,
@@ -89,7 +89,7 @@ class StaffReviewStoreTest extends TestCase
         $manager = $this->createStaff($organization, $restaurant, 'manager', 'M-1');
 
         $this->actingAs($manager, 'web')
-            ->postJson("/api/v1/staff/{$manager->id}/reviews", ['rating' => 5])
+            ->postJson("/api/v1/restaurants/{$restaurant->id}/staff/{$manager->id}/reviews", ['rating' => 5])
             ->assertStatus(422)
             ->assertJsonPath('error.code', 'CANNOT_REVIEW_SELF');
     }
@@ -101,7 +101,7 @@ class StaffReviewStoreTest extends TestCase
         $waiterB = $this->createStaff($organization, $restaurant, 'waiter', 'W-B');
 
         $this->actingAs($waiterA, 'web')
-            ->postJson("/api/v1/staff/{$waiterB->id}/reviews", ['rating' => 5])
+            ->postJson("/api/v1/restaurants/{$restaurant->id}/staff/{$waiterB->id}/reviews", ['rating' => 5])
             ->assertForbidden();
     }
 
@@ -112,7 +112,7 @@ class StaffReviewStoreTest extends TestCase
         $otherStaff = $this->createStaff($otherOrganization, $otherRestaurant, 'waiter', 'W-1');
 
         $this->actingAs($owner, 'web')
-            ->postJson("/api/v1/staff/{$otherStaff->id}/reviews", ['rating' => 5])
+            ->postJson("/api/v1/restaurants/{$otherRestaurant->id}/staff/{$otherStaff->id}/reviews", ['rating' => 5])
             ->assertNotFound();
     }
 
@@ -124,8 +124,25 @@ class StaffReviewStoreTest extends TestCase
         $waiterB = $this->createStaff($organization, $restaurantB, 'waiter', 'W-B');
 
         $this->actingAs($manager, 'web')
-            ->postJson("/api/v1/staff/{$waiterB->id}/reviews", ['rating' => 5])
+            ->postJson("/api/v1/restaurants/{$restaurantB->id}/staff/{$waiterB->id}/reviews", ['rating' => 5])
             ->assertNotFound();
+    }
+
+    /**
+     * A staff member in A+B reviewed through Restaurant A is recorded
+     * against A — never their other restaurant.
+     */
+    public function test_review_of_a_staff_member_in_two_restaurants_is_scoped_to_the_route_restaurant(): void
+    {
+        [$organization, $owner, $restaurantA] = $this->createTenant();
+        $restaurantB = Restaurant::factory()->create(['organization_id' => $organization->id]);
+        $carlos = $this->createStaffAcrossRestaurants($organization, [$restaurantA, $restaurantB], 'waiter', $owner);
+
+        $response = $this->actingAs($owner, 'web')
+            ->postJson("/api/v1/restaurants/{$restaurantA->id}/staff/{$carlos->id}/reviews", ['rating' => 4])
+            ->assertCreated();
+
+        $this->assertSame($restaurantA->id, StaffReview::query()->findOrFail($response->json('data.review.id'))->restaurant_id);
     }
 
     #[DataProvider('invalidRatingProvider')]
@@ -135,7 +152,7 @@ class StaffReviewStoreTest extends TestCase
         $waiter = $this->createStaff($organization, $restaurant, 'waiter', 'W-1');
 
         $this->actingAs($owner, 'web')
-            ->postJson("/api/v1/staff/{$waiter->id}/reviews", ['rating' => $rating])
+            ->postJson("/api/v1/restaurants/{$restaurant->id}/staff/{$waiter->id}/reviews", ['rating' => $rating])
             ->assertStatus(422);
     }
 
@@ -157,7 +174,7 @@ class StaffReviewStoreTest extends TestCase
         $waiter = $this->createStaff($organization, $restaurant, 'waiter', 'W-1');
 
         $this->actingAs($owner, 'web')
-            ->postJson("/api/v1/staff/{$waiter->id}/reviews", ['rating' => $rating])
+            ->postJson("/api/v1/restaurants/{$restaurant->id}/staff/{$waiter->id}/reviews", ['rating' => $rating])
             ->assertCreated();
     }
 
@@ -175,7 +192,7 @@ class StaffReviewStoreTest extends TestCase
         $waiter = $this->createStaff($organization, $restaurant, 'waiter', 'W-1');
 
         $this->actingAs($owner, 'web')
-            ->postJson("/api/v1/staff/{$waiter->id}/reviews", [
+            ->postJson("/api/v1/restaurants/{$restaurant->id}/staff/{$waiter->id}/reviews", [
                 'rating' => 5,
                 'comment' => str_repeat('a', 1001),
             ])
@@ -188,7 +205,7 @@ class StaffReviewStoreTest extends TestCase
         $waiter = $this->createStaff($organization, $restaurant, 'waiter', 'W-1');
 
         $this->actingAs($owner, 'web')
-            ->postJson("/api/v1/staff/{$waiter->id}/reviews", ['rating' => 3])
+            ->postJson("/api/v1/restaurants/{$restaurant->id}/staff/{$waiter->id}/reviews", ['rating' => 3])
             ->assertCreated()
             ->assertJsonPath('data.review.comment', null);
     }

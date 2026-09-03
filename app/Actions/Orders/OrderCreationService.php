@@ -36,6 +36,14 @@ class OrderCreationService
     /**
      * @param  array<int, array<string, mixed>>  $items
      */
+    /**
+     * $requiresApproval only matters for a non-waiter origin (currently:
+     * customer_qr) — a waiter's own order is always pre-confirmed
+     * regardless of the restaurant's customer_order_requires_approval
+     * setting, since the staff member placing it has already validated it
+     * in person. See RestaurantSettings::customer_order_requires_approval
+     * and CreatePublicOrderAction for where this is derived.
+     */
     public function execute(
         Table $table,
         int $tableSessionId,
@@ -47,10 +55,12 @@ class OrderCreationService
         ?string $customerNote = null,
         ?string $idempotencyKey = null,
         ?string $idempotencyPayloadHash = null,
+        bool $requiresApproval = true,
     ): Order {
         return DB::transaction(function () use (
             $table, $tableSessionId, $origin, $createdBy, $locale, $items,
             $customerName, $customerNote, $idempotencyKey, $idempotencyPayloadHash,
+            $requiresApproval,
         ) {
             $session = TableSession::query()->whereKey($tableSessionId)->lockForUpdate()->first();
 
@@ -64,7 +74,9 @@ class OrderCreationService
 
             $built = $this->buildOrderItems->execute($table->restaurant, $items, $locale);
 
-            $status = $origin === Order::ORIGIN_WAITER ? Order::STATUS_CONFIRMED : Order::STATUS_WAITING_APPROVAL;
+            $status = $origin === Order::ORIGIN_WAITER || ! $requiresApproval
+                ? Order::STATUS_CONFIRMED
+                : Order::STATUS_WAITING_APPROVAL;
             $totalCents = $built['subtotalCents'] + $built['modifiersTotalCents'];
 
             $order = Order::query()->create([
@@ -110,7 +122,7 @@ class OrderCreationService
                 event: AuditLog::EVENT_ORDER_CREATED,
                 resourceType: AuditLog::RESOURCE_ORDER,
                 resourceId: $order->id,
-                metadata: ['origin' => $origin],
+                metadata: ['origin' => $origin, 'initial_status' => $status],
             );
 
             return $order->load('items.modifiers');

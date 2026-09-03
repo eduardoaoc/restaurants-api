@@ -195,4 +195,80 @@ class StaffPerformanceMeTest extends TestCase
             ->assertJsonPath('data.performance.period.from', '2026-01-01')
             ->assertJsonPath('data.performance.period.to', '2026-01-31');
     }
+
+    // --- Multi-restaurant staff (Bloco 18) -----------------------------
+
+    public function test_staff_in_two_restaurants_sees_assigned_restaurants_scope(): void
+    {
+        [$organization, $owner, $restaurantA] = $this->createTenant();
+        $restaurantB = Restaurant::factory()->create(['organization_id' => $organization->id]);
+        $carlos = $this->createStaffAcrossRestaurants($organization, [$restaurantA, $restaurantB], 'waiter', $owner);
+
+        $this->actingAs($carlos, 'web')
+            ->getJson('/api/v1/me/performance')
+            ->assertOk()
+            ->assertJsonPath('data.performance.scope', 'assigned_restaurants');
+    }
+
+    public function test_staff_in_two_restaurants_self_aggregates_across_both_without_a_filter(): void
+    {
+        [$organization, $owner, $restaurantA] = $this->createTenant();
+        $restaurantB = Restaurant::factory()->create(['organization_id' => $organization->id]);
+        $carlos = $this->createStaffAcrossRestaurants($organization, [$restaurantA, $restaurantB], 'waiter', $owner);
+
+        $tableA = $this->createTable($restaurantA);
+        $tableB = $this->createTable($restaurantB);
+        $this->openSession($tableA, $carlos);
+        $this->openSession($tableB, $carlos);
+        $rpA = $this->createRestaurantProduct($restaurantA, $this->createProduct($organization));
+        $rpB = $this->createRestaurantProduct($restaurantB, $this->createProduct($organization));
+
+        $this->createWaiterOrder($tableA, $carlos, [['restaurant_product_id' => $rpA->id, 'quantity' => 1]]);
+        $this->createWaiterOrder($tableB, $carlos, [['restaurant_product_id' => $rpB->id, 'quantity' => 1]]);
+
+        $this->actingAs($carlos, 'web')
+            ->getJson('/api/v1/me/performance')
+            ->assertOk()
+            ->assertJsonPath('data.performance.metrics.orders_created', 2);
+    }
+
+    public function test_staff_in_two_restaurants_can_filter_to_one_via_restaurant_id(): void
+    {
+        [$organization, $owner, $restaurantA] = $this->createTenant();
+        $restaurantB = Restaurant::factory()->create(['organization_id' => $organization->id]);
+        $carlos = $this->createStaffAcrossRestaurants($organization, [$restaurantA, $restaurantB], 'waiter', $owner);
+
+        $tableA = $this->createTable($restaurantA);
+        $tableB = $this->createTable($restaurantB);
+        $this->openSession($tableA, $carlos);
+        $this->openSession($tableB, $carlos);
+        $rpA = $this->createRestaurantProduct($restaurantA, $this->createProduct($organization));
+        $rpB = $this->createRestaurantProduct($restaurantB, $this->createProduct($organization));
+
+        $this->createWaiterOrder($tableA, $carlos, [['restaurant_product_id' => $rpA->id, 'quantity' => 1]]);
+        $this->createWaiterOrder($tableB, $carlos, [['restaurant_product_id' => $rpB->id, 'quantity' => 1]]);
+        $this->createWaiterOrder($tableB, $carlos, [['restaurant_product_id' => $rpB->id, 'quantity' => 1]]);
+
+        $this->actingAs($carlos, 'web')
+            ->getJson("/api/v1/me/performance?restaurant_id={$restaurantA->id}")
+            ->assertOk()
+            ->assertJsonPath('data.performance.scope', 'restaurant')
+            ->assertJsonPath('data.performance.metrics.orders_created', 1);
+
+        $this->actingAs($carlos, 'web')
+            ->getJson("/api/v1/me/performance?restaurant_id={$restaurantB->id}")
+            ->assertOk()
+            ->assertJsonPath('data.performance.metrics.orders_created', 2);
+    }
+
+    public function test_restaurant_id_filter_outside_own_scope_is_not_found(): void
+    {
+        [$organization, , $restaurantA] = $this->createTenant();
+        $restaurantB = Restaurant::factory()->create(['organization_id' => $organization->id]);
+        $waiterA = $this->createStaff($organization, $restaurantA, 'waiter', 'W-A');
+
+        $this->actingAs($waiterA, 'web')
+            ->getJson("/api/v1/me/performance?restaurant_id={$restaurantB->id}")
+            ->assertNotFound();
+    }
 }

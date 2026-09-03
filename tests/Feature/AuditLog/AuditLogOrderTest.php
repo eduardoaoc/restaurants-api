@@ -37,7 +37,7 @@ class AuditLogOrderTest extends TestCase
         $this->assertNull($log->actor_user_id);
         $this->assertSame($organization->id, $log->organization_id);
         $this->assertSame($restaurant->id, $log->restaurant_id);
-        $this->assertEquals(['origin' => Order::ORIGIN_CUSTOMER_QR], $log->metadata);
+        $this->assertEquals(['origin' => Order::ORIGIN_CUSTOMER_QR, 'initial_status' => Order::STATUS_CONFIRMED], $log->metadata);
     }
 
     public function test_staff_order_creation_records_user_actor(): void
@@ -55,7 +55,7 @@ class AuditLogOrderTest extends TestCase
         $this->assertNotNull($log);
         $this->assertSame(AuditLog::ACTOR_USER, $log->actor_type);
         $this->assertSame($waiter->id, $log->actor_user_id);
-        $this->assertEquals(['origin' => Order::ORIGIN_WAITER], $log->metadata);
+        $this->assertEquals(['origin' => Order::ORIGIN_WAITER, 'initial_status' => Order::STATUS_CONFIRMED], $log->metadata);
     }
 
     public function test_public_order_idempotency_replay_does_not_duplicate_audit(): void
@@ -75,6 +75,7 @@ class AuditLogOrderTest extends TestCase
     public function test_order_approval_and_rejection_record_one_audit_event_each(): void
     {
         [$organization, $owner, $restaurant, $restaurantProduct] = $this->createTenantWithRestaurantProduct();
+        $this->requireOrderApproval($restaurant);
         $table1 = $this->createTable($restaurant);
         $table2 = $this->createTable($restaurant);
         $this->openSession($table1, $owner);

@@ -90,9 +90,10 @@ class StaffRestaurantScopeTest extends TestCase
                 'name' => 'Injected',
                 'email' => 'injected-'.uniqid().'@example.com',
                 'password' => 'password123',
-                'restaurant_id' => $restaurantB->id,
                 'role' => 'waiter',
-                'sub_id' => 'INJ-1',
+                'restaurant_assignments' => [
+                    ['restaurant_id' => $restaurantB->id, 'sub_id' => 'INJ-1'],
+                ],
             ])
             ->assertNotFound();
 
@@ -109,9 +110,10 @@ class StaffRestaurantScopeTest extends TestCase
                 'name' => 'New Waiter',
                 'email' => 'new-waiter-'.uniqid().'@example.com',
                 'password' => 'password123',
-                'restaurant_id' => $restaurantA->id,
                 'role' => 'waiter',
-                'sub_id' => 'NW-1',
+                'restaurant_assignments' => [
+                    ['restaurant_id' => $restaurantA->id, 'sub_id' => 'NW-1'],
+                ],
             ])
             ->assertCreated();
     }
@@ -157,9 +159,10 @@ class StaffRestaurantScopeTest extends TestCase
                 'name' => 'Owner Created',
                 'email' => 'owner-created-'.uniqid().'@example.com',
                 'password' => 'password123',
-                'restaurant_id' => $restaurantB->id,
                 'role' => 'waiter',
-                'sub_id' => 'OC-1',
+                'restaurant_assignments' => [
+                    ['restaurant_id' => $restaurantB->id, 'sub_id' => 'OC-1'],
+                ],
             ])
             ->assertCreated();
     }
@@ -210,5 +213,60 @@ class StaffRestaurantScopeTest extends TestCase
         $this->actingAs($waiterA, 'web')
             ->patchJson("/api/v1/staff/{$staffB->id}", ['name' => 'X'])
             ->assertNotFound();
+    }
+
+    // --- Multi-restaurant staff (Bloco 18) -----------------------------
+
+    /**
+     * A staff member in A+B appears exactly once in the index, never
+     * duplicated because of two restaurant_users rows.
+     */
+    public function test_staff_in_multiple_restaurants_appears_once_in_the_index(): void
+    {
+        [$organization, $owner, $restaurantA] = $this->createTenant();
+        $restaurantB = Restaurant::factory()->create(['organization_id' => $organization->id]);
+        $carlos = $this->createStaffAcrossRestaurants($organization, [$restaurantA, $restaurantB], 'waiter', $owner);
+
+        $response = $this->actingAs($owner, 'web')->getJson('/api/v1/staff')->assertOk();
+
+        $ids = $response->json('data.staff.*.id');
+        $this->assertSame(1, count(array_filter($ids, fn ($id) => $id === $carlos->id)));
+    }
+
+    /**
+     * A manager scoped to A alone can still find (and manage) a staff
+     * member who is in A+B, because whereHas('restaurants', ...) matches
+     * on ANY reachable restaurant, not on the full set.
+     */
+    public function test_manager_of_a_can_view_staff_who_is_also_in_b(): void
+    {
+        [$organization, $owner, $restaurantA] = $this->createTenant();
+        $restaurantB = Restaurant::factory()->create(['organization_id' => $organization->id]);
+        $managerA = $this->createStaff($organization, $restaurantA, 'manager', 'M-A');
+        $carlos = $this->createStaffAcrossRestaurants($organization, [$restaurantA, $restaurantB], 'waiter', $owner);
+
+        $this->actingAs($managerA, 'web')
+            ->getJson("/api/v1/staff/{$carlos->id}")
+            ->assertOk()
+            ->assertJsonPath('data.staff.id', $carlos->id);
+    }
+
+    /**
+     * Owner explicitly assigning A+B+C does not turn into an implicit
+     * "all restaurants" grant — a Restaurant D created afterwards is not
+     * automatically added (see report — no wildcard/all_restaurants flag).
+     */
+    public function test_staff_explicit_assignment_does_not_grow_when_a_new_restaurant_is_created_later(): void
+    {
+        [$organization, $owner, $restaurantA] = $this->createTenant();
+        $restaurantB = Restaurant::factory()->create(['organization_id' => $organization->id]);
+        $restaurantC = Restaurant::factory()->create(['organization_id' => $organization->id]);
+        $carlos = $this->createStaffAcrossRestaurants($organization, [$restaurantA, $restaurantB, $restaurantC], 'waiter', $owner);
+
+        $restaurantD = Restaurant::factory()->create(['organization_id' => $organization->id]);
+
+        $restaurantIds = $carlos->restaurants()->pluck('restaurants.id')->sort()->values()->all();
+        $this->assertSame([$restaurantA->id, $restaurantB->id, $restaurantC->id], $restaurantIds);
+        $this->assertFalse(in_array($restaurantD->id, $restaurantIds, true));
     }
 }

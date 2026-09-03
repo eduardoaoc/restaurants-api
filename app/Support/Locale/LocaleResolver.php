@@ -7,12 +7,19 @@ use Illuminate\Support\Collection;
 
 /**
  * Resolves the effective locale of a public request and picks the best
- * translation for a given locale, following the fallback chain:
- * exact locale -> base language -> es -> first available translation.
+ * translation for a given locale, following the fallback chain: exact
+ * locale -> base language -> restaurant default_locale (if given) -> base
+ * of that default -> es -> first available translation.
  */
 class LocaleResolver
 {
-    public const PATTERN = '/^[A-Za-z]{2,3}(-[A-Za-z]{2,4})?$/';
+    /**
+     * language[-region[-variant]] — e.g. "es", "es-ES", "ca-ES-valencia".
+     * The third (variant) segment is what Bloco 18's ca-ES-valencia needs;
+     * everything that matched before (bare "es", "pt-BR", "pt-br") still
+     * matches unchanged, since that segment is optional.
+     */
+    public const PATTERN = '/^[A-Za-z]{2,3}(-[A-Za-z]{2,4})?(-[A-Za-z]{2,8})?$/';
 
     private const DEFAULT_LOCALE = 'es';
 
@@ -39,18 +46,25 @@ class LocaleResolver
     }
 
     /**
-     * Normalize casing: language lowercase, region uppercase (es-ES, pt-BR).
+     * Normalize casing: language lowercase, region uppercase, variant
+     * lowercase (es-ES, pt-BR, ca-ES-valencia).
      */
     public static function normalize(string $locale): string
     {
         $parts = explode('-', $locale);
         $language = strtolower($parts[0]);
 
-        if (isset($parts[1]) && $parts[1] !== '') {
-            return $language.'-'.strtoupper($parts[1]);
+        if (! isset($parts[1]) || $parts[1] === '') {
+            return $language;
         }
 
-        return $language;
+        $normalized = $language.'-'.strtoupper($parts[1]);
+
+        if (isset($parts[2]) && $parts[2] !== '') {
+            $normalized .= '-'.strtolower($parts[2]);
+        }
+
+        return $normalized;
     }
 
     /**
@@ -83,12 +97,20 @@ class LocaleResolver
      * Pick the best translation for a locale from a collection of models
      * exposing `locale`, `name` and `description` attributes.
      *
+     * Fallback chain: exact requested locale -> its base language ->
+     * $restaurantDefaultLocale (if given, e.g. RestaurantSettings::
+     * default_locale) -> that default's base language -> the hardcoded
+     * "es" -> the first translation available at all. $restaurantDefaultLocale
+     * is optional (defaults to null, skipping straight to "es") so every
+     * pre-Bloco-18 call site keeps behaving exactly as before until it is
+     * updated to pass the restaurant's own default.
+     *
      * @template TTranslation of object
      *
      * @param  Collection<int, TTranslation>  $translations
      * @return TTranslation|null
      */
-    public static function pickTranslation(Collection $translations, string $locale)
+    public static function pickTranslation(Collection $translations, string $locale, ?string $restaurantDefaultLocale = null)
     {
         if ($translations->isEmpty()) {
             return null;
@@ -97,9 +119,26 @@ class LocaleResolver
         $locale = self::normalize($locale);
         $base = strtolower(explode('-', $locale)[0]);
 
-        return $translations->first(fn ($translation) => strcasecmp($translation->locale, $locale) === 0)
-            ?? $translations->first(fn ($translation) => strtolower(explode('-', $translation->locale)[0]) === $base)
-            ?? $translations->first(fn ($translation) => strtolower($translation->locale) === self::DEFAULT_LOCALE)
+        $found = $translations->first(fn ($translation) => strcasecmp($translation->locale, $locale) === 0)
+            ?? $translations->first(fn ($translation) => strtolower(explode('-', $translation->locale)[0]) === $base);
+
+        if ($found) {
+            return $found;
+        }
+
+        if ($restaurantDefaultLocale !== null) {
+            $normalizedDefault = self::normalize($restaurantDefaultLocale);
+            $defaultBase = strtolower(explode('-', $normalizedDefault)[0]);
+
+            $found = $translations->first(fn ($translation) => strcasecmp($translation->locale, $normalizedDefault) === 0)
+                ?? $translations->first(fn ($translation) => strtolower(explode('-', $translation->locale)[0]) === $defaultBase);
+
+            if ($found) {
+                return $found;
+            }
+        }
+
+        return $translations->first(fn ($translation) => strtolower($translation->locale) === self::DEFAULT_LOCALE)
             ?? $translations->first();
     }
 }

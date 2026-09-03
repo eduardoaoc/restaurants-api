@@ -386,6 +386,9 @@
                     },
                     "404": {
                         "description": "Table session not found"
+                    },
+                    "409": {
+                        "description": "bill_receipt_printing_enabled is false for this restaurant"
                     }
                 },
                 "security": [
@@ -1050,7 +1053,7 @@
                         "description": "Order not found"
                     },
                     "409": {
-                        "description": "The order is waiting_approval or cancelled and cannot be printed"
+                        "description": "The order is waiting_approval or cancelled and cannot be printed, or kitchen_ticket_printing_enabled is false"
                     }
                 },
                 "security": [
@@ -3064,7 +3067,7 @@
                         }
                     },
                     "409": {
-                        "description": "No active table session, a concurrent session close, or a reused idempotency key",
+                        "description": "No active table session, a concurrent session close, a reused idempotency key, or CUSTOMER_ORDERING_DISABLED",
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -3205,7 +3208,7 @@
                         }
                     },
                     "409": {
-                        "description": "No active table session, or a call_waiter request is already open for this session",
+                        "description": "No active table session, a call_waiter request is already open for this session, or WAITER_CALL_DISABLED",
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -3293,7 +3296,7 @@
                         }
                     },
                     "409": {
-                        "description": "No active table session, or a request_bill request is already open for this session",
+                        "description": "No active table session, a request_bill request is already open for this session, or BILL_REQUEST_DISABLED",
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -3331,7 +3334,7 @@
                     "Restaurants"
                 ],
                 "summary": "List restaurants of the active organization",
-                "description": "List the restaurants belonging to the active organization.",
+                "description": "List the restaurants belonging to the active organization, scoped to\nwhat the requester can reach: an organization-wide owner sees every\nrestaurant, an operational staff member scoped to A+B sees exactly\nA and B — never a restaurant they hold no restaurant_users link to,\neven within the same organization.",
                 "operationId": "restaurantsIndex",
                 "responses": {
                     "200": {
@@ -3398,14 +3401,6 @@
                                     "status": {
                                         "type": "string",
                                         "example": "active"
-                                    },
-                                    "timezone": {
-                                        "type": "string",
-                                        "example": "America/Sao_Paulo"
-                                    },
-                                    "default_locale": {
-                                        "type": "string",
-                                        "example": "pt-BR"
                                     }
                                 },
                                 "type": "object"
@@ -3461,7 +3456,7 @@
                     "Restaurants"
                 ],
                 "summary": "Get a restaurant of the active organization",
-                "description": "Show a restaurant belonging to the active organization.",
+                "description": "Show a restaurant belonging to the active organization. Resolution\nis scoped by RestaurantScope before authorization runs — a\nrestaurant outside the requester's scope (another restaurant of the\nsame organization the requester has no restaurant_users link to) is\n404 via findOrFail, never a Policy-level 403, matching every other\nrestaurant-scoped resource (Dashboard, Settings, Staff, ...).",
                 "operationId": "restaurantsShow",
                 "parameters": [
                     {
@@ -3501,7 +3496,7 @@
                         "description": "The user has no organization"
                     },
                     "404": {
-                        "description": "Restaurant not found"
+                        "description": "Restaurant not found, or outside the user's restaurant scope"
                     }
                 },
                 "security": [
@@ -3515,7 +3510,7 @@
                     "Restaurants"
                 ],
                 "summary": "Update a restaurant of the active organization",
-                "description": "Update a restaurant belonging to the active organization.",
+                "description": "Update a restaurant belonging to the active organization. Same\nscoped-resolution-before-authorization pattern as show().",
                 "operationId": "restaurantsUpdate",
                 "parameters": [
                     {
@@ -3544,14 +3539,6 @@
                                     "status": {
                                         "type": "string",
                                         "example": "active"
-                                    },
-                                    "timezone": {
-                                        "type": "string",
-                                        "example": "America/Sao_Paulo"
-                                    },
-                                    "default_locale": {
-                                        "type": "string",
-                                        "example": "pt-BR"
                                     }
                                 },
                                 "type": "object"
@@ -3591,10 +3578,87 @@
                         "description": "The user is not allowed to update this restaurant"
                     },
                     "404": {
-                        "description": "Restaurant not found"
+                        "description": "Restaurant not found, or outside the user's restaurant scope"
                     },
                     "422": {
                         "description": "Validation error"
+                    }
+                },
+                "security": [
+                    {
+                        "sessionCookie": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/restaurants/{restaurant}/dashboard": {
+            "get": {
+                "tags": [
+                    "Restaurant Dashboard"
+                ],
+                "summary": "Get a restaurant's operational dashboard",
+                "description": "The operational dashboard of one explicit restaurant of the active\norganization. Restaurant resolution is scoped by RestaurantScope\nbefore authorization runs: a restaurant outside the requester's\nscope (a manager's other restaurant, or another organization's\nrestaurant entirely) resolves as 404 via findOrFail, never 403 — the\nsame convention used across every other restaurant-scoped resource\n(see StaffPerformanceController, KitchenController). An owner\n(organization-wide role) can reach every restaurant of the active\norganization, but the dashboard itself is always of exactly one\nrestaurant — numbers never aggregate across restaurants.",
+                "operationId": "restaurantDashboardShow",
+                "parameters": [
+                    {
+                        "name": "restaurant",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "from",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "format": "date"
+                        }
+                    },
+                    {
+                        "name": "to",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "format": "date"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The restaurant dashboard",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "properties": {
+                                                "dashboard": {
+                                                    "$ref": "#/components/schemas/RestaurantDashboard"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "The user is not allowed to view this restaurant's reports"
+                    },
+                    "404": {
+                        "description": "Restaurant not found, or outside the user's restaurant scope"
+                    },
+                    "422": {
+                        "description": "Invalid report period"
                     }
                 },
                 "security": [
@@ -3780,6 +3844,133 @@
                 ]
             }
         },
+        "/api/v1/restaurants/{restaurant}/settings": {
+            "get": {
+                "tags": [
+                    "Restaurant Settings"
+                ],
+                "summary": "Get a restaurant's operational settings",
+                "description": "Get a restaurant's operational settings. Restaurant resolution is\nscoped by RestaurantScope before authorization runs: a restaurant\noutside the requester's scope resolves as 404, never 403 — same\nconvention as RestaurantDashboardController.",
+                "operationId": "restaurantSettingsShow",
+                "parameters": [
+                    {
+                        "name": "restaurant",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The restaurant settings",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "properties": {
+                                                "settings": {
+                                                    "$ref": "#/components/schemas/RestaurantSettings"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "The user is not allowed to view this restaurant's settings"
+                    },
+                    "404": {
+                        "description": "Restaurant not found, or outside the user's restaurant scope"
+                    }
+                },
+                "security": [
+                    {
+                        "sessionCookie": []
+                    }
+                ]
+            },
+            "patch": {
+                "tags": [
+                    "Restaurant Settings"
+                ],
+                "summary": "Update a restaurant's operational settings",
+                "description": "Partially update a restaurant's operational settings.",
+                "operationId": "restaurantSettingsUpdate",
+                "parameters": [
+                    {
+                        "name": "restaurant",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": false,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/UpdateRestaurantSettingsRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Settings updated successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Settings updated successfully."
+                                        },
+                                        "data": {
+                                            "properties": {
+                                                "settings": {
+                                                    "$ref": "#/components/schemas/RestaurantSettings"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "The user is not allowed to update this restaurant's settings"
+                    },
+                    "404": {
+                        "description": "Restaurant not found, or outside the user's restaurant scope"
+                    },
+                    "422": {
+                        "description": "Validation error"
+                    }
+                },
+                "security": [
+                    {
+                        "sessionCookie": []
+                    }
+                ]
+            }
+        },
         "/api/v1/staff": {
             "get": {
                 "tags": [
@@ -3837,43 +4028,7 @@
                     "content": {
                         "application/json": {
                             "schema": {
-                                "required": [
-                                    "name",
-                                    "email",
-                                    "password",
-                                    "restaurant_id",
-                                    "role",
-                                    "sub_id"
-                                ],
-                                "properties": {
-                                    "name": {
-                                        "type": "string",
-                                        "example": "Carlos"
-                                    },
-                                    "email": {
-                                        "type": "string",
-                                        "format": "email",
-                                        "example": "carlos@example.com"
-                                    },
-                                    "password": {
-                                        "type": "string",
-                                        "format": "password",
-                                        "example": "TemporaryPassword123!"
-                                    },
-                                    "restaurant_id": {
-                                        "type": "integer",
-                                        "example": 3
-                                    },
-                                    "role": {
-                                        "type": "string",
-                                        "example": "waiter"
-                                    },
-                                    "sub_id": {
-                                        "type": "string",
-                                        "example": "W-023"
-                                    }
-                                },
-                                "type": "object"
+                                "$ref": "#/components/schemas/CreateStaffRequest"
                             }
                         }
                     }
@@ -4000,30 +4155,7 @@
                     "content": {
                         "application/json": {
                             "schema": {
-                                "properties": {
-                                    "name": {
-                                        "type": "string",
-                                        "example": "Carlos"
-                                    },
-                                    "email": {
-                                        "type": "string",
-                                        "format": "email",
-                                        "example": "carlos@example.com"
-                                    },
-                                    "restaurant_id": {
-                                        "type": "integer",
-                                        "example": 3
-                                    },
-                                    "role": {
-                                        "type": "string",
-                                        "example": "waiter"
-                                    },
-                                    "sub_id": {
-                                        "type": "string",
-                                        "example": "W-023"
-                                    }
-                                },
-                                "type": "object"
+                                "$ref": "#/components/schemas/UpdateStaffRequest"
                             }
                         }
                     }
@@ -4079,7 +4211,7 @@
                     "Staff Performance"
                 ],
                 "summary": "Get the authenticated user's own operational performance",
-                "description": "The authenticated user's own operational performance. Never accepts\na user/staff id and requires no permission beyond authentication +\nan active organization — everyone can see their own numbers.\n\nWhen the caller has an organization-wide role (owner-like), scope is\n\"organization\" and metrics aggregate their own actions across every\nrestaurant of the active organization only — never across other\norganizations, and never another staff member's actions.",
+                "description": "The authenticated user's own operational performance. Never accepts\na user/staff id and requires no permission beyond authentication +\nan active organization — everyone can see their own numbers.\n\nScope (Bloco 18):\n  - Organization-wide caller (owner-like): \"organization\" — every\n    restaurant of the active organization.\n  - Operational staff with exactly one restaurant: \"restaurant\".\n  - Operational staff with 2+ restaurants (Carlos -> A+B):\n    \"assigned_restaurants\" — every restaurant they hold a\n    restaurant_users row for, never restaurants outside that set.\n  - Any of the above narrowed to one explicit restaurant via\n    ?restaurant_id=: \"restaurant\". A restaurant_id the caller cannot\n    reach via their own RestaurantScope is 404 — this endpoint never\n    widens what the caller could already see.",
                 "operationId": "mePerformance",
                 "parameters": [
                     {
@@ -4098,6 +4230,15 @@
                         "schema": {
                             "type": "string",
                             "format": "date"
+                        }
+                    },
+                    {
+                        "name": "restaurant_id",
+                        "in": "query",
+                        "description": "Restrict to one explicit restaurant the caller can reach.",
+                        "required": false,
+                        "schema": {
+                            "type": "integer"
                         }
                     }
                 ],
@@ -4125,6 +4266,9 @@
                     "401": {
                         "description": "Unauthenticated"
                     },
+                    "404": {
+                        "description": "restaurant_id is outside the caller's own restaurant scope"
+                    },
                     "422": {
                         "description": "Invalid performance period"
                     }
@@ -4136,15 +4280,23 @@
                 ]
             }
         },
-        "/api/v1/staff/{staff}/performance": {
+        "/api/v1/restaurants/{restaurant}/staff/{staff}/performance": {
             "get": {
                 "tags": [
                     "Staff Performance"
                 ],
-                "summary": "Get an operational staff member's performance",
-                "description": "An operational staff member's performance, as seen by an\nadministrator. Requires view_reports and RestaurantScope\nreachability of the target's own restaurant (via StaffPolicy). The\ntarget's scope is always \"restaurant\" — never aggregated across\nrestaurants, regardless of the requester's own scope.",
-                "operationId": "staffPerformanceShow",
+                "summary": "Get an operational staff member's performance for one restaurant",
+                "description": "An operational staff member's performance for one explicit\nRestaurant, as seen by an administrator. Requires view_reports and\nthat the requester can reach $restaurant via RestaurantScope; the\nRestaurant itself is resolved scoped to the active organization\nfirst — a Restaurant outside the organization is 404 before the\nstaff lookup even runs.\n\nThe target's scope is always \"restaurant\" and always exactly this\none Restaurant — even for a staff member assigned to several, and\neven when the requester is an organization-wide owner who could\nreach every one of them: metrics never aggregate across the\ntarget's other restaurants.",
+                "operationId": "restaurantStaffPerformanceShow",
                 "parameters": [
+                    {
+                        "name": "restaurant",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
                     {
                         "name": "staff",
                         "in": "path",
@@ -4200,7 +4352,7 @@
                         "description": "The user is not allowed to view this staff member's performance"
                     },
                     "404": {
-                        "description": "Staff member not found"
+                        "description": "Restaurant not found, outside scope, or the staff member has no link to it"
                     },
                     "422": {
                         "description": "Invalid performance period"
@@ -4213,15 +4365,23 @@
                 ]
             }
         },
-        "/api/v1/staff/{staff}/reviews": {
+        "/api/v1/restaurants/{restaurant}/staff/{staff}/reviews": {
             "get": {
                 "tags": [
                     "Staff Reviews"
                 ],
-                "summary": "List the internal reviews of an operational staff member",
-                "description": "List the reviews of an operational staff member, newest first. Even\nthe target staff member themselves needs manage_staff_reviews to see\nthis list — their redacted rating summary is available instead\nthrough /me/performance.",
-                "operationId": "staffReviewIndex",
+                "summary": "List the internal reviews of an operational staff member for one restaurant",
+                "description": "List the reviews of an operational staff member for one explicit\nRestaurant, newest first. Even the target staff member themselves\nneeds manage_staff_reviews to see this list — their redacted rating\nsummary is available instead through /me/performance.",
+                "operationId": "restaurantStaffReviewIndex",
                 "parameters": [
+                    {
+                        "name": "restaurant",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
                     {
                         "name": "staff",
                         "in": "path",
@@ -4262,7 +4422,7 @@
                         "description": "The user is not allowed to view this staff member's reviews"
                     },
                     "404": {
-                        "description": "Staff member not found"
+                        "description": "Restaurant not found, outside scope, or the staff member has no link to it"
                     }
                 },
                 "security": [
@@ -4275,10 +4435,18 @@
                 "tags": [
                     "Staff Reviews"
                 ],
-                "summary": "Create an internal review of an operational staff member",
-                "description": "Create an internal review of an operational staff member. All\ncontext beyond rating/comment (organization_id, restaurant_id,\nstaff_user_id, reviewer_user_id) is derived server-side — the\ntarget's restaurant_id is always their own, never a value the\nrequester can influence. Self-review is rejected with 422.",
-                "operationId": "staffReviewStore",
+                "summary": "Create an internal review of an operational staff member for one restaurant",
+                "description": "Create an internal review of an operational staff member for one\nexplicit Restaurant. All context beyond rating/comment\n(organization_id, restaurant_id, staff_user_id, reviewer_user_id) is\nderived server-side from the route — restaurant_id always comes from\nthe URL, never the request body, and the target's restaurant is\nalways this one, never \"their first restaurant\" (Bloco 18: a staff\nmember may have several). Self-review is rejected with 422.",
+                "operationId": "restaurantStaffReviewStore",
                 "parameters": [
+                    {
+                        "name": "restaurant",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
                     {
                         "name": "staff",
                         "in": "path",
@@ -4330,7 +4498,7 @@
                         "description": "The user is not allowed to review this staff member"
                     },
                     "404": {
-                        "description": "Staff member not found"
+                        "description": "Restaurant not found, outside scope, or the staff member has no link to it"
                     },
                     "422": {
                         "description": "Validation error, or the staff member cannot review themselves"
@@ -5320,9 +5488,7 @@
                     "organization_id",
                     "name",
                     "slug",
-                    "status",
-                    "timezone",
-                    "default_locale"
+                    "status"
                 ],
                 "properties": {
                     "id": {
@@ -5347,14 +5513,6 @@
                         "type": "string",
                         "example": "active"
                     },
-                    "timezone": {
-                        "type": "string",
-                        "example": "America/Sao_Paulo"
-                    },
-                    "default_locale": {
-                        "type": "string",
-                        "example": "pt-BR"
-                    },
                     "created_at": {
                         "type": "string",
                         "format": "date-time"
@@ -5367,13 +5525,13 @@
                 "type": "object"
             },
             "Staff": {
+                "description": "An operational staff member with 1..N restaurant assignments — never a wildcard/all-restaurants marker (see report).",
                 "required": [
                     "id",
                     "name",
                     "email",
-                    "sub_id",
                     "role",
-                    "restaurant"
+                    "restaurants"
                 ],
                 "properties": {
                     "id": {
@@ -5390,11 +5548,8 @@
                         "format": "email",
                         "example": "carlos@example.com"
                     },
-                    "sub_id": {
-                        "type": "string",
-                        "example": "W-023"
-                    },
                     "role": {
+                        "description": "The same operational role applies across every one of this staff member's restaurants in this MVP.",
                         "properties": {
                             "id": {
                                 "type": "integer",
@@ -5408,19 +5563,11 @@
                         },
                         "type": "object"
                     },
-                    "restaurant": {
-                        "properties": {
-                            "id": {
-                                "type": "integer",
-                                "format": "int64",
-                                "example": 2
-                            },
-                            "name": {
-                                "type": "string",
-                                "example": "Restaurante Centro"
-                            }
-                        },
-                        "type": "object"
+                    "restaurants": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/StaffRestaurantAssignment"
+                        }
                     },
                     "created_at": {
                         "type": "string",
@@ -5429,6 +5576,109 @@
                     "updated_at": {
                         "type": "string",
                         "format": "date-time"
+                    }
+                },
+                "type": "object"
+            },
+            "StaffRestaurantAssignment": {
+                "required": [
+                    "id",
+                    "name",
+                    "sub_id"
+                ],
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "format": "int64",
+                        "example": 2
+                    },
+                    "name": {
+                        "type": "string",
+                        "example": "Restaurante Centro"
+                    },
+                    "sub_id": {
+                        "type": "string",
+                        "example": "W-023"
+                    }
+                },
+                "type": "object"
+            },
+            "StaffRestaurantAssignmentInput": {
+                "required": [
+                    "restaurant_id",
+                    "sub_id"
+                ],
+                "properties": {
+                    "restaurant_id": {
+                        "type": "integer",
+                        "format": "int64",
+                        "example": 10
+                    },
+                    "sub_id": {
+                        "type": "string",
+                        "example": "W-014"
+                    }
+                },
+                "type": "object"
+            },
+            "CreateStaffRequest": {
+                "required": [
+                    "name",
+                    "email",
+                    "password",
+                    "role",
+                    "restaurant_assignments"
+                ],
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "example": "Carlos García"
+                    },
+                    "email": {
+                        "type": "string",
+                        "format": "email",
+                        "example": "carlos@example.com"
+                    },
+                    "password": {
+                        "type": "string",
+                        "format": "password",
+                        "example": "TemporaryPassword123!"
+                    },
+                    "role": {
+                        "type": "string",
+                        "example": "waiter"
+                    },
+                    "restaurant_assignments": {
+                        "description": "At least 1 required. Every restaurant_id must belong to the active organization and be reachable via the requester's own restaurant scope.",
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/StaffRestaurantAssignmentInput"
+                        }
+                    }
+                },
+                "type": "object"
+            },
+            "UpdateStaffRequest": {
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "example": "Carlos García"
+                    },
+                    "email": {
+                        "type": "string",
+                        "format": "email",
+                        "example": "carlos@example.com"
+                    },
+                    "role": {
+                        "type": "string",
+                        "example": "waiter"
+                    },
+                    "restaurant_assignments": {
+                        "description": "When sent, REPLACES the staff member's full restaurant set (at least 1 entry required — never empty).",
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/StaffRestaurantAssignmentInput"
+                        }
                     }
                 },
                 "type": "object"
@@ -5955,7 +6205,10 @@
             "PublicRestaurant": {
                 "required": [
                     "id",
-                    "name"
+                    "name",
+                    "default_locale",
+                    "enabled_locales",
+                    "capabilities"
                 ],
                 "properties": {
                     "id": {
@@ -5966,6 +6219,39 @@
                     "name": {
                         "type": "string",
                         "example": "Aforo Centro"
+                    },
+                    "default_locale": {
+                        "type": "string",
+                        "example": "es-ES"
+                    },
+                    "enabled_locales": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "example": [
+                            "es-ES",
+                            "ca-ES-valencia",
+                            "en-GB"
+                        ]
+                    },
+                    "capabilities": {
+                        "description": "Lets the frontend hide disabled actions. Never includes customer_order_requires_approval — the backend alone decides an order's status.",
+                        "properties": {
+                            "customer_ordering": {
+                                "type": "boolean",
+                                "example": true
+                            },
+                            "waiter_call": {
+                                "type": "boolean",
+                                "example": true
+                            },
+                            "bill_request": {
+                                "type": "boolean",
+                                "example": true
+                            }
+                        },
+                        "type": "object"
                     }
                 },
                 "type": "object"
@@ -7784,6 +8070,414 @@
                     }
                 },
                 "type": "object"
+            },
+            "DashboardRestaurant": {
+                "required": [
+                    "id",
+                    "name"
+                ],
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "format": "int64",
+                        "example": 3
+                    },
+                    "name": {
+                        "type": "string",
+                        "example": "Aforo Centro"
+                    }
+                },
+                "type": "object"
+            },
+            "DashboardPeriod": {
+                "required": [
+                    "from",
+                    "to"
+                ],
+                "properties": {
+                    "from": {
+                        "type": "string",
+                        "format": "date",
+                        "example": "2026-09-01"
+                    },
+                    "to": {
+                        "description": "Inclusive — the underlying query filters as a half-open range internally.",
+                        "type": "string",
+                        "format": "date",
+                        "example": "2026-09-30"
+                    }
+                },
+                "type": "object"
+            },
+            "DashboardSales": {
+                "description": "sales.total is SUM(payment_records.amount) recorded in the period — money actually collected, never Order totals or a fiscal revenue figure.",
+                "required": [
+                    "total",
+                    "average_ticket",
+                    "sessions_with_payments"
+                ],
+                "properties": {
+                    "total": {
+                        "type": "string",
+                        "example": "1250.00"
+                    },
+                    "average_ticket": {
+                        "description": "total / sessions_with_payments. \"0.00\" (never null) when sessions_with_payments is 0.",
+                        "type": "string",
+                        "example": "31.25"
+                    },
+                    "sessions_with_payments": {
+                        "description": "Distinct table sessions with at least one payment recorded in the period — includes partially paid sessions, not only fully-settled ones.",
+                        "type": "integer",
+                        "example": 40
+                    }
+                },
+                "type": "object"
+            },
+            "DashboardOrders": {
+                "required": [
+                    "created",
+                    "served",
+                    "cancelled",
+                    "customer_qr",
+                    "staff_created"
+                ],
+                "properties": {
+                    "created": {
+                        "description": "Filtered by created_at.",
+                        "type": "integer",
+                        "example": 95
+                    },
+                    "served": {
+                        "description": "Filtered by served_at — may include orders created in an earlier period.",
+                        "type": "integer",
+                        "example": 88
+                    },
+                    "cancelled": {
+                        "description": "status=cancelled, filtered by cancelled_at.",
+                        "type": "integer",
+                        "example": 4
+                    },
+                    "customer_qr": {
+                        "description": "origin=customer_qr, filtered by created_at.",
+                        "type": "integer",
+                        "example": 52
+                    },
+                    "staff_created": {
+                        "description": "origin!=customer_qr, filtered by created_at.",
+                        "type": "integer",
+                        "example": 43
+                    }
+                },
+                "type": "object"
+            },
+            "DashboardTables": {
+                "required": [
+                    "sessions_opened",
+                    "sessions_closed",
+                    "current_active"
+                ],
+                "properties": {
+                    "sessions_opened": {
+                        "description": "Filtered by opened_at.",
+                        "type": "integer",
+                        "example": 44
+                    },
+                    "sessions_closed": {
+                        "description": "Filtered by closed_at.",
+                        "type": "integer",
+                        "example": 40
+                    },
+                    "current_active": {
+                        "description": "A snapshot of right now (status != closed) — does NOT respect the ?from=/?to= period.",
+                        "type": "integer",
+                        "example": 3
+                    }
+                },
+                "type": "object"
+            },
+            "DashboardPaymentMethod": {
+                "required": [
+                    "count",
+                    "amount"
+                ],
+                "properties": {
+                    "count": {
+                        "type": "integer",
+                        "example": 14
+                    },
+                    "amount": {
+                        "type": "string",
+                        "example": "390.00"
+                    }
+                },
+                "type": "object"
+            },
+            "DashboardPayments": {
+                "required": [
+                    "total_records",
+                    "by_method"
+                ],
+                "properties": {
+                    "total_records": {
+                        "type": "integer",
+                        "example": 43
+                    },
+                    "by_method": {
+                        "description": "Always includes cash/card/other, zero-filled when a method had no records in the period.",
+                        "properties": {
+                            "cash": {
+                                "$ref": "#/components/schemas/DashboardPaymentMethod"
+                            },
+                            "card": {
+                                "$ref": "#/components/schemas/DashboardPaymentMethod"
+                            },
+                            "other": {
+                                "$ref": "#/components/schemas/DashboardPaymentMethod"
+                            }
+                        },
+                        "type": "object"
+                    }
+                },
+                "type": "object"
+            },
+            "DashboardRequests": {
+                "description": "Response-time metrics (pending->acknowledged->completed durations) are out of scope for this endpoint.",
+                "required": [
+                    "call_waiter",
+                    "request_bill",
+                    "completed"
+                ],
+                "properties": {
+                    "call_waiter": {
+                        "description": "Filtered by created_at.",
+                        "type": "integer",
+                        "example": 21
+                    },
+                    "request_bill": {
+                        "description": "Filtered by created_at.",
+                        "type": "integer",
+                        "example": 17
+                    },
+                    "completed": {
+                        "description": "status=completed, filtered by completed_at.",
+                        "type": "integer",
+                        "example": 35
+                    }
+                },
+                "type": "object"
+            },
+            "DashboardTopStaff": {
+                "required": [
+                    "staff",
+                    "orders_served"
+                ],
+                "properties": {
+                    "staff": {
+                        "required": [
+                            "id",
+                            "name"
+                        ],
+                        "properties": {
+                            "id": {
+                                "type": "integer",
+                                "format": "int64",
+                                "example": 10
+                            },
+                            "name": {
+                                "type": "string",
+                                "example": "Carlos"
+                            }
+                        },
+                        "type": "object"
+                    },
+                    "orders_served": {
+                        "type": "integer",
+                        "example": 42
+                    }
+                },
+                "type": "object"
+            },
+            "DashboardStaff": {
+                "description": "A purely factual ordering by orders served — never a performance score or rating (see StaffPerformance for that).",
+                "required": [
+                    "top_by_orders_served"
+                ],
+                "properties": {
+                    "top_by_orders_served": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/DashboardTopStaff"
+                        },
+                        "maxItems": 5
+                    }
+                },
+                "type": "object"
+            },
+            "RestaurantDashboard": {
+                "required": [
+                    "restaurant",
+                    "period",
+                    "sales",
+                    "orders",
+                    "tables",
+                    "payments",
+                    "requests",
+                    "staff"
+                ],
+                "properties": {
+                    "restaurant": {
+                        "$ref": "#/components/schemas/DashboardRestaurant"
+                    },
+                    "period": {
+                        "$ref": "#/components/schemas/DashboardPeriod"
+                    },
+                    "sales": {
+                        "$ref": "#/components/schemas/DashboardSales"
+                    },
+                    "orders": {
+                        "$ref": "#/components/schemas/DashboardOrders"
+                    },
+                    "tables": {
+                        "$ref": "#/components/schemas/DashboardTables"
+                    },
+                    "payments": {
+                        "$ref": "#/components/schemas/DashboardPayments"
+                    },
+                    "requests": {
+                        "$ref": "#/components/schemas/DashboardRequests"
+                    },
+                    "staff": {
+                        "$ref": "#/components/schemas/DashboardStaff"
+                    }
+                },
+                "type": "object"
+            },
+            "RestaurantSettings": {
+                "description": "A restaurant's operational configuration. Money presentation stays server-side-neutral — \"12.50\"/currency, never localized here.",
+                "required": [
+                    "default_locale",
+                    "enabled_locales",
+                    "currency",
+                    "timezone",
+                    "customer_ordering_enabled",
+                    "customer_order_requires_approval",
+                    "waiter_call_enabled",
+                    "bill_request_enabled",
+                    "kitchen_ticket_printing_enabled",
+                    "bill_receipt_printing_enabled"
+                ],
+                "properties": {
+                    "default_locale": {
+                        "description": "One of es-ES / ca-ES-valencia / en-GB. Always a member of enabled_locales.",
+                        "type": "string",
+                        "example": "es-ES"
+                    },
+                    "enabled_locales": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "example": [
+                            "es-ES",
+                            "ca-ES-valencia",
+                            "en-GB"
+                        ]
+                    },
+                    "currency": {
+                        "description": "ISO 4217. Only EUR is accepted in this MVP.",
+                        "type": "string",
+                        "example": "EUR"
+                    },
+                    "timezone": {
+                        "type": "string",
+                        "example": "Europe/Madrid"
+                    },
+                    "customer_ordering_enabled": {
+                        "type": "boolean",
+                        "example": true
+                    },
+                    "customer_order_requires_approval": {
+                        "description": "false: a customer_qr order is auto-confirmed straight into the KDS. true: it waits for waiter approval (the pre-Bloco-18 flow).",
+                        "type": "boolean",
+                        "example": false
+                    },
+                    "waiter_call_enabled": {
+                        "type": "boolean",
+                        "example": true
+                    },
+                    "bill_request_enabled": {
+                        "type": "boolean",
+                        "example": true
+                    },
+                    "kitchen_ticket_printing_enabled": {
+                        "description": "Gates POST .../kitchen-ticket/print only — the GET preview is always available.",
+                        "type": "boolean",
+                        "example": true
+                    },
+                    "bill_receipt_printing_enabled": {
+                        "description": "Gates POST .../receipt/print only — the GET preview is always available.",
+                        "type": "boolean",
+                        "example": true
+                    },
+                    "updated_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                },
+                "type": "object"
+            },
+            "UpdateRestaurantSettingsRequest": {
+                "description": "Every field is optional (PATCH semantics). organization_id/restaurant_id are never accepted.",
+                "properties": {
+                    "default_locale": {
+                        "type": "string",
+                        "example": "ca-ES-valencia"
+                    },
+                    "enabled_locales": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "example": [
+                            "es-ES",
+                            "en-GB"
+                        ]
+                    },
+                    "currency": {
+                        "type": "string",
+                        "example": "EUR"
+                    },
+                    "timezone": {
+                        "type": "string",
+                        "example": "Europe/Madrid"
+                    },
+                    "customer_ordering_enabled": {
+                        "type": "boolean",
+                        "example": true
+                    },
+                    "customer_order_requires_approval": {
+                        "type": "boolean",
+                        "example": false
+                    },
+                    "waiter_call_enabled": {
+                        "type": "boolean",
+                        "example": true
+                    },
+                    "bill_request_enabled": {
+                        "type": "boolean",
+                        "example": true
+                    },
+                    "kitchen_ticket_printing_enabled": {
+                        "type": "boolean",
+                        "example": true
+                    },
+                    "bill_receipt_printing_enabled": {
+                        "type": "boolean",
+                        "example": true
+                    }
+                },
+                "type": "object"
             }
         },
         "securitySchemes": {
@@ -7849,8 +8543,16 @@
             "description": "Restaurants"
         },
         {
+            "name": "Restaurant Dashboard",
+            "description": "Restaurant Dashboard"
+        },
+        {
             "name": "Restaurant Products",
             "description": "Restaurant Products"
+        },
+        {
+            "name": "Restaurant Settings",
+            "description": "Restaurant Settings"
         },
         {
             "name": "Staff",
