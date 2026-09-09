@@ -245,7 +245,22 @@ class RestaurantController extends Controller
 
         $this->authorize('update', $restaurantModel);
 
-        $restaurantModel->update($request->validated());
+        $data = $request->validated();
+
+        // Bloco 0: a restaurant suspended by a platform admin cannot be
+        // un-suspended through the tenant PATCH endpoint — only through
+        // PATCH /platform/restaurants/{restaurant}/status. Every other
+        // field on a suspended restaurant remains editable by its own
+        // organization, unlike a suspended Organization (see
+        // ResolveTenant), since restaurant suspension does not block
+        // tenant access the way organization suspension does.
+        if ($restaurantModel->status === Restaurant::STATUS_SUSPENDED
+            && array_key_exists('status', $data)
+            && $data['status'] !== Restaurant::STATUS_SUSPENDED) {
+            abort(403, 'This restaurant has been suspended by a platform administrator.');
+        }
+
+        $restaurantModel->update($data);
 
         return response()->json([
             'message' => 'Restaurant updated successfully.',

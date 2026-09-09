@@ -5,6 +5,8 @@ use App\Http\Controllers\Api\V1\Auth\AuthController;
 use App\Http\Controllers\Api\V1\BillReceiptController;
 use App\Http\Controllers\Api\V1\CategoryController;
 use App\Http\Controllers\Api\V1\CategoryProductController;
+use App\Http\Controllers\Api\V1\FloorController;
+use App\Http\Controllers\Api\V1\FloorPlanController;
 use App\Http\Controllers\Api\V1\HealthController;
 use App\Http\Controllers\Api\V1\KitchenController;
 use App\Http\Controllers\Api\V1\KitchenTicketController;
@@ -13,6 +15,10 @@ use App\Http\Controllers\Api\V1\ModifierGroupController;
 use App\Http\Controllers\Api\V1\ModifierOptionController;
 use App\Http\Controllers\Api\V1\OrderController;
 use App\Http\Controllers\Api\V1\OrganizationController;
+use App\Http\Controllers\Api\V1\Platform\PlatformAuditLogController;
+use App\Http\Controllers\Api\V1\Platform\PlatformOrganizationController;
+use App\Http\Controllers\Api\V1\Platform\PlatformRestaurantController;
+use App\Http\Controllers\Api\V1\Platform\PlatformUserController;
 use App\Http\Controllers\Api\V1\ProductController;
 use App\Http\Controllers\Api\V1\Public\PublicMenuController;
 use App\Http\Controllers\Api\V1\Public\PublicOrderController;
@@ -29,6 +35,7 @@ use App\Http\Controllers\Api\V1\TableController;
 use App\Http\Controllers\Api\V1\TableRequestController;
 use App\Http\Controllers\Api\V1\TableSessionBillController;
 use App\Http\Controllers\Api\V1\TableSessionController;
+use App\Http\Controllers\Api\V1\ZoneController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(function () {
@@ -61,7 +68,31 @@ Route::prefix('v1')->group(function () {
         });
     });
 
-    Route::middleware(['auth:sanctum', 'tenant'])->group(function () {
+    // Platform namespace: cross-tenant administration for AFORO platform
+    // admins only (see EnsurePlatformAdmin). Deliberately its own
+    // top-level group, sibling to the tenant group below — NOT nested
+    // inside it, and NOT running `tenant` (ResolveTenant): a platform
+    // admin has no "active organization" of their own, and every target
+    // organization/restaurant/user here is addressed explicitly by its
+    // own id in the URL, never resolved from the actor's own membership.
+    Route::prefix('platform')->middleware(['auth:sanctum', 'active_user', 'platform_admin'])->group(function () {
+        Route::get('/users', [PlatformUserController::class, 'index']);
+        Route::get('/users/{user}', [PlatformUserController::class, 'show']);
+        Route::patch('/users/{user}/status', [PlatformUserController::class, 'updateStatus']);
+
+        Route::get('/organizations', [PlatformOrganizationController::class, 'index']);
+        Route::get('/organizations/{organization}', [PlatformOrganizationController::class, 'show']);
+        Route::patch('/organizations/{organization}/status', [PlatformOrganizationController::class, 'updateStatus']);
+        Route::patch('/organizations/{organization}/plan', [PlatformOrganizationController::class, 'updatePlan']);
+
+        Route::get('/restaurants', [PlatformRestaurantController::class, 'index']);
+        Route::get('/restaurants/{restaurant}', [PlatformRestaurantController::class, 'show']);
+        Route::patch('/restaurants/{restaurant}/status', [PlatformRestaurantController::class, 'updateStatus']);
+
+        Route::get('/audit-logs', [PlatformAuditLogController::class, 'index']);
+    });
+
+    Route::middleware(['auth:sanctum', 'active_user', 'tenant'])->group(function () {
         Route::get('/audit-logs', [AuditLogController::class, 'index']);
 
         Route::get('/organization', [OrganizationController::class, 'show']);
@@ -91,6 +122,25 @@ Route::prefix('v1')->group(function () {
         Route::patch('/tables/{table}', [TableController::class, 'update']);
         Route::post('/tables/{table}/open', [TableSessionController::class, 'open']);
         Route::post('/tables/{table}/close', [TableSessionController::class, 'close']);
+
+        // Floor Plan (Bloco 1): floors, zones and the aggregated/bulk-save
+        // endpoints that feed the map editor. See FloorPolicy/ZonePolicy
+        // for the view (manage_tables/close_bill) vs manage
+        // (manage_floor_plan) permission split.
+        Route::get('/restaurants/{restaurant}/floors', [FloorController::class, 'index']);
+        Route::post('/restaurants/{restaurant}/floors', [FloorController::class, 'store']);
+        Route::get('/floors/{floor}', [FloorController::class, 'show']);
+        Route::patch('/floors/{floor}', [FloorController::class, 'update']);
+        Route::delete('/floors/{floor}', [FloorController::class, 'destroy']);
+
+        Route::get('/restaurants/{restaurant}/zones', [ZoneController::class, 'index']);
+        Route::post('/restaurants/{restaurant}/zones', [ZoneController::class, 'store']);
+        Route::get('/zones/{zone}', [ZoneController::class, 'show']);
+        Route::patch('/zones/{zone}', [ZoneController::class, 'update']);
+        Route::delete('/zones/{zone}', [ZoneController::class, 'destroy']);
+
+        Route::get('/restaurants/{restaurant}/floor-plan', [FloorPlanController::class, 'show']);
+        Route::patch('/restaurants/{restaurant}/floor-plan/layout', [FloorPlanController::class, 'updateLayout']);
 
         Route::get('/restaurants/{restaurant}/menu', [MenuController::class, 'show']);
         Route::post('/restaurants/{restaurant}/menu', [MenuController::class, 'store']);

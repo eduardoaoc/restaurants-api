@@ -146,8 +146,23 @@ use OpenApi\Attributes as OA;
         new OA\Property(property: 'restaurant_id', type: 'integer', format: 'int64', example: 2),
         new OA\Property(property: 'name', type: 'string', example: 'Mesa 12'),
         new OA\Property(property: 'number', type: 'integer', example: 12, nullable: true),
+        new OA\Property(property: 'capacity', type: 'integer', example: 4, nullable: true, description: 'Number of seats. Purely informational — never validated against guest_count.'),
         new OA\Property(property: 'public_token', type: 'string', example: 'q8dJf83Kp...'),
         new OA\Property(property: 'status', type: 'string', example: 'active'),
+        new OA\Property(property: 'zone_id', type: 'integer', format: 'int64', example: 10, nullable: true, description: 'null until assigned a position on the floor plan (Bloco 1).'),
+        new OA\Property(
+            property: 'layout',
+            description: 'Visual/rendering properties only — never physical dimensions. x/y are normalized 0..1 canvas coordinates, resolution-independent.',
+            properties: [
+                new OA\Property(property: 'x', type: 'number', format: 'float', example: 0.25, nullable: true),
+                new OA\Property(property: 'y', type: 'number', format: 'float', example: 0.4, nullable: true),
+                new OA\Property(property: 'rotation', type: 'integer', example: 0, minimum: 0, maximum: 359),
+                new OA\Property(property: 'shape', type: 'string', example: 'round', description: 'One of: round, square, rectangle.'),
+                new OA\Property(property: 'width', type: 'number', format: 'float', example: 80),
+                new OA\Property(property: 'height', type: 'number', format: 'float', example: 80),
+            ],
+            type: 'object'
+        ),
         new OA\Property(property: 'has_active_session', type: 'boolean', example: true),
         new OA\Property(
             property: 'active_session',
@@ -182,6 +197,100 @@ use OpenApi\Attributes as OA;
         new OA\Property(property: 'closed_by_user_id', type: 'integer', format: 'int64', example: 5, nullable: true),
         new OA\Property(property: 'created_at', type: 'string', format: 'date-time'),
         new OA\Property(property: 'updated_at', type: 'string', format: 'date-time'),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
+    schema: 'Floor',
+    required: ['id', 'restaurant_id', 'name', 'sort_order', 'is_active'],
+    properties: [
+        new OA\Property(property: 'id', type: 'integer', format: 'int64', example: 1),
+        new OA\Property(property: 'restaurant_id', type: 'integer', format: 'int64', example: 2),
+        new OA\Property(property: 'name', type: 'string', example: 'Ground Floor'),
+        new OA\Property(property: 'sort_order', type: 'integer', example: 0),
+        new OA\Property(property: 'is_active', type: 'boolean', example: true),
+        new OA\Property(property: 'created_at', type: 'string', format: 'date-time'),
+        new OA\Property(property: 'updated_at', type: 'string', format: 'date-time'),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
+    schema: 'Zone',
+    required: ['id', 'restaurant_id', 'floor_id', 'name', 'sort_order', 'is_active'],
+    properties: [
+        new OA\Property(property: 'id', type: 'integer', format: 'int64', example: 10),
+        new OA\Property(property: 'restaurant_id', type: 'integer', format: 'int64', example: 2),
+        new OA\Property(property: 'floor_id', type: 'integer', format: 'int64', example: 1),
+        new OA\Property(property: 'name', type: 'string', example: 'Interior'),
+        new OA\Property(property: 'sort_order', type: 'integer', example: 0),
+        new OA\Property(property: 'is_active', type: 'boolean', example: true),
+        new OA\Property(property: 'created_at', type: 'string', format: 'date-time'),
+        new OA\Property(property: 'updated_at', type: 'string', format: 'date-time'),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
+    schema: 'FloorPlanZone',
+    required: ['id', 'name', 'sort_order', 'is_active', 'tables'],
+    properties: [
+        new OA\Property(property: 'id', type: 'integer', format: 'int64', example: 10),
+        new OA\Property(property: 'name', type: 'string', example: 'Interior'),
+        new OA\Property(property: 'sort_order', type: 'integer', example: 0),
+        new OA\Property(property: 'is_active', type: 'boolean', example: true),
+        new OA\Property(property: 'tables', type: 'array', items: new OA\Items(ref: '#/components/schemas/Table')),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
+    schema: 'FloorPlanFloor',
+    required: ['id', 'name', 'sort_order', 'is_active', 'zones'],
+    properties: [
+        new OA\Property(property: 'id', type: 'integer', format: 'int64', example: 1),
+        new OA\Property(property: 'name', type: 'string', example: 'Ground Floor'),
+        new OA\Property(property: 'sort_order', type: 'integer', example: 0),
+        new OA\Property(property: 'is_active', type: 'boolean', example: true),
+        new OA\Property(property: 'zones', type: 'array', items: new OA\Items(ref: '#/components/schemas/FloorPlanZone')),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
+    schema: 'FloorPlan',
+    description: 'The full editor-ready floor plan of a restaurant. unassigned_tables holds every table with no zone_id yet (e.g. every pre-existing table right after Bloco 1 ships).',
+    required: ['restaurant_id', 'floors', 'unassigned_tables'],
+    properties: [
+        new OA\Property(property: 'restaurant_id', type: 'integer', format: 'int64', example: 2),
+        new OA\Property(property: 'floors', type: 'array', items: new OA\Items(ref: '#/components/schemas/FloorPlanFloor')),
+        new OA\Property(property: 'unassigned_tables', type: 'array', items: new OA\Items(ref: '#/components/schemas/Table')),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
+    schema: 'TableLayoutInput',
+    description: 'Every field besides id is optional (PATCH-per-item semantics) — send only what changed for that table.',
+    required: ['id'],
+    properties: [
+        new OA\Property(property: 'id', type: 'integer', format: 'int64', example: 1),
+        new OA\Property(property: 'zone_id', type: 'integer', format: 'int64', example: 10, nullable: true),
+        new OA\Property(property: 'layout_x', type: 'number', format: 'float', example: 0.25),
+        new OA\Property(property: 'layout_y', type: 'number', format: 'float', example: 0.4),
+        new OA\Property(property: 'layout_rotation', type: 'integer', example: 0, minimum: 0, maximum: 359),
+        new OA\Property(property: 'layout_shape', type: 'string', example: 'round'),
+        new OA\Property(property: 'layout_width', type: 'number', format: 'float', example: 120),
+        new OA\Property(property: 'layout_height', type: 'number', format: 'float', example: 120),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
+    schema: 'UpdateFloorPlanLayoutRequest',
+    description: 'Rejected as a whole (422, nothing persisted) if any table id or zone_id does not belong to this restaurant.',
+    required: ['tables'],
+    properties: [
+        new OA\Property(
+            property: 'tables',
+            type: 'array',
+            minItems: 1,
+            items: new OA\Items(ref: '#/components/schemas/TableLayoutInput')
+        ),
     ],
     type: 'object'
 )]

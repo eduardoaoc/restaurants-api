@@ -79,7 +79,16 @@ class AuditLogController extends Controller
         $user = $request->user();
         $accessibleRestaurantIds = RestaurantScope::accessibleRestaurantIds($user, $organization);
 
-        $query = AuditLog::query()->where('organization_id', $organization->id);
+        // Bloco 0: platform.* events are recorded against this same table
+        // (see PlatformAuditLogger) and may carry this very
+        // organization_id (e.g. platform.organization.suspended). They
+        // belong to the platform admin's own view
+        // (PlatformAuditLogController), never to the tenant's — a
+        // platform admin's identity, reasoning, and actions are not
+        // this organization's business.
+        $query = AuditLog::query()
+            ->where('organization_id', $organization->id)
+            ->where('actor_type', '!=', AuditLog::ACTOR_PLATFORM_ADMIN);
 
         if ($accessibleRestaurantIds !== null) {
             $query->whereIn('restaurant_id', $accessibleRestaurantIds);

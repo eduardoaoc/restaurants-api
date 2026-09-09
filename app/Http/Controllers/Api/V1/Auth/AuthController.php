@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\V1\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\Auth\LoginRequest;
+use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -57,6 +58,15 @@ class AuthController extends Controller
                     ]
                 )
             ),
+            new OA\Response(
+                response: 403,
+                description: 'This account has been suspended',
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(property: 'message', type: 'string', example: 'This account has been suspended.'),
+                    ]
+                )
+            ),
             new OA\Response(response: 422, description: 'Validation error'),
             new OA\Response(response: 429, description: 'Too many login attempts'),
         ]
@@ -69,6 +79,21 @@ class AuthController extends Controller
             return response()->json([
                 'message' => 'Invalid credentials.',
             ], 401);
+        }
+
+        // A suspended account must not authenticate, full stop — see
+        // User::isSuspended()/EnsureUserIsActive for the same rule
+        // enforced on every subsequent authenticated request. attempt()
+        // above already started a session before this check could run,
+        // so it must be torn down here rather than just refused.
+        if (Auth::guard('web')->user()->status === User::STATUS_SUSPENDED) {
+            Auth::guard('web')->logout();
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
+
+            return response()->json([
+                'message' => 'This account has been suspended.',
+            ], 403);
         }
 
         $request->session()->regenerate();

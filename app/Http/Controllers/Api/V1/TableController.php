@@ -15,7 +15,28 @@ use OpenApi\Attributes as OA;
 
 class TableController extends Controller
 {
+    /**
+     * Floor-plan fields (Bloco 1) additionally require manage_floor_plan —
+     * manage_tables alone (which a waiter also holds) is enough to rename a
+     * table or flip its status, but never to reposition it on the map or
+     * move it between zones. See RestaurantPolicy::manageFloorPlan.
+     */
+    private const LAYOUT_FIELDS = [
+        'zone_id', 'layout_x', 'layout_y', 'layout_rotation', 'layout_shape', 'layout_width', 'layout_height',
+    ];
+
     public function __construct(private readonly TenantContext $tenantContext) {}
+
+    /**
+     * True when the validated payload touches at least one floor-plan
+     * layout field, requiring the extra manage_floor_plan check.
+     *
+     * @param  array<string, mixed>  $data
+     */
+    private function touchesLayoutFields(array $data): bool
+    {
+        return collect($data)->keys()->intersect(self::LAYOUT_FIELDS)->isNotEmpty();
+    }
 
     /**
      * List the tables of a restaurant belonging to the active organization.
@@ -89,6 +110,14 @@ class TableController extends Controller
                 properties: [
                     new OA\Property(property: 'name', type: 'string', example: 'Mesa 12'),
                     new OA\Property(property: 'number', type: 'integer', example: 12, nullable: true),
+                    new OA\Property(property: 'capacity', type: 'integer', example: 4, nullable: true),
+                    new OA\Property(property: 'zone_id', type: 'integer', format: 'int64', example: 10, nullable: true, description: 'Requires manage_floor_plan (Bloco 1), not just manage_tables.'),
+                    new OA\Property(property: 'layout_x', type: 'number', format: 'float', example: 0.25, description: 'Requires manage_floor_plan.'),
+                    new OA\Property(property: 'layout_y', type: 'number', format: 'float', example: 0.4, description: 'Requires manage_floor_plan.'),
+                    new OA\Property(property: 'layout_rotation', type: 'integer', example: 0, description: 'Requires manage_floor_plan.'),
+                    new OA\Property(property: 'layout_shape', type: 'string', example: 'round', description: 'One of: round, square, rectangle. Requires manage_floor_plan.'),
+                    new OA\Property(property: 'layout_width', type: 'number', format: 'float', example: 80, description: 'Requires manage_floor_plan.'),
+                    new OA\Property(property: 'layout_height', type: 'number', format: 'float', example: 80, description: 'Requires manage_floor_plan.'),
                 ]
             )
         ),
@@ -110,7 +139,7 @@ class TableController extends Controller
                 )
             ),
             new OA\Response(response: 401, description: 'Unauthenticated'),
-            new OA\Response(response: 403, description: 'The user is not allowed to create tables'),
+            new OA\Response(response: 403, description: 'The user is not allowed to create tables, or is missing manage_floor_plan for the layout fields sent'),
             new OA\Response(response: 404, description: 'Restaurant not found'),
             new OA\Response(response: 422, description: 'Validation error'),
         ]
@@ -122,8 +151,14 @@ class TableController extends Controller
 
         $this->authorize('create', [Table::class, $restaurantModel]);
 
+        $data = $request->validated();
+
+        if ($this->touchesLayoutFields($data)) {
+            $this->authorize('manageFloorPlan', $restaurantModel);
+        }
+
         $table = $restaurantModel->tables()->create([
-            ...$request->validated(),
+            ...$data,
             'public_token' => Table::generateUniquePublicToken(),
             'status' => 'active',
         ]);
@@ -202,6 +237,14 @@ class TableController extends Controller
                     new OA\Property(property: 'name', type: 'string', example: 'Mesa 12'),
                     new OA\Property(property: 'number', type: 'integer', example: 12, nullable: true),
                     new OA\Property(property: 'status', type: 'string', example: 'active'),
+                    new OA\Property(property: 'capacity', type: 'integer', example: 4, nullable: true),
+                    new OA\Property(property: 'zone_id', type: 'integer', format: 'int64', example: 10, nullable: true, description: 'Requires manage_floor_plan (Bloco 1), not just manage_tables.'),
+                    new OA\Property(property: 'layout_x', type: 'number', format: 'float', example: 0.25, description: 'Requires manage_floor_plan.'),
+                    new OA\Property(property: 'layout_y', type: 'number', format: 'float', example: 0.4, description: 'Requires manage_floor_plan.'),
+                    new OA\Property(property: 'layout_rotation', type: 'integer', example: 0, description: 'Requires manage_floor_plan.'),
+                    new OA\Property(property: 'layout_shape', type: 'string', example: 'round', description: 'One of: round, square, rectangle. Requires manage_floor_plan.'),
+                    new OA\Property(property: 'layout_width', type: 'number', format: 'float', example: 80, description: 'Requires manage_floor_plan.'),
+                    new OA\Property(property: 'layout_height', type: 'number', format: 'float', example: 80, description: 'Requires manage_floor_plan.'),
                 ]
             )
         ),
@@ -223,7 +266,7 @@ class TableController extends Controller
                 )
             ),
             new OA\Response(response: 401, description: 'Unauthenticated'),
-            new OA\Response(response: 403, description: 'The user is not allowed to update this table'),
+            new OA\Response(response: 403, description: 'The user is not allowed to update this table, or is missing manage_floor_plan for the layout fields sent'),
             new OA\Response(response: 404, description: 'Table not found'),
             new OA\Response(response: 422, description: 'Validation error'),
         ]
@@ -235,7 +278,13 @@ class TableController extends Controller
 
         $this->authorize('update', $tableModel);
 
-        $tableModel->update($request->validated());
+        $data = $request->validated();
+
+        if ($this->touchesLayoutFields($data)) {
+            $this->authorize('manageFloorPlan', $tableModel->restaurant);
+        }
+
+        $tableModel->update($data);
 
         return response()->json([
             'message' => 'Table updated successfully.',

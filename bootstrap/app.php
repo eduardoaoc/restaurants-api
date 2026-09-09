@@ -8,6 +8,8 @@ use App\Exceptions\Billing\TableSessionClosedException;
 use App\Exceptions\Billing\TableSessionHasNoBillableOrdersException;
 use App\Exceptions\Billing\TableSessionHasOpenOrdersException;
 use App\Exceptions\Billing\TableSessionNotPaidException;
+use App\Exceptions\FloorPlan\FloorHasZonesException;
+use App\Exceptions\FloorPlan\ZoneHasTablesException;
 use App\Exceptions\Orders\IdempotencyKeyReusedException;
 use App\Exceptions\Orders\InvalidModifierSelectionException;
 use App\Exceptions\Orders\InvalidOrderItemException;
@@ -29,6 +31,8 @@ use App\Exceptions\Staff\InvalidPerformancePeriodException;
 use App\Exceptions\TableRequests\TableRequestAlreadyOpenException;
 use App\Exceptions\TableRequests\TableRequestStateConflictException;
 use App\Exceptions\TableSessionConflictException;
+use App\Http\Middleware\EnsurePlatformAdmin;
+use App\Http\Middleware\EnsureUserIsActive;
 use App\Http\Middleware\ResolveTenant;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -47,6 +51,8 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->statefulApi();
         $middleware->alias([
             'tenant' => ResolveTenant::class,
+            'active_user' => EnsureUserIsActive::class,
+            'platform_admin' => EnsurePlatformAdmin::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
@@ -190,6 +196,16 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->render(function (BillReceiptPrintingDisabledException $e, Request $request) {
             return response()->json([
                 'error' => ['code' => 'BILL_RECEIPT_PRINTING_DISABLED', 'message' => 'Bill receipt printing is disabled for this restaurant.'],
+            ], 409);
+        });
+        $exceptions->render(function (FloorHasZonesException $e, Request $request) {
+            return response()->json([
+                'error' => ['code' => 'FLOOR_HAS_ZONES', 'message' => 'This floor still has zones assigned to it.'],
+            ], 409);
+        });
+        $exceptions->render(function (ZoneHasTablesException $e, Request $request) {
+            return response()->json([
+                'error' => ['code' => 'ZONE_HAS_TABLES', 'message' => 'This zone still has tables assigned to it.'],
             ], 409);
         });
         $exceptions->render(function (ThrottleRequestsException $e, Request $request) {

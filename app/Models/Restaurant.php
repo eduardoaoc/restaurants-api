@@ -17,6 +17,19 @@ class Restaurant extends Model
     /** @use HasFactory<RestaurantFactory> */
     use HasFactory;
 
+    public const STATUS_ACTIVE = 'active';
+
+    // Tenant self-service value (see StoreRestaurantRequest/
+    // UpdateRestaurantRequest) — unrelated to platform suspension below.
+    public const STATUS_INACTIVE = 'inactive';
+
+    // Platform-only value: never accepted by the tenant-facing Store/
+    // UpdateRestaurantRequest, only settable via
+    // PATCH /platform/restaurants/{restaurant}/status. See
+    // RestaurantController::update, which refuses to let a tenant request
+    // move status away from this value.
+    public const STATUS_SUSPENDED = 'suspended';
+
     /**
      * The organization this restaurant belongs to.
      *
@@ -57,6 +70,26 @@ class Restaurant extends Model
     public function tables(): HasMany
     {
         return $this->hasMany(Table::class);
+    }
+
+    /**
+     * The floors of this restaurant's floor plan (Bloco 1).
+     *
+     * @return HasMany<Floor, $this>
+     */
+    public function floors(): HasMany
+    {
+        return $this->hasMany(Floor::class);
+    }
+
+    /**
+     * The zones of this restaurant's floor plan, across every floor.
+     *
+     * @return HasMany<Zone, $this>
+     */
+    public function zones(): HasMany
+    {
+        return $this->hasMany(Zone::class);
     }
 
     /**

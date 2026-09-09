@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use App\Models\AuditLog;
 use App\Models\Category;
+use App\Models\Floor;
 use App\Models\Menu;
 use App\Models\ModifierGroup;
 use App\Models\ModifierOption;
@@ -16,8 +17,10 @@ use App\Models\Table;
 use App\Models\TableRequest;
 use App\Models\TableSession;
 use App\Models\User;
+use App\Models\Zone;
 use App\Policies\AuditLogPolicy;
 use App\Policies\CategoryPolicy;
+use App\Policies\FloorPolicy;
 use App\Policies\MenuPolicy;
 use App\Policies\ModifierGroupPolicy;
 use App\Policies\ModifierOptionPolicy;
@@ -30,6 +33,7 @@ use App\Policies\StaffPolicy;
 use App\Policies\TablePolicy;
 use App\Policies\TableRequestPolicy;
 use App\Policies\TableSessionPolicy;
+use App\Policies\ZonePolicy;
 use App\Support\Tenancy\TenantContext;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
@@ -91,5 +95,7 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(Order::class, OrderPolicy::class);
         Gate::policy(TableRequest::class, TableRequestPolicy::class);
         Gate::policy(AuditLog::class, AuditLogPolicy::class);
+        Gate::policy(Floor::class, FloorPolicy::class);
+        Gate::policy(Zone::class, ZonePolicy::class);
     }
 }

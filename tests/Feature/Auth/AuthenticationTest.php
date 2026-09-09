@@ -181,6 +181,40 @@ class AuthenticationTest extends TestCase
         $this->assertGuest('web');
     }
 
+    public function test_suspended_user_cannot_log_in(): void
+    {
+        $user = User::factory()->create([
+            'email' => 'suspended@example.com',
+            'password' => 'password123',
+            'status' => User::STATUS_SUSPENDED,
+        ]);
+
+        $this->postJson('/api/v1/auth/login', [
+            'email' => $user->email,
+            'password' => 'password123',
+        ])
+            ->assertForbidden()
+            ->assertExactJson(['message' => 'This account has been suspended.']);
+
+        $this->assertGuest('web');
+    }
+
+    public function test_active_user_can_log_in(): void
+    {
+        $user = User::factory()->create([
+            'email' => 'active@example.com',
+            'password' => 'password123',
+            'status' => User::STATUS_ACTIVE,
+        ]);
+
+        $this->postJson('/api/v1/auth/login', [
+            'email' => $user->email,
+            'password' => 'password123',
+        ])->assertOk();
+
+        $this->assertAuthenticatedAs($user, 'web');
+    }
+
     public function test_login_is_rate_limited_after_five_attempts_per_minute(): void
     {
         $email = 'rate-limit@example.com';

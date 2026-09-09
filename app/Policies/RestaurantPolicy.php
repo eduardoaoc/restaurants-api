@@ -79,4 +79,28 @@ class RestaurantPolicy
             && $user->hasPermission('manage_restaurants', $restaurant->organization)
             && RestaurantScope::canAccessRestaurant($user, $restaurant);
     }
+
+    /**
+     * Viewing the aggregated floor plan (Bloco 1) — same view permissions
+     * as FloorPolicy/ZonePolicy: manage_tables OR close_bill, plus
+     * RestaurantScope reachability.
+     */
+    public function viewFloorPlan(User $user, Restaurant $restaurant): bool
+    {
+        return $user->organizations()->whereKey($restaurant->organization_id)->exists()
+            && RestaurantScope::canAccessRestaurant($user, $restaurant)
+            && ($user->hasPermission('manage_tables', $restaurant->organization)
+                || $user->hasPermission('close_bill', $restaurant->organization));
+    }
+
+    /**
+     * Bulk-saving the floor plan layout (Bloco 1) requires manage_floor_plan
+     * — same permission gate as creating/editing a Floor or Zone.
+     */
+    public function manageFloorPlan(User $user, Restaurant $restaurant): bool
+    {
+        return $user->organizations()->whereKey($restaurant->organization_id)->exists()
+            && RestaurantScope::canAccessRestaurant($user, $restaurant)
+            && $user->hasPermission('manage_floor_plan', $restaurant->organization);
+    }
 }

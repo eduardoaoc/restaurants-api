@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\Organization;
 use App\Support\Tenancy\TenantContext;
 use Closure;
 use Illuminate\Http\Request;
@@ -32,6 +33,18 @@ class ResolveTenant
 
         if (! $organization) {
             throw new HttpException(403, 'The authenticated user has no organization.');
+        }
+
+        // Bloco 0: a platform admin suspends an Organization through
+        // /platform/organizations/{organization}/status. Enforcing that
+        // here — before any tenant controller runs — is what actually
+        // gives suspension teeth: it also blocks the organization's own
+        // owner from calling PATCH /organization to flip status back to
+        // active themselves, since they can never reach that controller
+        // while suspended. No tenant endpoint is reachable while
+        // suspended, without exception.
+        if ($organization->status === Organization::STATUS_SUSPENDED) {
+            throw new HttpException(403, 'This organization has been suspended.');
         }
 
         $this->tenantContext->setOrganizationId($organization->id);

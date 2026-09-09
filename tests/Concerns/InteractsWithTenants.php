@@ -8,6 +8,7 @@ use App\Actions\Catalog\CreateModifierOptionAction;
 use App\Actions\Catalog\CreateProductAction;
 use App\Actions\Staff\CreateStaffAction;
 use App\Models\Category;
+use App\Models\Floor;
 use App\Models\Menu;
 use App\Models\ModifierGroup;
 use App\Models\ModifierOption;
@@ -19,6 +20,7 @@ use App\Models\Role;
 use App\Models\Table;
 use App\Models\User;
 use App\Models\UserRole;
+use App\Models\Zone;
 use Database\Seeders\PermissionSeeder;
 use Database\Seeders\RolePermissionSeeder;
 use Database\Seeders\RoleSeeder;
@@ -166,6 +168,29 @@ trait InteractsWithTenants
             'name' => $name ?? 'Mesa '.uniqid(),
             'number' => $number,
             'public_token' => Table::generateUniquePublicToken(),
+        ]);
+    }
+
+    /**
+     * Create a floor for a restaurant (Bloco 1: Floor Plan).
+     */
+    protected function createFloor(Restaurant $restaurant, ?string $name = null, int $sortOrder = 0): Floor
+    {
+        return $restaurant->floors()->create([
+            'name' => $name ?? 'Floor '.uniqid(),
+            'sort_order' => $sortOrder,
+        ]);
+    }
+
+    /**
+     * Create a zone under a floor (Bloco 1: Floor Plan).
+     */
+    protected function createZone(Floor $floor, ?string $name = null, int $sortOrder = 0): Zone
+    {
+        return $floor->zones()->create([
+            'restaurant_id' => $floor->restaurant_id,
+            'name' => $name ?? 'Zone '.uniqid(),
+            'sort_order' => $sortOrder,
         ]);
     }
 

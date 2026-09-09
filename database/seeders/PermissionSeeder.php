@@ -19,6 +19,7 @@ class PermissionSeeder extends Seeder
         'manage_menu' => 'Manage menu',
         'manage_products' => 'Manage products',
         'manage_tables' => 'Manage tables',
+        'manage_floor_plan' => 'Manage floor plan (floors, zones, table layout)',
         'approve_customer_orders' => 'Approve customer orders',
         'create_orders' => 'Create orders',
         'update_kitchen_status' => 'Update kitchen status',

@@ -226,6 +226,22 @@
                             }
                         }
                     },
+                    "403": {
+                        "description": "This account has been suspended",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "This account has been suspended."
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
                     "422": {
                         "description": "Validation error"
                     },
@@ -866,6 +882,464 @@
                     },
                     "422": {
                         "description": "Validation error"
+                    }
+                },
+                "security": [
+                    {
+                        "sessionCookie": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/restaurants/{restaurant}/floors": {
+            "get": {
+                "tags": [
+                    "Floor Plan"
+                ],
+                "summary": "List the floors of a restaurant",
+                "operationId": "floorsIndex",
+                "parameters": [
+                    {
+                        "name": "restaurant",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "List of floors",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "properties": {
+                                                "floors": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "$ref": "#/components/schemas/Floor"
+                                                    }
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "The user is not allowed to view floors"
+                    },
+                    "404": {
+                        "description": "Restaurant not found, or outside the user's restaurant scope"
+                    }
+                },
+                "security": [
+                    {
+                        "sessionCookie": []
+                    }
+                ]
+            },
+            "post": {
+                "tags": [
+                    "Floor Plan"
+                ],
+                "summary": "Create a floor under a restaurant",
+                "operationId": "floorsStore",
+                "parameters": [
+                    {
+                        "name": "restaurant",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "name"
+                                ],
+                                "properties": {
+                                    "name": {
+                                        "type": "string",
+                                        "example": "Ground Floor"
+                                    },
+                                    "sort_order": {
+                                        "type": "integer",
+                                        "example": 0
+                                    },
+                                    "is_active": {
+                                        "type": "boolean",
+                                        "example": true
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Floor created successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Floor created successfully."
+                                        },
+                                        "data": {
+                                            "properties": {
+                                                "floor": {
+                                                    "$ref": "#/components/schemas/Floor"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "The user is not allowed to create floors"
+                    },
+                    "404": {
+                        "description": "Restaurant not found, or outside the user's restaurant scope"
+                    },
+                    "422": {
+                        "description": "Validation error"
+                    }
+                },
+                "security": [
+                    {
+                        "sessionCookie": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/floors/{floor}": {
+            "get": {
+                "tags": [
+                    "Floor Plan"
+                ],
+                "summary": "Get a floor of the active organization",
+                "operationId": "floorsShow",
+                "parameters": [
+                    {
+                        "name": "floor",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The floor",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "properties": {
+                                                "floor": {
+                                                    "$ref": "#/components/schemas/Floor"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "The user is not allowed to view this floor"
+                    },
+                    "404": {
+                        "description": "Floor not found"
+                    }
+                },
+                "security": [
+                    {
+                        "sessionCookie": []
+                    }
+                ]
+            },
+            "delete": {
+                "tags": [
+                    "Floor Plan"
+                ],
+                "summary": "Delete a floor of the active organization",
+                "operationId": "floorsDestroy",
+                "parameters": [
+                    {
+                        "name": "floor",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "Floor deleted successfully"
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "The user is not allowed to delete this floor"
+                    },
+                    "404": {
+                        "description": "Floor not found"
+                    },
+                    "409": {
+                        "description": "FLOOR_HAS_ZONES — the floor still has zones assigned to it",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PublicApiError"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "sessionCookie": []
+                    }
+                ]
+            },
+            "patch": {
+                "tags": [
+                    "Floor Plan"
+                ],
+                "summary": "Update a floor of the active organization",
+                "operationId": "floorsUpdate",
+                "parameters": [
+                    {
+                        "name": "floor",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": false,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "properties": {
+                                    "name": {
+                                        "type": "string",
+                                        "example": "Ground Floor"
+                                    },
+                                    "sort_order": {
+                                        "type": "integer",
+                                        "example": 0
+                                    },
+                                    "is_active": {
+                                        "type": "boolean",
+                                        "example": true
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Floor updated successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Floor updated successfully."
+                                        },
+                                        "data": {
+                                            "properties": {
+                                                "floor": {
+                                                    "$ref": "#/components/schemas/Floor"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "The user is not allowed to update this floor"
+                    },
+                    "404": {
+                        "description": "Floor not found"
+                    },
+                    "422": {
+                        "description": "Validation error"
+                    }
+                },
+                "security": [
+                    {
+                        "sessionCookie": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/restaurants/{restaurant}/floor-plan": {
+            "get": {
+                "tags": [
+                    "Floor Plan"
+                ],
+                "summary": "Get a restaurant's aggregated floor plan (floors, zones, tables)",
+                "operationId": "floorPlanShow",
+                "parameters": [
+                    {
+                        "name": "restaurant",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The floor plan",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "properties": {
+                                                "floor_plan": {
+                                                    "$ref": "#/components/schemas/FloorPlan"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "The user is not allowed to view this floor plan"
+                    },
+                    "404": {
+                        "description": "Restaurant not found, or outside the user's restaurant scope"
+                    }
+                },
+                "security": [
+                    {
+                        "sessionCookie": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/restaurants/{restaurant}/floor-plan/layout": {
+            "patch": {
+                "tags": [
+                    "Floor Plan"
+                ],
+                "summary": "Bulk-save table layout changes for a restaurant floor plan",
+                "operationId": "floorPlanUpdateLayout",
+                "parameters": [
+                    {
+                        "name": "restaurant",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/UpdateFloorPlanLayoutRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Layout updated successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Floor plan layout updated successfully."
+                                        },
+                                        "data": {
+                                            "properties": {
+                                                "tables_updated_count": {
+                                                    "type": "integer",
+                                                    "example": 5
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "The user is not allowed to manage this floor plan"
+                    },
+                    "404": {
+                        "description": "Restaurant not found, or outside the user's restaurant scope"
+                    },
+                    "422": {
+                        "description": "Validation error — including a table or zone that does not belong to this restaurant. No changes are persisted."
                     }
                 },
                 "security": [
@@ -2629,6 +3103,675 @@
                     },
                     "403": {
                         "description": "The user is not allowed to update the organization"
+                    },
+                    "422": {
+                        "description": "Validation error"
+                    }
+                },
+                "security": [
+                    {
+                        "sessionCookie": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/platform/audit-logs": {
+            "get": {
+                "tags": [
+                    "Platform Admin"
+                ],
+                "summary": "List platform-level audit events",
+                "operationId": "platformAuditLogsIndex",
+                "parameters": [
+                    {
+                        "name": "event",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "resource_type",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "resource_id",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "actor_user_id",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "per_page",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "default": 25
+                        }
+                    },
+                    {
+                        "name": "page",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "default": 1
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "A page of platform audit events, newest first"
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "Platform administrator access required"
+                    }
+                },
+                "security": [
+                    {
+                        "sessionCookie": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/platform/organizations": {
+            "get": {
+                "tags": [
+                    "Platform Admin"
+                ],
+                "summary": "List every organization on the platform",
+                "operationId": "platformOrganizationsIndex",
+                "parameters": [
+                    {
+                        "name": "search",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "status",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "example": "active"
+                        }
+                    },
+                    {
+                        "name": "plan",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "example": "free"
+                        }
+                    },
+                    {
+                        "name": "per_page",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "default": 25
+                        }
+                    },
+                    {
+                        "name": "page",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "default": 1
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "A page of organizations"
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "Platform administrator access required"
+                    }
+                },
+                "security": [
+                    {
+                        "sessionCookie": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/platform/organizations/{organization}": {
+            "get": {
+                "tags": [
+                    "Platform Admin"
+                ],
+                "summary": "Get one organization",
+                "operationId": "platformOrganizationsShow",
+                "parameters": [
+                    {
+                        "name": "organization",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The organization"
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "Platform administrator access required"
+                    },
+                    "404": {
+                        "description": "Organization not found"
+                    }
+                },
+                "security": [
+                    {
+                        "sessionCookie": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/platform/organizations/{organization}/status": {
+            "patch": {
+                "tags": [
+                    "Platform Admin"
+                ],
+                "summary": "Suspend or reactivate an organization",
+                "description": "Suspending an Organization is enforced at ResolveTenant, not here —\nevery tenant route (including the owner's own PATCH /organization)\nbecomes unreachable while status is suspended. See ResolveTenant and\nthe Bloco 0 report.",
+                "operationId": "platformOrganizationsUpdateStatus",
+                "parameters": [
+                    {
+                        "name": "organization",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "status",
+                                    "reason"
+                                ],
+                                "properties": {
+                                    "status": {
+                                        "type": "string",
+                                        "example": "suspended"
+                                    },
+                                    "reason": {
+                                        "type": "string",
+                                        "example": "Payment failed for 3 consecutive cycles."
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Organization status updated successfully"
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "Platform administrator access required"
+                    },
+                    "404": {
+                        "description": "Organization not found"
+                    },
+                    "422": {
+                        "description": "Validation error"
+                    }
+                },
+                "security": [
+                    {
+                        "sessionCookie": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/platform/organizations/{organization}/plan": {
+            "patch": {
+                "tags": [
+                    "Platform Admin"
+                ],
+                "summary": "Correct an organization's plan and/or subscription status",
+                "description": "Corrects/updates the Organization's SaaS plan and/or subscription\nstate administratively. This is deliberately not a billing\nintegration — see the Bloco 0 report's Plans section for what\nexists (Organization.plan/subscription_status only) and what does\nnot (no invoices, no Stripe, no payment method).",
+                "operationId": "platformOrganizationsUpdatePlan",
+                "parameters": [
+                    {
+                        "name": "organization",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "reason"
+                                ],
+                                "properties": {
+                                    "plan": {
+                                        "type": "string",
+                                        "example": "pro"
+                                    },
+                                    "subscription_status": {
+                                        "type": "string",
+                                        "example": "active"
+                                    },
+                                    "reason": {
+                                        "type": "string",
+                                        "example": "Manually reinstated after support ticket #501."
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Organization plan updated successfully"
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "Platform administrator access required"
+                    },
+                    "404": {
+                        "description": "Organization not found"
+                    },
+                    "422": {
+                        "description": "Validation error"
+                    }
+                },
+                "security": [
+                    {
+                        "sessionCookie": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/platform/restaurants": {
+            "get": {
+                "tags": [
+                    "Platform Admin"
+                ],
+                "summary": "List every restaurant on the platform, across every organization",
+                "operationId": "platformRestaurantsIndex",
+                "parameters": [
+                    {
+                        "name": "search",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "organization_id",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "status",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "example": "active"
+                        }
+                    },
+                    {
+                        "name": "per_page",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "default": 25
+                        }
+                    },
+                    {
+                        "name": "page",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "default": 1
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "A page of restaurants"
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "Platform administrator access required"
+                    }
+                },
+                "security": [
+                    {
+                        "sessionCookie": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/platform/restaurants/{restaurant}": {
+            "get": {
+                "tags": [
+                    "Platform Admin"
+                ],
+                "summary": "Get one restaurant, regardless of organization",
+                "operationId": "platformRestaurantsShow",
+                "parameters": [
+                    {
+                        "name": "restaurant",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The restaurant"
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "Platform administrator access required"
+                    },
+                    "404": {
+                        "description": "Restaurant not found"
+                    }
+                },
+                "security": [
+                    {
+                        "sessionCookie": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/platform/restaurants/{restaurant}/status": {
+            "patch": {
+                "tags": [
+                    "Platform Admin"
+                ],
+                "summary": "Suspend or reactivate a restaurant",
+                "description": "Restaurant suspension is state-only in this bloc: it records intent\nand is protected against tenant self-reversal (see\nRestaurantController::update), but does not itself block ordering,\nkitchen, or any other operational flow — that enforcement belongs to\nwhichever future operational block owns each of those flows. See\nthe Bloco 0 report's Gaps section.",
+                "operationId": "platformRestaurantsUpdateStatus",
+                "parameters": [
+                    {
+                        "name": "restaurant",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "status",
+                                    "reason"
+                                ],
+                                "properties": {
+                                    "status": {
+                                        "type": "string",
+                                        "example": "suspended"
+                                    },
+                                    "reason": {
+                                        "type": "string",
+                                        "example": "Health inspection failure reported by local authority."
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Restaurant status updated successfully"
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "Platform administrator access required"
+                    },
+                    "404": {
+                        "description": "Restaurant not found"
+                    },
+                    "422": {
+                        "description": "Validation error"
+                    }
+                },
+                "security": [
+                    {
+                        "sessionCookie": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/platform/users": {
+            "get": {
+                "tags": [
+                    "Platform Admin"
+                ],
+                "summary": "List users globally, across every organization",
+                "operationId": "platformUsersIndex",
+                "parameters": [
+                    {
+                        "name": "search",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "status",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "example": "active"
+                        }
+                    },
+                    {
+                        "name": "organization_id",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "per_page",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "default": 25
+                        }
+                    },
+                    {
+                        "name": "page",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "default": 1
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "A page of users"
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "Platform administrator access required"
+                    }
+                },
+                "security": [
+                    {
+                        "sessionCookie": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/platform/users/{user}": {
+            "get": {
+                "tags": [
+                    "Platform Admin"
+                ],
+                "summary": "Get one user, regardless of which organization(s) they belong to",
+                "operationId": "platformUsersShow",
+                "parameters": [
+                    {
+                        "name": "user",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The user"
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "Platform administrator access required"
+                    },
+                    "404": {
+                        "description": "User not found"
+                    }
+                },
+                "security": [
+                    {
+                        "sessionCookie": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/platform/users/{user}/status": {
+            "patch": {
+                "tags": [
+                    "Platform Admin"
+                ],
+                "summary": "Suspend or reactivate a user account globally",
+                "description": "Suspending deletes the user's `sessions` rows so an already\nauthenticated browser session dies immediately (see\nEnsureUserIsActive for the defense-in-depth check on top of this).\nSelf-suspension is refused outright — see the Bloco 0 report's\n\"protection of the platform admin\" section for why this is the one\nself-protection reachable today (there is no endpoint yet to revoke\na platform role, so \"never leave the platform without an admin\" has\nnothing else to guard).",
+                "operationId": "platformUsersUpdateStatus",
+                "parameters": [
+                    {
+                        "name": "user",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "status",
+                                    "reason"
+                                ],
+                                "properties": {
+                                    "status": {
+                                        "type": "string",
+                                        "example": "suspended"
+                                    },
+                                    "reason": {
+                                        "type": "string",
+                                        "example": "Reported abusive behavior — ticket #482."
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "User status updated successfully"
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "Platform administrator access required, or attempted self-suspension"
+                    },
+                    "404": {
+                        "description": "User not found"
                     },
                     "422": {
                         "description": "Validation error"
@@ -4603,6 +5746,52 @@
                                         "type": "integer",
                                         "example": 12,
                                         "nullable": true
+                                    },
+                                    "capacity": {
+                                        "type": "integer",
+                                        "example": 4,
+                                        "nullable": true
+                                    },
+                                    "zone_id": {
+                                        "description": "Requires manage_floor_plan (Bloco 1), not just manage_tables.",
+                                        "type": "integer",
+                                        "format": "int64",
+                                        "example": 10,
+                                        "nullable": true
+                                    },
+                                    "layout_x": {
+                                        "description": "Requires manage_floor_plan.",
+                                        "type": "number",
+                                        "format": "float",
+                                        "example": 0.25
+                                    },
+                                    "layout_y": {
+                                        "description": "Requires manage_floor_plan.",
+                                        "type": "number",
+                                        "format": "float",
+                                        "example": 0.4
+                                    },
+                                    "layout_rotation": {
+                                        "description": "Requires manage_floor_plan.",
+                                        "type": "integer",
+                                        "example": 0
+                                    },
+                                    "layout_shape": {
+                                        "description": "One of: round, square, rectangle. Requires manage_floor_plan.",
+                                        "type": "string",
+                                        "example": "round"
+                                    },
+                                    "layout_width": {
+                                        "description": "Requires manage_floor_plan.",
+                                        "type": "number",
+                                        "format": "float",
+                                        "example": 80
+                                    },
+                                    "layout_height": {
+                                        "description": "Requires manage_floor_plan.",
+                                        "type": "number",
+                                        "format": "float",
+                                        "example": 80
                                     }
                                 },
                                 "type": "object"
@@ -4639,7 +5828,7 @@
                         "description": "Unauthenticated"
                     },
                     "403": {
-                        "description": "The user is not allowed to create tables"
+                        "description": "The user is not allowed to create tables, or is missing manage_floor_plan for the layout fields sent"
                     },
                     "404": {
                         "description": "Restaurant not found"
@@ -4745,6 +5934,52 @@
                                     "status": {
                                         "type": "string",
                                         "example": "active"
+                                    },
+                                    "capacity": {
+                                        "type": "integer",
+                                        "example": 4,
+                                        "nullable": true
+                                    },
+                                    "zone_id": {
+                                        "description": "Requires manage_floor_plan (Bloco 1), not just manage_tables.",
+                                        "type": "integer",
+                                        "format": "int64",
+                                        "example": 10,
+                                        "nullable": true
+                                    },
+                                    "layout_x": {
+                                        "description": "Requires manage_floor_plan.",
+                                        "type": "number",
+                                        "format": "float",
+                                        "example": 0.25
+                                    },
+                                    "layout_y": {
+                                        "description": "Requires manage_floor_plan.",
+                                        "type": "number",
+                                        "format": "float",
+                                        "example": 0.4
+                                    },
+                                    "layout_rotation": {
+                                        "description": "Requires manage_floor_plan.",
+                                        "type": "integer",
+                                        "example": 0
+                                    },
+                                    "layout_shape": {
+                                        "description": "One of: round, square, rectangle. Requires manage_floor_plan.",
+                                        "type": "string",
+                                        "example": "round"
+                                    },
+                                    "layout_width": {
+                                        "description": "Requires manage_floor_plan.",
+                                        "type": "number",
+                                        "format": "float",
+                                        "example": 80
+                                    },
+                                    "layout_height": {
+                                        "description": "Requires manage_floor_plan.",
+                                        "type": "number",
+                                        "format": "float",
+                                        "example": 80
                                     }
                                 },
                                 "type": "object"
@@ -4781,7 +6016,7 @@
                         "description": "Unauthenticated"
                     },
                     "403": {
-                        "description": "The user is not allowed to update this table"
+                        "description": "The user is not allowed to update this table, or is missing manage_floor_plan for the layout fields sent"
                     },
                     "404": {
                         "description": "Table not found"
@@ -5405,6 +6640,345 @@
                     }
                 ]
             }
+        },
+        "/api/v1/restaurants/{restaurant}/zones": {
+            "get": {
+                "tags": [
+                    "Floor Plan"
+                ],
+                "summary": "List the zones of a restaurant",
+                "operationId": "zonesIndex",
+                "parameters": [
+                    {
+                        "name": "restaurant",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "List of zones",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "properties": {
+                                                "zones": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "$ref": "#/components/schemas/Zone"
+                                                    }
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "The user is not allowed to view zones"
+                    },
+                    "404": {
+                        "description": "Restaurant not found, or outside the user's restaurant scope"
+                    }
+                },
+                "security": [
+                    {
+                        "sessionCookie": []
+                    }
+                ]
+            },
+            "post": {
+                "tags": [
+                    "Floor Plan"
+                ],
+                "summary": "Create a zone under a restaurant",
+                "operationId": "zonesStore",
+                "parameters": [
+                    {
+                        "name": "restaurant",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "name",
+                                    "floor_id"
+                                ],
+                                "properties": {
+                                    "name": {
+                                        "type": "string",
+                                        "example": "Interior"
+                                    },
+                                    "floor_id": {
+                                        "type": "integer",
+                                        "example": 1
+                                    },
+                                    "sort_order": {
+                                        "type": "integer",
+                                        "example": 0
+                                    },
+                                    "is_active": {
+                                        "type": "boolean",
+                                        "example": true
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Zone created successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Zone created successfully."
+                                        },
+                                        "data": {
+                                            "properties": {
+                                                "zone": {
+                                                    "$ref": "#/components/schemas/Zone"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "The user is not allowed to create zones"
+                    },
+                    "404": {
+                        "description": "Restaurant not found, or outside the user's restaurant scope"
+                    },
+                    "422": {
+                        "description": "Validation error, or floor_id does not belong to this restaurant"
+                    }
+                },
+                "security": [
+                    {
+                        "sessionCookie": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/zones/{zone}": {
+            "get": {
+                "tags": [
+                    "Floor Plan"
+                ],
+                "summary": "Get a zone of the active organization",
+                "operationId": "zonesShow",
+                "parameters": [
+                    {
+                        "name": "zone",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The zone",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "properties": {
+                                                "zone": {
+                                                    "$ref": "#/components/schemas/Zone"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "The user is not allowed to view this zone"
+                    },
+                    "404": {
+                        "description": "Zone not found"
+                    }
+                },
+                "security": [
+                    {
+                        "sessionCookie": []
+                    }
+                ]
+            },
+            "delete": {
+                "tags": [
+                    "Floor Plan"
+                ],
+                "summary": "Delete a zone of the active organization",
+                "operationId": "zonesDestroy",
+                "parameters": [
+                    {
+                        "name": "zone",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "Zone deleted successfully"
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "The user is not allowed to delete this zone"
+                    },
+                    "404": {
+                        "description": "Zone not found"
+                    },
+                    "409": {
+                        "description": "ZONE_HAS_TABLES — the zone still has tables assigned to it",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PublicApiError"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "sessionCookie": []
+                    }
+                ]
+            },
+            "patch": {
+                "tags": [
+                    "Floor Plan"
+                ],
+                "summary": "Update a zone of the active organization",
+                "operationId": "zonesUpdate",
+                "parameters": [
+                    {
+                        "name": "zone",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": false,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "properties": {
+                                    "name": {
+                                        "type": "string",
+                                        "example": "Interior"
+                                    },
+                                    "floor_id": {
+                                        "type": "integer",
+                                        "example": 1
+                                    },
+                                    "sort_order": {
+                                        "type": "integer",
+                                        "example": 0
+                                    },
+                                    "is_active": {
+                                        "type": "boolean",
+                                        "example": true
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Zone updated successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Zone updated successfully."
+                                        },
+                                        "data": {
+                                            "properties": {
+                                                "zone": {
+                                                    "$ref": "#/components/schemas/Zone"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "The user is not allowed to update this zone"
+                    },
+                    "404": {
+                        "description": "Zone not found"
+                    },
+                    "422": {
+                        "description": "Validation error, or floor_id does not belong to this restaurant"
+                    }
+                },
+                "security": [
+                    {
+                        "sessionCookie": []
+                    }
+                ]
+            }
         }
     },
     "components": {
@@ -5712,6 +7286,12 @@
                         "example": 12,
                         "nullable": true
                     },
+                    "capacity": {
+                        "description": "Number of seats. Purely informational — never validated against guest_count.",
+                        "type": "integer",
+                        "example": 4,
+                        "nullable": true
+                    },
                     "public_token": {
                         "type": "string",
                         "example": "q8dJf83Kp..."
@@ -5719,6 +7299,52 @@
                     "status": {
                         "type": "string",
                         "example": "active"
+                    },
+                    "zone_id": {
+                        "description": "null until assigned a position on the floor plan (Bloco 1).",
+                        "type": "integer",
+                        "format": "int64",
+                        "example": 10,
+                        "nullable": true
+                    },
+                    "layout": {
+                        "description": "Visual/rendering properties only — never physical dimensions. x/y are normalized 0..1 canvas coordinates, resolution-independent.",
+                        "properties": {
+                            "x": {
+                                "type": "number",
+                                "format": "float",
+                                "example": 0.25,
+                                "nullable": true
+                            },
+                            "y": {
+                                "type": "number",
+                                "format": "float",
+                                "example": 0.4,
+                                "nullable": true
+                            },
+                            "rotation": {
+                                "type": "integer",
+                                "example": 0,
+                                "maximum": 359,
+                                "minimum": 0
+                            },
+                            "shape": {
+                                "description": "One of: round, square, rectangle.",
+                                "type": "string",
+                                "example": "round"
+                            },
+                            "width": {
+                                "type": "number",
+                                "format": "float",
+                                "example": 80
+                            },
+                            "height": {
+                                "type": "number",
+                                "format": "float",
+                                "example": 80
+                            }
+                        },
+                        "type": "object"
                     },
                     "has_active_session": {
                         "type": "boolean",
@@ -5827,6 +7453,260 @@
                     "updated_at": {
                         "type": "string",
                         "format": "date-time"
+                    }
+                },
+                "type": "object"
+            },
+            "Floor": {
+                "required": [
+                    "id",
+                    "restaurant_id",
+                    "name",
+                    "sort_order",
+                    "is_active"
+                ],
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "format": "int64",
+                        "example": 1
+                    },
+                    "restaurant_id": {
+                        "type": "integer",
+                        "format": "int64",
+                        "example": 2
+                    },
+                    "name": {
+                        "type": "string",
+                        "example": "Ground Floor"
+                    },
+                    "sort_order": {
+                        "type": "integer",
+                        "example": 0
+                    },
+                    "is_active": {
+                        "type": "boolean",
+                        "example": true
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "updated_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                },
+                "type": "object"
+            },
+            "Zone": {
+                "required": [
+                    "id",
+                    "restaurant_id",
+                    "floor_id",
+                    "name",
+                    "sort_order",
+                    "is_active"
+                ],
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "format": "int64",
+                        "example": 10
+                    },
+                    "restaurant_id": {
+                        "type": "integer",
+                        "format": "int64",
+                        "example": 2
+                    },
+                    "floor_id": {
+                        "type": "integer",
+                        "format": "int64",
+                        "example": 1
+                    },
+                    "name": {
+                        "type": "string",
+                        "example": "Interior"
+                    },
+                    "sort_order": {
+                        "type": "integer",
+                        "example": 0
+                    },
+                    "is_active": {
+                        "type": "boolean",
+                        "example": true
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "updated_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                },
+                "type": "object"
+            },
+            "FloorPlanZone": {
+                "required": [
+                    "id",
+                    "name",
+                    "sort_order",
+                    "is_active",
+                    "tables"
+                ],
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "format": "int64",
+                        "example": 10
+                    },
+                    "name": {
+                        "type": "string",
+                        "example": "Interior"
+                    },
+                    "sort_order": {
+                        "type": "integer",
+                        "example": 0
+                    },
+                    "is_active": {
+                        "type": "boolean",
+                        "example": true
+                    },
+                    "tables": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/Table"
+                        }
+                    }
+                },
+                "type": "object"
+            },
+            "FloorPlanFloor": {
+                "required": [
+                    "id",
+                    "name",
+                    "sort_order",
+                    "is_active",
+                    "zones"
+                ],
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "format": "int64",
+                        "example": 1
+                    },
+                    "name": {
+                        "type": "string",
+                        "example": "Ground Floor"
+                    },
+                    "sort_order": {
+                        "type": "integer",
+                        "example": 0
+                    },
+                    "is_active": {
+                        "type": "boolean",
+                        "example": true
+                    },
+                    "zones": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/FloorPlanZone"
+                        }
+                    }
+                },
+                "type": "object"
+            },
+            "FloorPlan": {
+                "description": "The full editor-ready floor plan of a restaurant. unassigned_tables holds every table with no zone_id yet (e.g. every pre-existing table right after Bloco 1 ships).",
+                "required": [
+                    "restaurant_id",
+                    "floors",
+                    "unassigned_tables"
+                ],
+                "properties": {
+                    "restaurant_id": {
+                        "type": "integer",
+                        "format": "int64",
+                        "example": 2
+                    },
+                    "floors": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/FloorPlanFloor"
+                        }
+                    },
+                    "unassigned_tables": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/Table"
+                        }
+                    }
+                },
+                "type": "object"
+            },
+            "TableLayoutInput": {
+                "description": "Every field besides id is optional (PATCH-per-item semantics) — send only what changed for that table.",
+                "required": [
+                    "id"
+                ],
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "format": "int64",
+                        "example": 1
+                    },
+                    "zone_id": {
+                        "type": "integer",
+                        "format": "int64",
+                        "example": 10,
+                        "nullable": true
+                    },
+                    "layout_x": {
+                        "type": "number",
+                        "format": "float",
+                        "example": 0.25
+                    },
+                    "layout_y": {
+                        "type": "number",
+                        "format": "float",
+                        "example": 0.4
+                    },
+                    "layout_rotation": {
+                        "type": "integer",
+                        "example": 0,
+                        "maximum": 359,
+                        "minimum": 0
+                    },
+                    "layout_shape": {
+                        "type": "string",
+                        "example": "round"
+                    },
+                    "layout_width": {
+                        "type": "number",
+                        "format": "float",
+                        "example": 120
+                    },
+                    "layout_height": {
+                        "type": "number",
+                        "format": "float",
+                        "example": 120
+                    }
+                },
+                "type": "object"
+            },
+            "UpdateFloorPlanLayoutRequest": {
+                "description": "Rejected as a whole (422, nothing persisted) if any table id or zone_id does not belong to this restaurant.",
+                "required": [
+                    "tables"
+                ],
+                "properties": {
+                    "tables": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/TableLayoutInput"
+                        },
+                        "minItems": 1
                     }
                 },
                 "type": "object"
@@ -8507,6 +10387,10 @@
             "description": "Categories"
         },
         {
+            "name": "Floor Plan",
+            "description": "Floor Plan"
+        },
+        {
             "name": "System",
             "description": "System"
         },
@@ -8529,6 +10413,10 @@
         {
             "name": "Organization",
             "description": "Organization"
+        },
+        {
+            "name": "Platform Admin",
+            "description": "Platform Admin"
         },
         {
             "name": "Products",

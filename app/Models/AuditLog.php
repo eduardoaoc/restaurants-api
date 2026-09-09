@@ -34,7 +34,17 @@ class AuditLog extends Model
 
     public const ACTOR_SYSTEM = 'system';
 
-    public const ACTOR_TYPES = [self::ACTOR_USER, self::ACTOR_PUBLIC, self::ACTOR_SYSTEM];
+    /**
+     * A platform admin acting through the /platform namespace. Still a
+     * real User row (actor_user_id is populated the same way as
+     * ACTOR_USER) — this constant only distinguishes platform-level
+     * activity from ordinary tenant activity in the trail, since a
+     * platform admin's own User row is not itself scoped to any
+     * organization the way a tenant actor's is.
+     */
+    public const ACTOR_PLATFORM_ADMIN = 'platform_admin';
+
+    public const ACTOR_TYPES = [self::ACTOR_USER, self::ACTOR_PUBLIC, self::ACTOR_SYSTEM, self::ACTOR_PLATFORM_ADMIN];
 
     public const EVENT_STAFF_CREATED = 'staff.created';
 
@@ -74,6 +84,39 @@ class AuditLog extends Model
 
     public const EVENT_RESTAURANT_SETTINGS_UPDATED = 'restaurant.settings_updated';
 
+    // Platform-level events (Bloco 0) — recorded with actor_type
+    // ACTOR_PLATFORM_ADMIN, always through PlatformAuditLogger.
+    public const EVENT_PLATFORM_USER_SUSPENDED = 'platform.user.suspended';
+
+    public const EVENT_PLATFORM_USER_REACTIVATED = 'platform.user.reactivated';
+
+    public const EVENT_PLATFORM_ORGANIZATION_SUSPENDED = 'platform.organization.suspended';
+
+    public const EVENT_PLATFORM_ORGANIZATION_REACTIVATED = 'platform.organization.reactivated';
+
+    public const EVENT_PLATFORM_ORGANIZATION_PLAN_CHANGED = 'platform.organization.plan_changed';
+
+    public const EVENT_PLATFORM_RESTAURANT_SUSPENDED = 'platform.restaurant.suspended';
+
+    public const EVENT_PLATFORM_RESTAURANT_REACTIVATED = 'platform.restaurant.reactivated';
+
+    // Floor Plan events (Bloco 1).
+    public const EVENT_FLOOR_CREATED = 'floor.created';
+
+    public const EVENT_FLOOR_UPDATED = 'floor.updated';
+
+    public const EVENT_FLOOR_DELETED = 'floor.deleted';
+
+    public const EVENT_ZONE_CREATED = 'zone.created';
+
+    public const EVENT_ZONE_UPDATED = 'zone.updated';
+
+    public const EVENT_ZONE_DELETED = 'zone.deleted';
+
+    // One aggregated event per bulk save, never one per table — see
+    // FloorPlanController::updateLayout / the Bloco 1 report.
+    public const EVENT_FLOOR_PLAN_LAYOUT_UPDATED = 'floor_plan.layout.updated';
+
     /**
      * @var array<int, string>
      */
@@ -97,6 +140,20 @@ class AuditLog extends Model
         self::EVENT_STAFF_REVIEW_CREATED,
         self::EVENT_PRINT_RECORD_CREATED,
         self::EVENT_RESTAURANT_SETTINGS_UPDATED,
+        self::EVENT_PLATFORM_USER_SUSPENDED,
+        self::EVENT_PLATFORM_USER_REACTIVATED,
+        self::EVENT_PLATFORM_ORGANIZATION_SUSPENDED,
+        self::EVENT_PLATFORM_ORGANIZATION_REACTIVATED,
+        self::EVENT_PLATFORM_ORGANIZATION_PLAN_CHANGED,
+        self::EVENT_PLATFORM_RESTAURANT_SUSPENDED,
+        self::EVENT_PLATFORM_RESTAURANT_REACTIVATED,
+        self::EVENT_FLOOR_CREATED,
+        self::EVENT_FLOOR_UPDATED,
+        self::EVENT_FLOOR_DELETED,
+        self::EVENT_ZONE_CREATED,
+        self::EVENT_ZONE_UPDATED,
+        self::EVENT_ZONE_DELETED,
+        self::EVENT_FLOOR_PLAN_LAYOUT_UPDATED,
     ];
 
     public const RESOURCE_STAFF = 'staff';
@@ -115,6 +172,14 @@ class AuditLog extends Model
 
     public const RESOURCE_PRINT_RECORD = 'print_record';
 
+    public const RESOURCE_USER = 'user';
+
+    public const RESOURCE_ORGANIZATION = 'organization';
+
+    public const RESOURCE_FLOOR = 'floor';
+
+    public const RESOURCE_ZONE = 'zone';
+
     /**
      * @var array<int, string>
      */
@@ -127,6 +192,10 @@ class AuditLog extends Model
         self::RESOURCE_STAFF_REVIEW,
         self::RESOURCE_PRINT_RECORD,
         self::RESOURCE_RESTAURANT,
+        self::RESOURCE_USER,
+        self::RESOURCE_ORGANIZATION,
+        self::RESOURCE_FLOOR,
+        self::RESOURCE_ZONE,
     ];
 
     /**

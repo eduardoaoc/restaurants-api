@@ -23,7 +23,7 @@ class AuditLogger
      * @param  array<string, mixed>|null  $metadata
      */
     public function log(
-        int $organizationId,
+        ?int $organizationId,
         ?int $restaurantId,
         string $actorType,
         ?User $actor,

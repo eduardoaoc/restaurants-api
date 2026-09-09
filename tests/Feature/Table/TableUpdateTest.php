@@ -84,6 +84,60 @@ class TableUpdateTest extends TestCase
         ]);
     }
 
+    public function test_owner_can_update_capacity_zone_and_layout(): void
+    {
+        [, $owner, $restaurant] = $this->createTenant();
+        $floor = $this->createFloor($restaurant);
+        $zone = $this->createZone($floor);
+        $table = $this->createTable($restaurant);
+
+        $this->actingAs($owner, 'web')
+            ->patchJson("/api/v1/tables/{$table->id}", [
+                'capacity' => 6,
+                'zone_id' => $zone->id,
+                'layout_x' => 0.7,
+                'layout_y' => 0.2,
+                'layout_rotation' => 180,
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.table.capacity', 6)
+            ->assertJsonPath('data.table.zone_id', $zone->id)
+            ->assertJsonPath('data.table.layout.rotation', 180);
+    }
+
+    public function test_waiter_with_manage_tables_can_rename_a_table_but_not_move_it_on_the_floor_plan(): void
+    {
+        [$organization, , $restaurant] = $this->createTenant();
+        $floor = $this->createFloor($restaurant);
+        $zone = $this->createZone($floor);
+        $table = $this->createTable($restaurant);
+        $waiter = $this->createStaff($organization, $restaurant, 'waiter', 'W-1');
+
+        $this->actingAs($waiter, 'web')
+            ->patchJson("/api/v1/tables/{$table->id}", ['name' => 'Renamed by waiter'])
+            ->assertOk();
+
+        $this->actingAs($waiter, 'web')
+            ->patchJson("/api/v1/tables/{$table->id}", ['zone_id' => $zone->id])
+            ->assertForbidden();
+
+        $this->assertDatabaseHas('tables', ['id' => $table->id, 'zone_id' => null]);
+    }
+
+    public function test_zone_from_another_restaurant_is_rejected(): void
+    {
+        [, $owner, $restaurantA] = $this->createTenant();
+        [, , $restaurantB] = $this->createTenant();
+        $table = $this->createTable($restaurantA);
+        $floorB = $this->createFloor($restaurantB);
+        $zoneB = $this->createZone($floorB);
+
+        $this->actingAs($owner, 'web')
+            ->patchJson("/api/v1/tables/{$table->id}", ['zone_id' => $zoneB->id])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['zone_id']);
+    }
+
     public function test_table_from_another_organization_returns_not_found(): void
     {
         [, $ownerA] = $this->createTenant();
