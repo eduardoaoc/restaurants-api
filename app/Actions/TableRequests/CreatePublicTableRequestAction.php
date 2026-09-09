@@ -3,6 +3,7 @@
 namespace App\Actions\TableRequests;
 
 use App\Actions\Public\ResolvePublicTableAction;
+use App\Events\Realtime\TableRequestCreated;
 use App\Exceptions\Billing\TableSessionAlreadyPaidException;
 use App\Exceptions\Orders\TableSessionNotActiveException;
 use App\Exceptions\Public\BillRequestDisabledException;
@@ -108,6 +109,8 @@ class CreatePublicTableRequestAction
                     'table_session_id' => $tableRequest->table_session_id,
                 ],
             );
+
+            TableRequestCreated::dispatch($table->restaurant_id, $table->id, $lockedSession->id, $tableRequest->id, $tableRequest->type, $tableRequest->status);
 
             return $tableRequest;
         });

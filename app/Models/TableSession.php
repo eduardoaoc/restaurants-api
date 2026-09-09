@@ -10,7 +10,7 @@ use InvalidArgumentException;
 
 #[Fillable([
     'restaurant_id', 'table_id', 'opened_by_user_id', 'closed_by_user_id', 'guest_count',
-    'status', 'opened_at', 'closed_at', 'payment_status', 'paid_at',
+    'status', 'opened_at', 'closed_at', 'payment_status', 'paid_at', 'assigned_waiter_user_id',
 ])]
 class TableSession extends Model
 {
@@ -60,6 +60,17 @@ class TableSession extends Model
     public function closedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'closed_by_user_id');
+    }
+
+    /**
+     * The waiter currently responsible for this session, if any (Bloco 2).
+     * Belongs to the session, not the Table — see the migration.
+     *
+     * @return BelongsTo<User, $this>
+     */
+    public function assignedWaiter(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'assigned_waiter_user_id');
     }
 
     public function isActive(): bool

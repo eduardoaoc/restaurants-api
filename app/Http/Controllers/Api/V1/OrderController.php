@@ -102,6 +102,7 @@ class OrderController extends Controller
         parameters: [
             new OA\Parameter(name: 'restaurant_id', in: 'query', required: false, schema: new OA\Schema(type: 'integer')),
             new OA\Parameter(name: 'table_id', in: 'query', required: false, schema: new OA\Schema(type: 'integer')),
+            new OA\Parameter(name: 'table_session_id', in: 'query', required: false, description: 'Restrict to one table session\'s own orders (Bloco 4) — narrower than table_id, which spans every historical session of that table.', schema: new OA\Schema(type: 'integer')),
             new OA\Parameter(name: 'status', in: 'query', required: false, schema: new OA\Schema(type: 'string', example: 'waiting_approval')),
         ],
         responses: [
@@ -136,6 +137,9 @@ class OrderController extends Controller
         }
         if ($request->filled('table_id')) {
             $query->where('table_id', (int) $request->query('table_id'));
+        }
+        if ($request->filled('table_session_id')) {
+            $query->where('table_session_id', (int) $request->query('table_session_id'));
         }
         if ($request->filled('status')) {
             $query->where('status', $request->query('status'));

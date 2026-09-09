@@ -28,6 +28,10 @@ class TableSessionResource extends JsonResource
             'paid_at' => $this->paid_at,
             'opened_by_user_id' => $this->opened_by_user_id,
             'closed_by_user_id' => $this->closed_by_user_id,
+            'assigned_waiter' => $this->assignedWaiter ? [
+                'id' => $this->assignedWaiter->id,
+                'name' => $this->assignedWaiter->name,
+            ] : null,
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
         ];

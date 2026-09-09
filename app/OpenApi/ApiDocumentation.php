@@ -195,8 +195,94 @@ use OpenApi\Attributes as OA;
         new OA\Property(property: 'paid_at', type: 'string', format: 'date-time', nullable: true),
         new OA\Property(property: 'opened_by_user_id', type: 'integer', format: 'int64', example: 5),
         new OA\Property(property: 'closed_by_user_id', type: 'integer', format: 'int64', example: 5, nullable: true),
+        new OA\Property(
+            property: 'assigned_waiter',
+            properties: [
+                new OA\Property(property: 'id', type: 'integer', format: 'int64', example: 12),
+                new OA\Property(property: 'name', type: 'string', example: 'Mateo'),
+            ],
+            type: 'object',
+            nullable: true
+        ),
         new OA\Property(property: 'created_at', type: 'string', format: 'date-time'),
         new OA\Property(property: 'updated_at', type: 'string', format: 'date-time'),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
+    schema: 'StaffShift',
+    required: ['id', 'restaurant_id', 'started_at', 'is_active'],
+    properties: [
+        new OA\Property(property: 'id', type: 'integer', format: 'int64', example: 44),
+        new OA\Property(property: 'restaurant_id', type: 'integer', format: 'int64', example: 3),
+        new OA\Property(
+            property: 'user',
+            properties: [
+                new OA\Property(property: 'id', type: 'integer', format: 'int64', example: 12),
+                new OA\Property(property: 'name', type: 'string', example: 'Mateo'),
+            ],
+            type: 'object',
+            nullable: true
+        ),
+        new OA\Property(property: 'role', type: 'string', example: 'waiter', nullable: true),
+        new OA\Property(property: 'started_at', type: 'string', format: 'date-time'),
+        new OA\Property(property: 'ended_at', type: 'string', format: 'date-time', nullable: true),
+        new OA\Property(property: 'is_active', type: 'boolean', example: true),
+        new OA\Property(property: 'started_by_user_id', type: 'integer', format: 'int64', example: 5, nullable: true),
+        new OA\Property(property: 'ended_by_user_id', type: 'integer', format: 'int64', example: 5, nullable: true),
+        new OA\Property(property: 'created_at', type: 'string', format: 'date-time'),
+        new OA\Property(property: 'updated_at', type: 'string', format: 'date-time'),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
+    schema: 'StaffShiftPaginationMeta',
+    required: ['current_page', 'per_page', 'total', 'last_page'],
+    properties: [
+        new OA\Property(property: 'current_page', type: 'integer', example: 1),
+        new OA\Property(property: 'per_page', type: 'integer', example: 25),
+        new OA\Property(property: 'total', type: 'integer', example: 42),
+        new OA\Property(property: 'last_page', type: 'integer', example: 2),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
+    schema: 'WaiterCall',
+    required: ['id', 'table_session_id', 'restaurant_id', 'status', 'created_at'],
+    properties: [
+        new OA\Property(property: 'id', type: 'integer', format: 'int64', example: 7),
+        new OA\Property(property: 'table_session_id', type: 'integer', format: 'int64', example: 827),
+        new OA\Property(property: 'restaurant_id', type: 'integer', format: 'int64', example: 2),
+        new OA\Property(property: 'status', type: 'string', example: 'pending'),
+        new OA\Property(
+            property: 'waiter',
+            properties: [
+                new OA\Property(property: 'id', type: 'integer', format: 'int64', example: 12),
+                new OA\Property(property: 'name', type: 'string', example: 'Mateo'),
+            ],
+            type: 'object',
+            nullable: true
+        ),
+        new OA\Property(
+            property: 'called_by',
+            properties: [
+                new OA\Property(property: 'id', type: 'integer', format: 'int64', example: 5),
+                new OA\Property(property: 'name', type: 'string', example: 'Ana'),
+            ],
+            type: 'object',
+            nullable: true
+        ),
+        new OA\Property(property: 'created_at', type: 'string', format: 'date-time'),
+        new OA\Property(property: 'acknowledged_at', type: 'string', format: 'date-time', nullable: true),
+        new OA\Property(
+            property: 'acknowledged_by',
+            properties: [
+                new OA\Property(property: 'id', type: 'integer', format: 'int64', example: 12),
+                new OA\Property(property: 'name', type: 'string', example: 'Mateo'),
+            ],
+            type: 'object',
+            nullable: true
+        ),
     ],
     type: 'object'
 )]
@@ -1382,6 +1468,349 @@ use OpenApi\Attributes as OA;
         new OA\Property(property: 'bill_request_enabled', type: 'boolean', example: true),
         new OA\Property(property: 'kitchen_ticket_printing_enabled', type: 'boolean', example: true),
         new OA\Property(property: 'bill_receipt_printing_enabled', type: 'boolean', example: true),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
+    schema: 'OperationsSummary',
+    description: 'Operational KPIs for right now — never a period/historical metric (see RestaurantDashboard for that).',
+    properties: [
+        new OA\Property(
+            property: 'tables',
+            properties: [
+                new OA\Property(property: 'total', type: 'integer', example: 12),
+                new OA\Property(property: 'free', type: 'integer', example: 7),
+                new OA\Property(property: 'occupied', type: 'integer', example: 5),
+                new OA\Property(property: 'occupancy_rate', type: 'number', format: 'float', example: 0.4167, description: 'occupied / total, 0..1, rounded to 4 decimals. 0 when there are no tables.'),
+            ],
+            type: 'object'
+        ),
+        new OA\Property(property: 'active_sessions', type: 'integer', example: 5),
+        new OA\Property(property: 'active_guests', type: 'integer', example: 17, description: 'SUM(guest_count) of active sessions only.'),
+        new OA\Property(
+            property: 'orders',
+            properties: [
+                new OA\Property(property: 'active', type: 'integer', example: 6, description: 'Every open order: waiting_approval/confirmed/accepted/preparing/ready.'),
+                new OA\Property(property: 'waiting_approval', type: 'integer', example: 1),
+                new OA\Property(property: 'preparing', type: 'integer', example: 3, description: 'status = preparing exactly (see kitchen.counts_by_status for confirmed/accepted too).'),
+                new OA\Property(property: 'ready', type: 'integer', example: 2),
+            ],
+            type: 'object'
+        ),
+        new OA\Property(property: 'staff', properties: [new OA\Property(property: 'active', type: 'integer', example: 4)], type: 'object'),
+        new OA\Property(property: 'requests', properties: [new OA\Property(property: 'pending', type: 'integer', example: 2)], type: 'object'),
+        new OA\Property(property: 'sales', properties: [new OA\Property(property: 'received_today', type: 'string', example: '842.50', description: 'SUM(PaymentRecord.amount) since local midnight (RestaurantSettings.timezone), never Order totals.')], type: 'object'),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
+    schema: 'OperationsTable',
+    description: 'A Table\'s physical + derived operational state. primary_status/flags are always derived — never a persisted column (see TableOperationalStateResolver).',
+    required: ['id', 'name', 'primary_status', 'flags'],
+    properties: [
+        new OA\Property(property: 'id', type: 'integer', format: 'int64', example: 7),
+        new OA\Property(property: 'name', type: 'string', example: 'Mesa 7'),
+        new OA\Property(property: 'number', type: 'integer', nullable: true, example: 7),
+        new OA\Property(property: 'capacity', type: 'integer', nullable: true, example: 4),
+        new OA\Property(property: 'zone_id', type: 'integer', format: 'int64', nullable: true, example: 3),
+        new OA\Property(
+            property: 'layout',
+            properties: [
+                new OA\Property(property: 'x', type: 'number', format: 'float', nullable: true),
+                new OA\Property(property: 'y', type: 'number', format: 'float', nullable: true),
+                new OA\Property(property: 'rotation', type: 'integer', nullable: true),
+                new OA\Property(property: 'shape', type: 'string', nullable: true, example: 'round'),
+                new OA\Property(property: 'width', type: 'number', format: 'float', nullable: true),
+                new OA\Property(property: 'height', type: 'number', format: 'float', nullable: true),
+            ],
+            type: 'object'
+        ),
+        new OA\Property(property: 'primary_status', type: 'string', example: 'ready', description: 'One of: free, occupied, waiting_approval, preparing, ready, waiter_requested, bill_requested.'),
+        new OA\Property(property: 'flags', type: 'array', items: new OA\Items(type: 'string'), example: ['ready_order', 'assigned_waiter_off_shift']),
+        new OA\Property(
+            property: 'session',
+            nullable: true,
+            properties: [
+                new OA\Property(property: 'id', type: 'integer', format: 'int64', example: 381),
+                new OA\Property(property: 'started_at', type: 'string', format: 'date-time'),
+                new OA\Property(property: 'elapsed_seconds', type: 'integer', example: 1320),
+                new OA\Property(property: 'guest_count', type: 'integer', example: 4),
+                new OA\Property(
+                    property: 'assigned_waiter',
+                    nullable: true,
+                    properties: [
+                        new OA\Property(property: 'id', type: 'integer', format: 'int64', example: 12),
+                        new OA\Property(property: 'name', type: 'string', nullable: true, example: 'Mateo'),
+                        new OA\Property(property: 'sub_id', type: 'string', nullable: true, example: 'W-1'),
+                    ],
+                    type: 'object'
+                ),
+            ],
+            type: 'object'
+        ),
+        new OA\Property(
+            property: 'orders',
+            properties: [
+                new OA\Property(property: 'open_count', type: 'integer', example: 2),
+                new OA\Property(property: 'waiting_approval', type: 'integer', example: 0),
+                new OA\Property(property: 'preparing', type: 'integer', example: 1),
+                new OA\Property(property: 'ready', type: 'integer', example: 1),
+            ],
+            type: 'object'
+        ),
+        new OA\Property(
+            property: 'billing',
+            nullable: true,
+            description: 'null when the session has no billable orders yet. Computed via SessionBillCalculator — never re-implemented here.',
+            properties: [
+                new OA\Property(property: 'total', type: 'string', example: '84.50'),
+                new OA\Property(property: 'paid', type: 'string', example: '40.00'),
+                new OA\Property(property: 'outstanding', type: 'string', example: '44.50'),
+                new OA\Property(property: 'status', type: 'string', example: 'partial', description: 'One of: unpaid, partial, paid.'),
+            ],
+            type: 'object'
+        ),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
+    schema: 'OperationsStaff',
+    required: ['user', 'load'],
+    properties: [
+        new OA\Property(property: 'user', properties: [new OA\Property(property: 'id', type: 'integer', format: 'int64', example: 12), new OA\Property(property: 'name', type: 'string', nullable: true, example: 'Mateo')], type: 'object'),
+        new OA\Property(property: 'role', type: 'string', nullable: true, example: 'waiter'),
+        new OA\Property(property: 'shift_started_at', type: 'string', format: 'date-time'),
+        new OA\Property(property: 'active_seconds', type: 'integer', example: 5400),
+        new OA\Property(
+            property: 'load',
+            properties: [
+                new OA\Property(property: 'assigned_tables', type: 'integer', example: 2),
+                new OA\Property(property: 'assigned_guests', type: 'integer', example: 7),
+                new OA\Property(property: 'pending_attention', type: 'integer', example: 1, description: 'Open TableRequests + pending WaiterCalls across this waiter\'s assigned active sessions.'),
+            ],
+            type: 'object'
+        ),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
+    schema: 'OperationsKitchen',
+    properties: [
+        new OA\Property(property: 'counts_by_status', properties: [
+            new OA\Property(property: 'waiting_approval', type: 'integer', example: 1),
+            new OA\Property(property: 'confirmed', type: 'integer', example: 2),
+            new OA\Property(property: 'accepted', type: 'integer', example: 1),
+            new OA\Property(property: 'preparing', type: 'integer', example: 2),
+            new OA\Property(property: 'ready', type: 'integer', example: 1),
+        ], type: 'object'),
+        new OA\Property(property: 'active_orders', type: 'integer', example: 7),
+        new OA\Property(property: 'oldest_active_order_age_seconds', type: 'integer', nullable: true, example: 640),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
+    schema: 'OperationsAlert',
+    required: ['id', 'type', 'severity', 'age_seconds'],
+    properties: [
+        new OA\Property(property: 'id', type: 'string', example: 'waiter-off-shift-381', description: 'Deterministic, stable across snapshots of the same underlying fact.'),
+        new OA\Property(property: 'type', type: 'string', example: 'assigned_waiter_off_shift', description: 'One of: active_table_unassigned, assigned_waiter_off_shift, assigned_waiter_suspended, customer_waiter_request_pending, bill_request_pending, responsible_waiter_call_pending, order_waiting_approval, order_ready.'),
+        new OA\Property(property: 'severity', type: 'string', example: 'warning', description: 'One of: info, warning, critical.'),
+        new OA\Property(property: 'table_id', type: 'integer', format: 'int64', nullable: true, example: 7),
+        new OA\Property(property: 'table_session_id', type: 'integer', format: 'int64', nullable: true, example: 381),
+        new OA\Property(property: 'user_id', type: 'integer', format: 'int64', nullable: true, example: 12),
+        new OA\Property(property: 'age_seconds', type: 'integer', example: 240),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
+    schema: 'OperationsBottleneck',
+    nullable: true,
+    description: 'null when there are no alerts. Deterministic: highest severity, then highest affected_count, then oldest — see OperationsBottleneckResolver.',
+    properties: [
+        new OA\Property(property: 'type', type: 'string', example: 'bill_request_pending'),
+        new OA\Property(property: 'severity', type: 'string', example: 'warning'),
+        new OA\Property(property: 'affected_count', type: 'integer', example: 3),
+        new OA\Property(property: 'oldest_age_seconds', type: 'integer', example: 420),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
+    schema: 'OperationsLiveSnapshot',
+    description: 'The full Operations Live read-model response body (Bloco 5) — everything derived at request time, nothing persisted, nothing cached.',
+    required: ['restaurant', 'generated_at', 'summary', 'operation', 'floors', 'unassigned_tables', 'staff', 'kitchen', 'alerts'],
+    properties: [
+        new OA\Property(property: 'restaurant', properties: [
+            new OA\Property(property: 'id', type: 'integer', format: 'int64', example: 2),
+            new OA\Property(property: 'name', type: 'string', example: 'Aforo Centro'),
+            new OA\Property(property: 'timezone', type: 'string', example: 'Europe/Madrid'),
+            new OA\Property(property: 'currency', type: 'string', example: 'EUR'),
+        ], type: 'object'),
+        new OA\Property(property: 'generated_at', type: 'string', format: 'date-time'),
+        new OA\Property(property: 'summary', ref: '#/components/schemas/OperationsSummary'),
+        new OA\Property(property: 'operation', properties: [
+            new OA\Property(property: 'health_score', type: 'integer', example: 84),
+            new OA\Property(property: 'health_level', type: 'string', example: 'healthy', description: 'One of: healthy (80-100), attention (50-79), critical (0-49).'),
+            new OA\Property(property: 'bottleneck', ref: '#/components/schemas/OperationsBottleneck'),
+        ], type: 'object'),
+        new OA\Property(
+            property: 'floors',
+            type: 'array',
+            items: new OA\Items(properties: [
+                new OA\Property(property: 'id', type: 'integer', format: 'int64'),
+                new OA\Property(property: 'name', type: 'string'),
+                new OA\Property(property: 'sort_order', type: 'integer'),
+                new OA\Property(property: 'is_active', type: 'boolean'),
+                new OA\Property(property: 'zones', type: 'array', items: new OA\Items(properties: [
+                    new OA\Property(property: 'id', type: 'integer', format: 'int64'),
+                    new OA\Property(property: 'name', type: 'string'),
+                    new OA\Property(property: 'sort_order', type: 'integer'),
+                    new OA\Property(property: 'is_active', type: 'boolean'),
+                    new OA\Property(property: 'tables', type: 'array', items: new OA\Items(ref: '#/components/schemas/OperationsTable')),
+                ], type: 'object')),
+            ], type: 'object')
+        ),
+        new OA\Property(property: 'unassigned_tables', type: 'array', items: new OA\Items(ref: '#/components/schemas/OperationsTable')),
+        new OA\Property(property: 'staff', type: 'array', items: new OA\Items(ref: '#/components/schemas/OperationsStaff')),
+        new OA\Property(property: 'kitchen', ref: '#/components/schemas/OperationsKitchen'),
+        new OA\Property(property: 'alerts', type: 'array', items: new OA\Items(ref: '#/components/schemas/OperationsAlert')),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
+    schema: 'AnalyticsPeriod',
+    properties: [
+        new OA\Property(property: 'from', type: 'string', format: 'date', example: '2026-09-01'),
+        new OA\Property(property: 'to', type: 'string', format: 'date', example: '2026-09-30'),
+        new OA\Property(property: 'granularity', type: 'string', example: 'day', description: 'One of: day, week, month.'),
+        new OA\Property(property: 'timezone', type: 'string', example: 'Europe/Madrid'),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
+    schema: 'AnalyticsSummary',
+    properties: [
+        new OA\Property(property: 'revenue', type: 'string', example: '1284.50', description: 'Sum of PaymentRecord.amount received in the period — never derived from Order totals.'),
+        new OA\Property(property: 'average_ticket', type: 'string', example: '42.82', description: 'revenue / sessions_with_payments, same semantics as the existing /dashboard endpoint.'),
+        new OA\Property(property: 'sessions_with_payments', type: 'integer', example: 30),
+        new OA\Property(property: 'orders_count', type: 'integer', example: 54, description: 'Every Order created in the period, any status.'),
+        new OA\Property(property: 'guests_served', type: 'integer', example: 112, description: 'SUM(guest_count) of sessions closed within the period.'),
+        new OA\Property(property: 'closed_sessions', type: 'integer', example: 30),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
+    schema: 'AnalyticsSeriesPoint',
+    properties: [
+        new OA\Property(property: 'period_start', type: 'string', example: '2026-09-01', description: 'Local bucket key — a day, or the Monday of a week, or the first of a month, per the requested granularity. Always zero-filled, never sparse.'),
+        new OA\Property(property: 'revenue', type: 'string', example: '210.00'),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
+    schema: 'AnalyticsTableTurnover',
+    properties: [
+        new OA\Property(property: 'closed_sessions', type: 'integer', example: 30),
+        new OA\Property(property: 'turnover_per_table', type: 'number', format: 'float', example: 2.5, description: 'closed_sessions / total_tables. 0 when there are no tables.'),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
+    schema: 'AnalyticsOccupancy',
+    properties: [
+        new OA\Property(property: 'occupancy_rate', type: 'number', format: 'float', example: 0.42, description: 'occupied_seconds / (total_tables * period_seconds), via effective_start/effective_end overlap clamping. 0 when there are no tables.'),
+        new OA\Property(property: 'occupied_seconds', type: 'integer', example: 145800),
+        new OA\Property(property: 'total_tables', type: 'integer', example: 12, description: 'The restaurant\'s CURRENT table count — an approximation for a period in which tables were added/removed (see the Bloco 6 report).'),
+        new OA\Property(property: 'average_session_duration_seconds', type: 'integer', nullable: true, example: 3120, description: 'Only over sessions actually closed in the period. null when none closed.'),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
+    schema: 'AnalyticsPeakHour',
+    properties: [
+        new OA\Property(property: 'hour', type: 'integer', example: 21, description: 'Local hour of day, 0-23. Always all 24 present, zero-filled.'),
+        new OA\Property(property: 'sessions_started', type: 'integer', example: 8),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
+    schema: 'AnalyticsProduct',
+    properties: [
+        new OA\Property(property: 'id', type: 'integer', format: 'int64', nullable: true, example: 14, description: 'null when the live Product/RestaurantProduct row is gone — the row still exists via the OrderItem snapshot.'),
+        new OA\Property(property: 'name', type: 'string', example: 'Paella Valenciana', description: 'The snapshot name as sold, never the live (possibly renamed) Product name.'),
+        new OA\Property(property: 'quantity', type: 'integer', example: 37),
+        new OA\Property(property: 'revenue', type: 'string', example: '666.00'),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
+    schema: 'AnalyticsKitchen',
+    properties: [
+        new OA\Property(property: 'orders_created', type: 'integer', example: 54),
+        new OA\Property(property: 'orders_ready', type: 'integer', example: 48),
+        new OA\Property(property: 'orders_cancelled', type: 'integer', example: 3),
+        new OA\Property(property: 'average_preparation_time_seconds', type: 'integer', nullable: true, example: 540, description: 'AVG(ready_at - preparing_at), only over orders that actually reached ready. null (never 0 or fabricated) when none did.'),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
+    schema: 'AnalyticsOrders',
+    properties: [
+        new OA\Property(property: 'total', type: 'integer', example: 54),
+        new OA\Property(property: 'by_origin', properties: [
+            new OA\Property(property: 'customer_qr', type: 'integer', example: 20),
+            new OA\Property(property: 'waiter', type: 'integer', example: 28),
+            new OA\Property(property: 'manager', type: 'integer', example: 4),
+            new OA\Property(property: 'cashier', type: 'integer', example: 2),
+        ], type: 'object'),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
+    schema: 'AnalyticsStaff',
+    description: 'Roster defined by StaffShift presence overlapping the period — not by order activity. Deliberately never carries sales_attributed or guests_served: TableSession.assigned_waiter_user_id is the final/current responsible waiter, not a reassignment-aware history, so per-waiter revenue/guest attribution would be unreliable (see the Bloco 6 report).',
+    properties: [
+        new OA\Property(property: 'user', properties: [
+            new OA\Property(property: 'id', type: 'integer', format: 'int64', example: 12),
+            new OA\Property(property: 'name', type: 'string', nullable: true, example: 'Mateo'),
+        ], type: 'object'),
+        new OA\Property(property: 'role', type: 'string', nullable: true, example: 'waiter'),
+        new OA\Property(property: 'shift_count', type: 'integer', example: 4),
+        new OA\Property(property: 'active_seconds', type: 'integer', example: 28800),
+        new OA\Property(property: 'tables_served', type: 'integer', example: 22),
+        new OA\Property(property: 'orders_created', type: 'integer', example: 30),
+        new OA\Property(property: 'orders_served', type: 'integer', example: 22),
+        new OA\Property(property: 'customer_orders_approved', type: 'integer', example: 5),
+        new OA\Property(property: 'table_requests_handled', type: 'integer', example: 9),
+        new OA\Property(property: 'sessions_closed', type: 'integer', example: 18),
+        new OA\Property(property: 'average_rating', type: 'string', nullable: true, example: '4.50'),
+        new OA\Property(property: 'reviews_count', type: 'integer', example: 6),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
+    schema: 'RestaurantAnalytics',
+    description: 'The full Analytics read-model response body (Bloco 6) — a historical/descriptive read model for an explicit period, distinct from Operations Live (current state) and computed fresh on every request: nothing persisted, nothing cached.',
+    required: ['restaurant', 'period', 'summary', 'revenue_series', 'occupancy', 'table_turnover', 'peak_hours', 'products', 'kitchen', 'orders', 'staff'],
+    properties: [
+        new OA\Property(property: 'restaurant', properties: [
+            new OA\Property(property: 'id', type: 'integer', format: 'int64', example: 2),
+            new OA\Property(property: 'name', type: 'string', example: 'Aforo Centro'),
+            new OA\Property(property: 'timezone', type: 'string', example: 'Europe/Madrid'),
+            new OA\Property(property: 'currency', type: 'string', example: 'EUR'),
+        ], type: 'object'),
+        new OA\Property(property: 'period', ref: '#/components/schemas/AnalyticsPeriod'),
+        new OA\Property(property: 'summary', ref: '#/components/schemas/AnalyticsSummary'),
+        new OA\Property(property: 'revenue_series', type: 'array', items: new OA\Items(ref: '#/components/schemas/AnalyticsSeriesPoint')),
+        new OA\Property(property: 'occupancy', ref: '#/components/schemas/AnalyticsOccupancy'),
+        new OA\Property(property: 'table_turnover', ref: '#/components/schemas/AnalyticsTableTurnover'),
+        new OA\Property(property: 'peak_hours', type: 'array', items: new OA\Items(ref: '#/components/schemas/AnalyticsPeakHour')),
+        new OA\Property(property: 'products', properties: [
+            new OA\Property(property: 'top_by_quantity', type: 'array', items: new OA\Items(ref: '#/components/schemas/AnalyticsProduct')),
+            new OA\Property(property: 'top_by_revenue', type: 'array', items: new OA\Items(ref: '#/components/schemas/AnalyticsProduct')),
+        ], type: 'object'),
+        new OA\Property(property: 'kitchen', ref: '#/components/schemas/AnalyticsKitchen'),
+        new OA\Property(property: 'orders', ref: '#/components/schemas/AnalyticsOrders'),
+        new OA\Property(property: 'staff', type: 'array', items: new OA\Items(ref: '#/components/schemas/AnalyticsStaff')),
     ],
     type: 'object'
 )]

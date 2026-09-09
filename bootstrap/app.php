@@ -1,5 +1,6 @@
 <?php
 
+use App\Exceptions\Analytics\InvalidAnalyticsPeriodException;
 use App\Exceptions\Audit\InvalidAuditPeriodException;
 use App\Exceptions\Billing\PaymentExceedsBalanceException;
 use App\Exceptions\Billing\PaymentIdempotencyKeyReusedException;
@@ -28,8 +29,14 @@ use App\Exceptions\Public\WaiterCallDisabledException;
 use App\Exceptions\Reports\InvalidReportPeriodException;
 use App\Exceptions\Staff\CannotReviewSelfException;
 use App\Exceptions\Staff\InvalidPerformancePeriodException;
+use App\Exceptions\Staff\InvalidStaffShiftPeriodException;
+use App\Exceptions\Staff\StaffShiftConflictException;
+use App\Exceptions\Staff\StaffShiftIneligibleException;
 use App\Exceptions\TableRequests\TableRequestAlreadyOpenException;
 use App\Exceptions\TableRequests\TableRequestStateConflictException;
+use App\Exceptions\Tables\TableSessionHasNoAssignedWaiterException;
+use App\Exceptions\Tables\WaiterAssignmentIneligibleException;
+use App\Exceptions\Tables\WaiterCallConflictException;
 use App\Exceptions\TableSessionConflictException;
 use App\Http\Middleware\EnsurePlatformAdmin;
 use App\Http\Middleware\EnsureUserIsActive;
@@ -47,6 +54,17 @@ return Application::configure(basePath: dirname(__DIR__))
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
     )
+    // Bloco 7 — registered as its own call (not via withRouting's
+    // `channels` shorthand) so the /broadcasting/auth route runs the SAME
+    // auth stack as every other tenant endpoint (auth:sanctum +
+    // active_user — see routes/api.php's own tenant group), rather than
+    // withRouting's default `web` session-guard middleware, which this
+    // Sanctum-SPA-only API does not use. See routes/channels.php and
+    // docs/realtime.md.
+    ->withBroadcasting(
+        __DIR__.'/../routes/channels.php',
+        ['middleware' => ['api', 'auth:sanctum', 'active_user']],
+    )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->statefulApi();
         $middleware->alias([
@@ -60,6 +78,28 @@ return Application::configure(basePath: dirname(__DIR__))
             fn (Request $request) => $request->is('api/*') || $request->expectsJson(),
         );
         $exceptions->render(function (TableSessionConflictException $e, Request $request) {
+            return response()->json(['message' => $e->getMessage()], 409);
+        });
+        $exceptions->render(function (WaiterAssignmentIneligibleException $e, Request $request) {
+            return response()->json(['message' => $e->getMessage()], 422);
+        });
+        $exceptions->render(function (StaffShiftConflictException $e, Request $request) {
+            return response()->json(['message' => $e->getMessage()], 409);
+        });
+        $exceptions->render(function (StaffShiftIneligibleException $e, Request $request) {
+            return response()->json(['message' => $e->getMessage()], 422);
+        });
+        $exceptions->render(function (InvalidStaffShiftPeriodException $e, Request $request) {
+            return response()->json([
+                'error' => ['code' => 'INVALID_STAFF_SHIFT_PERIOD', 'message' => 'The staff shift period is invalid.'],
+            ], 422);
+        });
+        $exceptions->render(function (TableSessionHasNoAssignedWaiterException $e, Request $request) {
+            return response()->json([
+                'error' => ['code' => 'TABLE_SESSION_HAS_NO_ASSIGNED_WAITER', 'message' => $e->getMessage()],
+            ], 409);
+        });
+        $exceptions->render(function (WaiterCallConflictException $e, Request $request) {
             return response()->json(['message' => $e->getMessage()], 409);
         });
         $exceptions->render(function (PublicTableNotFoundException $e, Request $request) {
@@ -171,6 +211,11 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->render(function (InvalidReportPeriodException $e, Request $request) {
             return response()->json([
                 'error' => ['code' => 'INVALID_REPORT_PERIOD', 'message' => 'The report period is invalid.'],
+            ], 422);
+        });
+        $exceptions->render(function (InvalidAnalyticsPeriodException $e, Request $request) {
+            return response()->json([
+                'error' => ['code' => 'INVALID_ANALYTICS_PERIOD', 'message' => 'The analytics period or granularity is invalid.'],
             ], 422);
         });
         $exceptions->render(function (CustomerOrderingDisabledException $e, Request $request) {

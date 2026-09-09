@@ -2,6 +2,7 @@
 
 namespace App\Actions\Billing;
 
+use App\Events\Realtime\PaymentRecorded;
 use App\Exceptions\Billing\PaymentExceedsBalanceException;
 use App\Exceptions\Billing\PaymentIdempotencyKeyReusedException;
 use App\Exceptions\Billing\TableSessionAlreadyPaidException;
@@ -127,6 +128,8 @@ class RecordPaymentAction
                     'currency' => $payment->currency,
                 ],
             );
+
+            PaymentRecorded::dispatch($locked->restaurant_id, $locked->id, $locked->table_id, $payment->id, $payment->amount, $payment->method, $payment->recorded_at);
 
             $newPaidTotalCents = $summary['paidTotalCents'] + $amountCents;
 

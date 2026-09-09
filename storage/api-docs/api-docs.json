@@ -2523,6 +2523,15 @@
                         }
                     },
                     {
+                        "name": "table_session_id",
+                        "in": "query",
+                        "description": "Restrict to one table session's own orders (Bloco 4) — narrower than table_id, which spans every historical session of that table.",
+                        "required": false,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
                         "name": "status",
                         "in": "query",
                         "required": false,
@@ -4471,6 +4480,89 @@
                 }
             }
         },
+        "/api/v1/restaurants/{restaurant}/analytics": {
+            "get": {
+                "tags": [
+                    "Analytics"
+                ],
+                "summary": "Get a restaurant's historical analytics for a period",
+                "operationId": "restaurantAnalyticsShow",
+                "parameters": [
+                    {
+                        "name": "restaurant",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "from",
+                        "in": "query",
+                        "description": "Local calendar date (Y-m-d) in the restaurant's own timezone. Defaults, with `to`, to the current local month.",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "format": "date"
+                        }
+                    },
+                    {
+                        "name": "to",
+                        "in": "query",
+                        "description": "Local calendar date (Y-m-d), inclusive. Must be given together with `from`.",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "format": "date"
+                        }
+                    },
+                    {
+                        "name": "granularity",
+                        "in": "query",
+                        "description": "One of: day, week, month. Defaults to day.",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "example": "day"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The analytics for the resolved period",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/RestaurantAnalytics"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "The user is not allowed to view this restaurant's analytics"
+                    },
+                    "404": {
+                        "description": "Restaurant not found, or outside the user's restaurant scope"
+                    },
+                    "422": {
+                        "description": "Invalid period or granularity"
+                    }
+                },
+                "security": [
+                    {
+                        "sessionCookie": []
+                    }
+                ]
+            }
+        },
         "/api/v1/restaurants": {
             "get": {
                 "tags": [
@@ -4802,6 +4894,56 @@
                     },
                     "422": {
                         "description": "Invalid report period"
+                    }
+                },
+                "security": [
+                    {
+                        "sessionCookie": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/restaurants/{restaurant}/operations/live": {
+            "get": {
+                "tags": [
+                    "Operations"
+                ],
+                "summary": "Get a restaurant's live operations snapshot",
+                "operationId": "restaurantOperationsLive",
+                "parameters": [
+                    {
+                        "name": "restaurant",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The live operations snapshot",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/OperationsLiveSnapshot"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "The user is not allowed to view this restaurant's live operations"
+                    },
+                    "404": {
+                        "description": "Restaurant not found, or outside the user's restaurant scope"
                     }
                 },
                 "security": [
@@ -5645,6 +5787,270 @@
                     },
                     "422": {
                         "description": "Validation error, or the staff member cannot review themselves"
+                    }
+                },
+                "security": [
+                    {
+                        "sessionCookie": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/restaurants/{restaurant}/staff-shifts": {
+            "get": {
+                "tags": [
+                    "Staff Shifts"
+                ],
+                "summary": "List staff shifts of a restaurant",
+                "description": "List staff shifts of one Restaurant, newest-started first, paginated.\n`active=true` doubles as \"who's working right now\" — deliberately\nnot a separate endpoint (see the Bloco 3 report): one filtered,\npaginated list, matching AuditLogController's own filter shape.",
+                "operationId": "staffShiftsIndex",
+                "parameters": [
+                    {
+                        "name": "restaurant",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "user_id",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "active",
+                        "in": "query",
+                        "description": "true = only currently active shifts",
+                        "required": false,
+                        "schema": {
+                            "type": "boolean"
+                        }
+                    },
+                    {
+                        "name": "from",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "format": "date"
+                        }
+                    },
+                    {
+                        "name": "to",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "format": "date"
+                        }
+                    },
+                    {
+                        "name": "per_page",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "default": 25
+                        }
+                    },
+                    {
+                        "name": "page",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "default": 1
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "A page of staff shifts, newest started first",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "properties": {
+                                                "staff_shifts": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "$ref": "#/components/schemas/StaffShift"
+                                                    }
+                                                }
+                                            },
+                                            "type": "object"
+                                        },
+                                        "meta": {
+                                            "$ref": "#/components/schemas/StaffShiftPaginationMeta"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "The user is not allowed to view staff shifts"
+                    },
+                    "404": {
+                        "description": "Restaurant not found or outside scope"
+                    },
+                    "422": {
+                        "description": "Invalid filter value or period"
+                    }
+                },
+                "security": [
+                    {
+                        "sessionCookie": []
+                    }
+                ]
+            },
+            "post": {
+                "tags": [
+                    "Staff Shifts"
+                ],
+                "summary": "Start a staff shift at a restaurant",
+                "description": "Start a new shift for a user at a Restaurant. Self start is allowed\n(see StaffShiftPolicy) — a staff member may start their own shift\nwithout any special permission, as long as they hold membership at\nthis exact Restaurant.",
+                "operationId": "staffShiftsStart",
+                "parameters": [
+                    {
+                        "name": "restaurant",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "user_id"
+                                ],
+                                "properties": {
+                                    "user_id": {
+                                        "type": "integer",
+                                        "example": 12
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Shift started successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Shift started successfully."
+                                        },
+                                        "data": {
+                                            "properties": {
+                                                "staff_shift": {
+                                                    "$ref": "#/components/schemas/StaffShift"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "The user is not allowed to start a shift for this user"
+                    },
+                    "404": {
+                        "description": "Restaurant not found or outside scope"
+                    },
+                    "409": {
+                        "description": "This user already has an active shift at this restaurant"
+                    },
+                    "422": {
+                        "description": "Validation error, or the selected user is not eligible for a shift here"
+                    }
+                },
+                "security": [
+                    {
+                        "sessionCookie": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/staff-shifts/{staffShift}/end": {
+            "post": {
+                "tags": [
+                    "Staff Shifts"
+                ],
+                "summary": "End a staff shift",
+                "description": "End an active shift. Self end is allowed (see StaffShiftPolicy).",
+                "operationId": "staffShiftsEnd",
+                "parameters": [
+                    {
+                        "name": "staffShift",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Shift ended successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Shift ended successfully."
+                                        },
+                                        "data": {
+                                            "properties": {
+                                                "staff_shift": {
+                                                    "$ref": "#/components/schemas/StaffShift"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "The user is not allowed to end this shift"
+                    },
+                    "404": {
+                        "description": "Staff shift not found"
+                    },
+                    "409": {
+                        "description": "This shift has already ended"
                     }
                 },
                 "security": [
@@ -6641,6 +7047,362 @@
                 ]
             }
         },
+        "/api/v1/table-sessions/{tableSession}/transfer": {
+            "post": {
+                "tags": [
+                    "Table Sessions"
+                ],
+                "summary": "Transfer an active table session to another table of the same restaurant",
+                "operationId": "tableSessionsTransfer",
+                "parameters": [
+                    {
+                        "name": "tableSession",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "target_table_id"
+                                ],
+                                "properties": {
+                                    "target_table_id": {
+                                        "type": "integer",
+                                        "example": 42
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Table session transferred successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Table session transferred successfully."
+                                        },
+                                        "data": {
+                                            "properties": {
+                                                "session": {
+                                                    "$ref": "#/components/schemas/TableSession"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "The user is not allowed to transfer this table session"
+                    },
+                    "404": {
+                        "description": "Table session not found, or the target table is not found in this same restaurant"
+                    },
+                    "409": {
+                        "description": "The session is closed, the target is the same table, or the target already has an active session"
+                    },
+                    "422": {
+                        "description": "Validation error"
+                    }
+                },
+                "security": [
+                    {
+                        "sessionCookie": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/table-sessions/{tableSession}/waiter": {
+            "put": {
+                "tags": [
+                    "Table Sessions"
+                ],
+                "summary": "Assign or reassign the waiter responsible for a table session",
+                "description": "Assign (or reassign) the waiter responsible for a table session.\nAssigning the same waiter already responsible is a harmless no-op.",
+                "operationId": "tableSessionsAssignWaiter",
+                "parameters": [
+                    {
+                        "name": "tableSession",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "user_id"
+                                ],
+                                "properties": {
+                                    "user_id": {
+                                        "type": "integer",
+                                        "example": 12
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Waiter assigned successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Waiter assigned successfully."
+                                        },
+                                        "data": {
+                                            "properties": {
+                                                "session": {
+                                                    "$ref": "#/components/schemas/TableSession"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "The user is not allowed to assign waiters"
+                    },
+                    "404": {
+                        "description": "Table session not found"
+                    },
+                    "409": {
+                        "description": "This table session is closed"
+                    },
+                    "422": {
+                        "description": "Validation error, or the selected user is not an eligible waiter"
+                    }
+                },
+                "security": [
+                    {
+                        "sessionCookie": []
+                    }
+                ]
+            },
+            "delete": {
+                "tags": [
+                    "Table Sessions"
+                ],
+                "summary": "Unassign the waiter of a table session",
+                "description": "Unassign the waiter of a table session, leaving the session active\nand unaffected otherwise (orders, requests, payments untouched).\nUnassigning an already-unassigned session is a harmless no-op.",
+                "operationId": "tableSessionsUnassignWaiter",
+                "parameters": [
+                    {
+                        "name": "tableSession",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Waiter unassigned successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Waiter unassigned successfully."
+                                        },
+                                        "data": {
+                                            "properties": {
+                                                "session": {
+                                                    "$ref": "#/components/schemas/TableSession"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "The user is not allowed to unassign waiters"
+                    },
+                    "404": {
+                        "description": "Table session not found"
+                    },
+                    "409": {
+                        "description": "This table session is closed"
+                    }
+                },
+                "security": [
+                    {
+                        "sessionCookie": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/table-sessions/{tableSession}/waiter-calls": {
+            "post": {
+                "tags": [
+                    "Waiter Calls"
+                ],
+                "summary": "Call the waiter currently responsible for a table session",
+                "description": "Call the waiter currently responsible for a table session.",
+                "operationId": "waiterCallsStore",
+                "parameters": [
+                    {
+                        "name": "tableSession",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Waiter called successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Waiter called successfully."
+                                        },
+                                        "data": {
+                                            "properties": {
+                                                "waiter_call": {
+                                                    "$ref": "#/components/schemas/WaiterCall"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "The user is not allowed to call the responsible waiter"
+                    },
+                    "404": {
+                        "description": "Table session not found"
+                    },
+                    "409": {
+                        "description": "The session is closed, has no eligible assigned waiter, or already has a pending call"
+                    }
+                },
+                "security": [
+                    {
+                        "sessionCookie": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/waiter-calls/{waiterCall}/acknowledge": {
+            "post": {
+                "tags": [
+                    "Waiter Calls"
+                ],
+                "summary": "Acknowledge a pending waiter call",
+                "description": "Acknowledge a pending waiter call.",
+                "operationId": "waiterCallsAcknowledge",
+                "parameters": [
+                    {
+                        "name": "waiterCall",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Waiter call acknowledged successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Waiter call acknowledged successfully."
+                                        },
+                                        "data": {
+                                            "properties": {
+                                                "waiter_call": {
+                                                    "$ref": "#/components/schemas/WaiterCall"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "The user is not allowed to acknowledge this call"
+                    },
+                    "404": {
+                        "description": "Waiter call not found"
+                    },
+                    "409": {
+                        "description": "This call has already been acknowledged"
+                    }
+                },
+                "security": [
+                    {
+                        "sessionCookie": []
+                    }
+                ]
+            }
+        },
         "/api/v1/restaurants/{restaurant}/zones": {
             "get": {
                 "tags": [
@@ -7446,6 +8208,21 @@
                         "example": 5,
                         "nullable": true
                     },
+                    "assigned_waiter": {
+                        "properties": {
+                            "id": {
+                                "type": "integer",
+                                "format": "int64",
+                                "example": 12
+                            },
+                            "name": {
+                                "type": "string",
+                                "example": "Mateo"
+                            }
+                        },
+                        "type": "object",
+                        "nullable": true
+                    },
                     "created_at": {
                         "type": "string",
                         "format": "date-time"
@@ -7453,6 +8230,192 @@
                     "updated_at": {
                         "type": "string",
                         "format": "date-time"
+                    }
+                },
+                "type": "object"
+            },
+            "StaffShift": {
+                "required": [
+                    "id",
+                    "restaurant_id",
+                    "started_at",
+                    "is_active"
+                ],
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "format": "int64",
+                        "example": 44
+                    },
+                    "restaurant_id": {
+                        "type": "integer",
+                        "format": "int64",
+                        "example": 3
+                    },
+                    "user": {
+                        "properties": {
+                            "id": {
+                                "type": "integer",
+                                "format": "int64",
+                                "example": 12
+                            },
+                            "name": {
+                                "type": "string",
+                                "example": "Mateo"
+                            }
+                        },
+                        "type": "object",
+                        "nullable": true
+                    },
+                    "role": {
+                        "type": "string",
+                        "example": "waiter",
+                        "nullable": true
+                    },
+                    "started_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "ended_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true
+                    },
+                    "is_active": {
+                        "type": "boolean",
+                        "example": true
+                    },
+                    "started_by_user_id": {
+                        "type": "integer",
+                        "format": "int64",
+                        "example": 5,
+                        "nullable": true
+                    },
+                    "ended_by_user_id": {
+                        "type": "integer",
+                        "format": "int64",
+                        "example": 5,
+                        "nullable": true
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "updated_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                },
+                "type": "object"
+            },
+            "StaffShiftPaginationMeta": {
+                "required": [
+                    "current_page",
+                    "per_page",
+                    "total",
+                    "last_page"
+                ],
+                "properties": {
+                    "current_page": {
+                        "type": "integer",
+                        "example": 1
+                    },
+                    "per_page": {
+                        "type": "integer",
+                        "example": 25
+                    },
+                    "total": {
+                        "type": "integer",
+                        "example": 42
+                    },
+                    "last_page": {
+                        "type": "integer",
+                        "example": 2
+                    }
+                },
+                "type": "object"
+            },
+            "WaiterCall": {
+                "required": [
+                    "id",
+                    "table_session_id",
+                    "restaurant_id",
+                    "status",
+                    "created_at"
+                ],
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "format": "int64",
+                        "example": 7
+                    },
+                    "table_session_id": {
+                        "type": "integer",
+                        "format": "int64",
+                        "example": 827
+                    },
+                    "restaurant_id": {
+                        "type": "integer",
+                        "format": "int64",
+                        "example": 2
+                    },
+                    "status": {
+                        "type": "string",
+                        "example": "pending"
+                    },
+                    "waiter": {
+                        "properties": {
+                            "id": {
+                                "type": "integer",
+                                "format": "int64",
+                                "example": 12
+                            },
+                            "name": {
+                                "type": "string",
+                                "example": "Mateo"
+                            }
+                        },
+                        "type": "object",
+                        "nullable": true
+                    },
+                    "called_by": {
+                        "properties": {
+                            "id": {
+                                "type": "integer",
+                                "format": "int64",
+                                "example": 5
+                            },
+                            "name": {
+                                "type": "string",
+                                "example": "Ana"
+                            }
+                        },
+                        "type": "object",
+                        "nullable": true
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "acknowledged_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true
+                    },
+                    "acknowledged_by": {
+                        "properties": {
+                            "id": {
+                                "type": "integer",
+                                "format": "int64",
+                                "example": 12
+                            },
+                            "name": {
+                                "type": "string",
+                                "example": "Mateo"
+                            }
+                        },
+                        "type": "object",
+                        "nullable": true
                     }
                 },
                 "type": "object"
@@ -10358,6 +11321,932 @@
                     }
                 },
                 "type": "object"
+            },
+            "OperationsSummary": {
+                "description": "Operational KPIs for right now — never a period/historical metric (see RestaurantDashboard for that).",
+                "properties": {
+                    "tables": {
+                        "properties": {
+                            "total": {
+                                "type": "integer",
+                                "example": 12
+                            },
+                            "free": {
+                                "type": "integer",
+                                "example": 7
+                            },
+                            "occupied": {
+                                "type": "integer",
+                                "example": 5
+                            },
+                            "occupancy_rate": {
+                                "description": "occupied / total, 0..1, rounded to 4 decimals. 0 when there are no tables.",
+                                "type": "number",
+                                "format": "float",
+                                "example": 0.4167
+                            }
+                        },
+                        "type": "object"
+                    },
+                    "active_sessions": {
+                        "type": "integer",
+                        "example": 5
+                    },
+                    "active_guests": {
+                        "description": "SUM(guest_count) of active sessions only.",
+                        "type": "integer",
+                        "example": 17
+                    },
+                    "orders": {
+                        "properties": {
+                            "active": {
+                                "description": "Every open order: waiting_approval/confirmed/accepted/preparing/ready.",
+                                "type": "integer",
+                                "example": 6
+                            },
+                            "waiting_approval": {
+                                "type": "integer",
+                                "example": 1
+                            },
+                            "preparing": {
+                                "description": "status = preparing exactly (see kitchen.counts_by_status for confirmed/accepted too).",
+                                "type": "integer",
+                                "example": 3
+                            },
+                            "ready": {
+                                "type": "integer",
+                                "example": 2
+                            }
+                        },
+                        "type": "object"
+                    },
+                    "staff": {
+                        "properties": {
+                            "active": {
+                                "type": "integer",
+                                "example": 4
+                            }
+                        },
+                        "type": "object"
+                    },
+                    "requests": {
+                        "properties": {
+                            "pending": {
+                                "type": "integer",
+                                "example": 2
+                            }
+                        },
+                        "type": "object"
+                    },
+                    "sales": {
+                        "properties": {
+                            "received_today": {
+                                "description": "SUM(PaymentRecord.amount) since local midnight (RestaurantSettings.timezone), never Order totals.",
+                                "type": "string",
+                                "example": "842.50"
+                            }
+                        },
+                        "type": "object"
+                    }
+                },
+                "type": "object"
+            },
+            "OperationsTable": {
+                "description": "A Table's physical + derived operational state. primary_status/flags are always derived — never a persisted column (see TableOperationalStateResolver).",
+                "required": [
+                    "id",
+                    "name",
+                    "primary_status",
+                    "flags"
+                ],
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "format": "int64",
+                        "example": 7
+                    },
+                    "name": {
+                        "type": "string",
+                        "example": "Mesa 7"
+                    },
+                    "number": {
+                        "type": "integer",
+                        "example": 7,
+                        "nullable": true
+                    },
+                    "capacity": {
+                        "type": "integer",
+                        "example": 4,
+                        "nullable": true
+                    },
+                    "zone_id": {
+                        "type": "integer",
+                        "format": "int64",
+                        "example": 3,
+                        "nullable": true
+                    },
+                    "layout": {
+                        "properties": {
+                            "x": {
+                                "type": "number",
+                                "format": "float",
+                                "nullable": true
+                            },
+                            "y": {
+                                "type": "number",
+                                "format": "float",
+                                "nullable": true
+                            },
+                            "rotation": {
+                                "type": "integer",
+                                "nullable": true
+                            },
+                            "shape": {
+                                "type": "string",
+                                "example": "round",
+                                "nullable": true
+                            },
+                            "width": {
+                                "type": "number",
+                                "format": "float",
+                                "nullable": true
+                            },
+                            "height": {
+                                "type": "number",
+                                "format": "float",
+                                "nullable": true
+                            }
+                        },
+                        "type": "object"
+                    },
+                    "primary_status": {
+                        "description": "One of: free, occupied, waiting_approval, preparing, ready, waiter_requested, bill_requested.",
+                        "type": "string",
+                        "example": "ready"
+                    },
+                    "flags": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "example": [
+                            "ready_order",
+                            "assigned_waiter_off_shift"
+                        ]
+                    },
+                    "session": {
+                        "properties": {
+                            "id": {
+                                "type": "integer",
+                                "format": "int64",
+                                "example": 381
+                            },
+                            "started_at": {
+                                "type": "string",
+                                "format": "date-time"
+                            },
+                            "elapsed_seconds": {
+                                "type": "integer",
+                                "example": 1320
+                            },
+                            "guest_count": {
+                                "type": "integer",
+                                "example": 4
+                            },
+                            "assigned_waiter": {
+                                "properties": {
+                                    "id": {
+                                        "type": "integer",
+                                        "format": "int64",
+                                        "example": 12
+                                    },
+                                    "name": {
+                                        "type": "string",
+                                        "example": "Mateo",
+                                        "nullable": true
+                                    },
+                                    "sub_id": {
+                                        "type": "string",
+                                        "example": "W-1",
+                                        "nullable": true
+                                    }
+                                },
+                                "type": "object",
+                                "nullable": true
+                            }
+                        },
+                        "type": "object",
+                        "nullable": true
+                    },
+                    "orders": {
+                        "properties": {
+                            "open_count": {
+                                "type": "integer",
+                                "example": 2
+                            },
+                            "waiting_approval": {
+                                "type": "integer",
+                                "example": 0
+                            },
+                            "preparing": {
+                                "type": "integer",
+                                "example": 1
+                            },
+                            "ready": {
+                                "type": "integer",
+                                "example": 1
+                            }
+                        },
+                        "type": "object"
+                    },
+                    "billing": {
+                        "description": "null when the session has no billable orders yet. Computed via SessionBillCalculator — never re-implemented here.",
+                        "properties": {
+                            "total": {
+                                "type": "string",
+                                "example": "84.50"
+                            },
+                            "paid": {
+                                "type": "string",
+                                "example": "40.00"
+                            },
+                            "outstanding": {
+                                "type": "string",
+                                "example": "44.50"
+                            },
+                            "status": {
+                                "description": "One of: unpaid, partial, paid.",
+                                "type": "string",
+                                "example": "partial"
+                            }
+                        },
+                        "type": "object",
+                        "nullable": true
+                    }
+                },
+                "type": "object"
+            },
+            "OperationsStaff": {
+                "required": [
+                    "user",
+                    "load"
+                ],
+                "properties": {
+                    "user": {
+                        "properties": {
+                            "id": {
+                                "type": "integer",
+                                "format": "int64",
+                                "example": 12
+                            },
+                            "name": {
+                                "type": "string",
+                                "example": "Mateo",
+                                "nullable": true
+                            }
+                        },
+                        "type": "object"
+                    },
+                    "role": {
+                        "type": "string",
+                        "example": "waiter",
+                        "nullable": true
+                    },
+                    "shift_started_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "active_seconds": {
+                        "type": "integer",
+                        "example": 5400
+                    },
+                    "load": {
+                        "properties": {
+                            "assigned_tables": {
+                                "type": "integer",
+                                "example": 2
+                            },
+                            "assigned_guests": {
+                                "type": "integer",
+                                "example": 7
+                            },
+                            "pending_attention": {
+                                "description": "Open TableRequests + pending WaiterCalls across this waiter's assigned active sessions.",
+                                "type": "integer",
+                                "example": 1
+                            }
+                        },
+                        "type": "object"
+                    }
+                },
+                "type": "object"
+            },
+            "OperationsKitchen": {
+                "properties": {
+                    "counts_by_status": {
+                        "properties": {
+                            "waiting_approval": {
+                                "type": "integer",
+                                "example": 1
+                            },
+                            "confirmed": {
+                                "type": "integer",
+                                "example": 2
+                            },
+                            "accepted": {
+                                "type": "integer",
+                                "example": 1
+                            },
+                            "preparing": {
+                                "type": "integer",
+                                "example": 2
+                            },
+                            "ready": {
+                                "type": "integer",
+                                "example": 1
+                            }
+                        },
+                        "type": "object"
+                    },
+                    "active_orders": {
+                        "type": "integer",
+                        "example": 7
+                    },
+                    "oldest_active_order_age_seconds": {
+                        "type": "integer",
+                        "example": 640,
+                        "nullable": true
+                    }
+                },
+                "type": "object"
+            },
+            "OperationsAlert": {
+                "required": [
+                    "id",
+                    "type",
+                    "severity",
+                    "age_seconds"
+                ],
+                "properties": {
+                    "id": {
+                        "description": "Deterministic, stable across snapshots of the same underlying fact.",
+                        "type": "string",
+                        "example": "waiter-off-shift-381"
+                    },
+                    "type": {
+                        "description": "One of: active_table_unassigned, assigned_waiter_off_shift, assigned_waiter_suspended, customer_waiter_request_pending, bill_request_pending, responsible_waiter_call_pending, order_waiting_approval, order_ready.",
+                        "type": "string",
+                        "example": "assigned_waiter_off_shift"
+                    },
+                    "severity": {
+                        "description": "One of: info, warning, critical.",
+                        "type": "string",
+                        "example": "warning"
+                    },
+                    "table_id": {
+                        "type": "integer",
+                        "format": "int64",
+                        "example": 7,
+                        "nullable": true
+                    },
+                    "table_session_id": {
+                        "type": "integer",
+                        "format": "int64",
+                        "example": 381,
+                        "nullable": true
+                    },
+                    "user_id": {
+                        "type": "integer",
+                        "format": "int64",
+                        "example": 12,
+                        "nullable": true
+                    },
+                    "age_seconds": {
+                        "type": "integer",
+                        "example": 240
+                    }
+                },
+                "type": "object"
+            },
+            "OperationsBottleneck": {
+                "description": "null when there are no alerts. Deterministic: highest severity, then highest affected_count, then oldest — see OperationsBottleneckResolver.",
+                "properties": {
+                    "type": {
+                        "type": "string",
+                        "example": "bill_request_pending"
+                    },
+                    "severity": {
+                        "type": "string",
+                        "example": "warning"
+                    },
+                    "affected_count": {
+                        "type": "integer",
+                        "example": 3
+                    },
+                    "oldest_age_seconds": {
+                        "type": "integer",
+                        "example": 420
+                    }
+                },
+                "type": "object",
+                "nullable": true
+            },
+            "OperationsLiveSnapshot": {
+                "description": "The full Operations Live read-model response body (Bloco 5) — everything derived at request time, nothing persisted, nothing cached.",
+                "required": [
+                    "restaurant",
+                    "generated_at",
+                    "summary",
+                    "operation",
+                    "floors",
+                    "unassigned_tables",
+                    "staff",
+                    "kitchen",
+                    "alerts"
+                ],
+                "properties": {
+                    "restaurant": {
+                        "properties": {
+                            "id": {
+                                "type": "integer",
+                                "format": "int64",
+                                "example": 2
+                            },
+                            "name": {
+                                "type": "string",
+                                "example": "Aforo Centro"
+                            },
+                            "timezone": {
+                                "type": "string",
+                                "example": "Europe/Madrid"
+                            },
+                            "currency": {
+                                "type": "string",
+                                "example": "EUR"
+                            }
+                        },
+                        "type": "object"
+                    },
+                    "generated_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "summary": {
+                        "$ref": "#/components/schemas/OperationsSummary"
+                    },
+                    "operation": {
+                        "properties": {
+                            "health_score": {
+                                "type": "integer",
+                                "example": 84
+                            },
+                            "health_level": {
+                                "description": "One of: healthy (80-100), attention (50-79), critical (0-49).",
+                                "type": "string",
+                                "example": "healthy"
+                            },
+                            "bottleneck": {
+                                "$ref": "#/components/schemas/OperationsBottleneck"
+                            }
+                        },
+                        "type": "object"
+                    },
+                    "floors": {
+                        "type": "array",
+                        "items": {
+                            "properties": {
+                                "id": {
+                                    "type": "integer",
+                                    "format": "int64"
+                                },
+                                "name": {
+                                    "type": "string"
+                                },
+                                "sort_order": {
+                                    "type": "integer"
+                                },
+                                "is_active": {
+                                    "type": "boolean"
+                                },
+                                "zones": {
+                                    "type": "array",
+                                    "items": {
+                                        "properties": {
+                                            "id": {
+                                                "type": "integer",
+                                                "format": "int64"
+                                            },
+                                            "name": {
+                                                "type": "string"
+                                            },
+                                            "sort_order": {
+                                                "type": "integer"
+                                            },
+                                            "is_active": {
+                                                "type": "boolean"
+                                            },
+                                            "tables": {
+                                                "type": "array",
+                                                "items": {
+                                                    "$ref": "#/components/schemas/OperationsTable"
+                                                }
+                                            }
+                                        },
+                                        "type": "object"
+                                    }
+                                }
+                            },
+                            "type": "object"
+                        }
+                    },
+                    "unassigned_tables": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/OperationsTable"
+                        }
+                    },
+                    "staff": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/OperationsStaff"
+                        }
+                    },
+                    "kitchen": {
+                        "$ref": "#/components/schemas/OperationsKitchen"
+                    },
+                    "alerts": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/OperationsAlert"
+                        }
+                    }
+                },
+                "type": "object"
+            },
+            "AnalyticsPeriod": {
+                "properties": {
+                    "from": {
+                        "type": "string",
+                        "format": "date",
+                        "example": "2026-09-01"
+                    },
+                    "to": {
+                        "type": "string",
+                        "format": "date",
+                        "example": "2026-09-30"
+                    },
+                    "granularity": {
+                        "description": "One of: day, week, month.",
+                        "type": "string",
+                        "example": "day"
+                    },
+                    "timezone": {
+                        "type": "string",
+                        "example": "Europe/Madrid"
+                    }
+                },
+                "type": "object"
+            },
+            "AnalyticsSummary": {
+                "properties": {
+                    "revenue": {
+                        "description": "Sum of PaymentRecord.amount received in the period — never derived from Order totals.",
+                        "type": "string",
+                        "example": "1284.50"
+                    },
+                    "average_ticket": {
+                        "description": "revenue / sessions_with_payments, same semantics as the existing /dashboard endpoint.",
+                        "type": "string",
+                        "example": "42.82"
+                    },
+                    "sessions_with_payments": {
+                        "type": "integer",
+                        "example": 30
+                    },
+                    "orders_count": {
+                        "description": "Every Order created in the period, any status.",
+                        "type": "integer",
+                        "example": 54
+                    },
+                    "guests_served": {
+                        "description": "SUM(guest_count) of sessions closed within the period.",
+                        "type": "integer",
+                        "example": 112
+                    },
+                    "closed_sessions": {
+                        "type": "integer",
+                        "example": 30
+                    }
+                },
+                "type": "object"
+            },
+            "AnalyticsSeriesPoint": {
+                "properties": {
+                    "period_start": {
+                        "description": "Local bucket key — a day, or the Monday of a week, or the first of a month, per the requested granularity. Always zero-filled, never sparse.",
+                        "type": "string",
+                        "example": "2026-09-01"
+                    },
+                    "revenue": {
+                        "type": "string",
+                        "example": "210.00"
+                    }
+                },
+                "type": "object"
+            },
+            "AnalyticsTableTurnover": {
+                "properties": {
+                    "closed_sessions": {
+                        "type": "integer",
+                        "example": 30
+                    },
+                    "turnover_per_table": {
+                        "description": "closed_sessions / total_tables. 0 when there are no tables.",
+                        "type": "number",
+                        "format": "float",
+                        "example": 2.5
+                    }
+                },
+                "type": "object"
+            },
+            "AnalyticsOccupancy": {
+                "properties": {
+                    "occupancy_rate": {
+                        "description": "occupied_seconds / (total_tables * period_seconds), via effective_start/effective_end overlap clamping. 0 when there are no tables.",
+                        "type": "number",
+                        "format": "float",
+                        "example": 0.42
+                    },
+                    "occupied_seconds": {
+                        "type": "integer",
+                        "example": 145800
+                    },
+                    "total_tables": {
+                        "description": "The restaurant's CURRENT table count — an approximation for a period in which tables were added/removed (see the Bloco 6 report).",
+                        "type": "integer",
+                        "example": 12
+                    },
+                    "average_session_duration_seconds": {
+                        "description": "Only over sessions actually closed in the period. null when none closed.",
+                        "type": "integer",
+                        "example": 3120,
+                        "nullable": true
+                    }
+                },
+                "type": "object"
+            },
+            "AnalyticsPeakHour": {
+                "properties": {
+                    "hour": {
+                        "description": "Local hour of day, 0-23. Always all 24 present, zero-filled.",
+                        "type": "integer",
+                        "example": 21
+                    },
+                    "sessions_started": {
+                        "type": "integer",
+                        "example": 8
+                    }
+                },
+                "type": "object"
+            },
+            "AnalyticsProduct": {
+                "properties": {
+                    "id": {
+                        "description": "null when the live Product/RestaurantProduct row is gone — the row still exists via the OrderItem snapshot.",
+                        "type": "integer",
+                        "format": "int64",
+                        "example": 14,
+                        "nullable": true
+                    },
+                    "name": {
+                        "description": "The snapshot name as sold, never the live (possibly renamed) Product name.",
+                        "type": "string",
+                        "example": "Paella Valenciana"
+                    },
+                    "quantity": {
+                        "type": "integer",
+                        "example": 37
+                    },
+                    "revenue": {
+                        "type": "string",
+                        "example": "666.00"
+                    }
+                },
+                "type": "object"
+            },
+            "AnalyticsKitchen": {
+                "properties": {
+                    "orders_created": {
+                        "type": "integer",
+                        "example": 54
+                    },
+                    "orders_ready": {
+                        "type": "integer",
+                        "example": 48
+                    },
+                    "orders_cancelled": {
+                        "type": "integer",
+                        "example": 3
+                    },
+                    "average_preparation_time_seconds": {
+                        "description": "AVG(ready_at - preparing_at), only over orders that actually reached ready. null (never 0 or fabricated) when none did.",
+                        "type": "integer",
+                        "example": 540,
+                        "nullable": true
+                    }
+                },
+                "type": "object"
+            },
+            "AnalyticsOrders": {
+                "properties": {
+                    "total": {
+                        "type": "integer",
+                        "example": 54
+                    },
+                    "by_origin": {
+                        "properties": {
+                            "customer_qr": {
+                                "type": "integer",
+                                "example": 20
+                            },
+                            "waiter": {
+                                "type": "integer",
+                                "example": 28
+                            },
+                            "manager": {
+                                "type": "integer",
+                                "example": 4
+                            },
+                            "cashier": {
+                                "type": "integer",
+                                "example": 2
+                            }
+                        },
+                        "type": "object"
+                    }
+                },
+                "type": "object"
+            },
+            "AnalyticsStaff": {
+                "description": "Roster defined by StaffShift presence overlapping the period — not by order activity. Deliberately never carries sales_attributed or guests_served: TableSession.assigned_waiter_user_id is the final/current responsible waiter, not a reassignment-aware history, so per-waiter revenue/guest attribution would be unreliable (see the Bloco 6 report).",
+                "properties": {
+                    "user": {
+                        "properties": {
+                            "id": {
+                                "type": "integer",
+                                "format": "int64",
+                                "example": 12
+                            },
+                            "name": {
+                                "type": "string",
+                                "example": "Mateo",
+                                "nullable": true
+                            }
+                        },
+                        "type": "object"
+                    },
+                    "role": {
+                        "type": "string",
+                        "example": "waiter",
+                        "nullable": true
+                    },
+                    "shift_count": {
+                        "type": "integer",
+                        "example": 4
+                    },
+                    "active_seconds": {
+                        "type": "integer",
+                        "example": 28800
+                    },
+                    "tables_served": {
+                        "type": "integer",
+                        "example": 22
+                    },
+                    "orders_created": {
+                        "type": "integer",
+                        "example": 30
+                    },
+                    "orders_served": {
+                        "type": "integer",
+                        "example": 22
+                    },
+                    "customer_orders_approved": {
+                        "type": "integer",
+                        "example": 5
+                    },
+                    "table_requests_handled": {
+                        "type": "integer",
+                        "example": 9
+                    },
+                    "sessions_closed": {
+                        "type": "integer",
+                        "example": 18
+                    },
+                    "average_rating": {
+                        "type": "string",
+                        "example": "4.50",
+                        "nullable": true
+                    },
+                    "reviews_count": {
+                        "type": "integer",
+                        "example": 6
+                    }
+                },
+                "type": "object"
+            },
+            "RestaurantAnalytics": {
+                "description": "The full Analytics read-model response body (Bloco 6) — a historical/descriptive read model for an explicit period, distinct from Operations Live (current state) and computed fresh on every request: nothing persisted, nothing cached.",
+                "required": [
+                    "restaurant",
+                    "period",
+                    "summary",
+                    "revenue_series",
+                    "occupancy",
+                    "table_turnover",
+                    "peak_hours",
+                    "products",
+                    "kitchen",
+                    "orders",
+                    "staff"
+                ],
+                "properties": {
+                    "restaurant": {
+                        "properties": {
+                            "id": {
+                                "type": "integer",
+                                "format": "int64",
+                                "example": 2
+                            },
+                            "name": {
+                                "type": "string",
+                                "example": "Aforo Centro"
+                            },
+                            "timezone": {
+                                "type": "string",
+                                "example": "Europe/Madrid"
+                            },
+                            "currency": {
+                                "type": "string",
+                                "example": "EUR"
+                            }
+                        },
+                        "type": "object"
+                    },
+                    "period": {
+                        "$ref": "#/components/schemas/AnalyticsPeriod"
+                    },
+                    "summary": {
+                        "$ref": "#/components/schemas/AnalyticsSummary"
+                    },
+                    "revenue_series": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/AnalyticsSeriesPoint"
+                        }
+                    },
+                    "occupancy": {
+                        "$ref": "#/components/schemas/AnalyticsOccupancy"
+                    },
+                    "table_turnover": {
+                        "$ref": "#/components/schemas/AnalyticsTableTurnover"
+                    },
+                    "peak_hours": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/AnalyticsPeakHour"
+                        }
+                    },
+                    "products": {
+                        "properties": {
+                            "top_by_quantity": {
+                                "type": "array",
+                                "items": {
+                                    "$ref": "#/components/schemas/AnalyticsProduct"
+                                }
+                            },
+                            "top_by_revenue": {
+                                "type": "array",
+                                "items": {
+                                    "$ref": "#/components/schemas/AnalyticsProduct"
+                                }
+                            }
+                        },
+                        "type": "object"
+                    },
+                    "kitchen": {
+                        "$ref": "#/components/schemas/AnalyticsKitchen"
+                    },
+                    "orders": {
+                        "$ref": "#/components/schemas/AnalyticsOrders"
+                    },
+                    "staff": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/AnalyticsStaff"
+                        }
+                    }
+                },
+                "type": "object"
             }
         },
         "securitySchemes": {
@@ -10427,12 +12316,20 @@
             "description": "Public"
         },
         {
+            "name": "Analytics",
+            "description": "Analytics"
+        },
+        {
             "name": "Restaurants",
             "description": "Restaurants"
         },
         {
             "name": "Restaurant Dashboard",
             "description": "Restaurant Dashboard"
+        },
+        {
+            "name": "Operations",
+            "description": "Operations"
         },
         {
             "name": "Restaurant Products",
@@ -10455,6 +12352,10 @@
             "description": "Staff Reviews"
         },
         {
+            "name": "Staff Shifts",
+            "description": "Staff Shifts"
+        },
+        {
             "name": "Tables",
             "description": "Tables"
         },
@@ -10465,6 +12366,14 @@
         {
             "name": "Billing",
             "description": "Billing"
+        },
+        {
+            "name": "Table Sessions",
+            "description": "Table Sessions"
+        },
+        {
+            "name": "Waiter Calls",
+            "description": "Waiter Calls"
         }
     ]
 }

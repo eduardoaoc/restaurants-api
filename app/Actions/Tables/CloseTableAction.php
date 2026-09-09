@@ -2,6 +2,7 @@
 
 namespace App\Actions\Tables;
 
+use App\Events\Realtime\TableSessionClosed;
 use App\Exceptions\Billing\TableSessionClosedException;
 use App\Exceptions\Billing\TableSessionHasNoBillableOrdersException;
 use App\Exceptions\Billing\TableSessionHasOpenOrdersException;
@@ -83,6 +84,8 @@ class CloseTableAction
                     'paid_total' => Money::centsToDecimal($summary['paidTotalCents']),
                 ],
             );
+
+            TableSessionClosed::dispatch($locked->restaurant_id, $locked->table_id, $locked->id, $locked->closed_at);
 
             // Any still-open request becomes irrelevant once the session
             // ends — cancelled, not completed, and with no special case

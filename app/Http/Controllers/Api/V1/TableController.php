@@ -7,10 +7,14 @@ use App\Http\Requests\Api\V1\Table\StoreTableRequest;
 use App\Http\Requests\Api\V1\Table\UpdateTableRequest;
 use App\Http\Resources\Api\V1\TableResource;
 use App\Models\Organization;
+use App\Models\Restaurant;
 use App\Models\Table;
+use App\Models\User;
+use App\Support\Restaurants\RestaurantScope;
 use App\Support\Tenancy\TenantContext;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use OpenApi\Attributes as OA;
 
 class TableController extends Controller
@@ -75,10 +79,10 @@ class TableController extends Controller
             new OA\Response(response: 404, description: 'Restaurant not found'),
         ]
     )]
-    public function index(int $restaurant): JsonResponse
+    public function index(Request $request, int $restaurant): JsonResponse
     {
         $organization = $this->activeOrganization();
-        $restaurantModel = $organization->restaurants()->findOrFail($restaurant);
+        $restaurantModel = $this->restaurantQuery($organization, $request->user())->findOrFail($restaurant);
 
         $this->authorize('viewAny', [Table::class, $restaurantModel]);
 
@@ -147,7 +151,7 @@ class TableController extends Controller
     public function store(StoreTableRequest $request, int $restaurant): JsonResponse
     {
         $organization = $this->activeOrganization();
-        $restaurantModel = $organization->restaurants()->findOrFail($restaurant);
+        $restaurantModel = $this->restaurantQuery($organization, $request->user())->findOrFail($restaurant);
 
         $this->authorize('create', [Table::class, $restaurantModel]);
 
@@ -204,10 +208,10 @@ class TableController extends Controller
             new OA\Response(response: 404, description: 'Table not found'),
         ]
     )]
-    public function show(int $table): JsonResponse
+    public function show(Request $request, int $table): JsonResponse
     {
         $organization = $this->activeOrganization();
-        $tableModel = $this->tableQuery($organization)->findOrFail($table);
+        $tableModel = $this->tableQuery($organization, $request->user())->findOrFail($table);
 
         $this->authorize('view', $tableModel);
 
@@ -274,7 +278,7 @@ class TableController extends Controller
     public function update(UpdateTableRequest $request, int $table): JsonResponse
     {
         $organization = $this->activeOrganization();
-        $tableModel = $this->tableQuery($organization)->findOrFail($table);
+        $tableModel = $this->tableQuery($organization, $request->user())->findOrFail($table);
 
         $this->authorize('update', $tableModel);
 
@@ -303,14 +307,44 @@ class TableController extends Controller
     }
 
     /**
-     * Tables scoped to the active organization, via their restaurant.
+     * Tables scoped to the active organization AND to the restaurants the
+     * acting user may operate on (RestaurantScope) — a table outside
+     * either scope resolves as "not found" via findOrFail(). This was
+     * previously missing here (a gap predating RestaurantScope's
+     * introduction, flagged again in the Bloco 4 report): a manager
+     * restricted to one restaurant could view/update a table of another
+     * restaurant of the same organization. Mirrors
+     * TableSessionController::tableQuery()/StaffController::staffQuery().
      */
-    private function tableQuery(Organization $organization): Builder
+    private function tableQuery(Organization $organization, User $user): Builder
     {
-        return Table::query()
-            ->whereHas('restaurant', function ($query) use ($organization) {
-                $query->where('organization_id', $organization->id);
-            })
-            ->with('activeSession');
+        $query = Table::query()->whereHas('restaurant', function ($q) use ($organization) {
+            $q->where('organization_id', $organization->id);
+        });
+
+        $restaurantIds = RestaurantScope::accessibleRestaurantIds($user, $organization);
+
+        if ($restaurantIds !== null) {
+            $query->whereIn('restaurant_id', $restaurantIds);
+        }
+
+        return $query->with('activeSession');
+    }
+
+    /**
+     * Restaurants of the active organization reachable by the requester —
+     * an out-of-scope restaurant resolves as 404, before index()/store()
+     * ever reach TablePolicy. Mirrors StaffController::restaurantQuery().
+     */
+    private function restaurantQuery(Organization $organization, User $user): Builder
+    {
+        $accessibleRestaurantIds = RestaurantScope::accessibleRestaurantIds($user, $organization);
+
+        return Restaurant::query()
+            ->where('organization_id', $organization->id)
+            ->when(
+                $accessibleRestaurantIds !== null,
+                fn (Builder $query) => $query->whereIn('id', $accessibleRestaurantIds),
+            );
     }
 }

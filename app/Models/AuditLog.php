@@ -117,6 +117,33 @@ class AuditLog extends Model
     // FloorPlanController::updateLayout / the Bloco 1 report.
     public const EVENT_FLOOR_PLAN_LAYOUT_UPDATED = 'floor_plan.layout.updated';
 
+    // Waiter assignment events (Bloco 2). ASSIGNED fires from an
+    // unassigned state, REASSIGNED when a different waiter replaces the
+    // previous one — see AssignWaiterAction. A no-op re-assign of the same
+    // waiter records neither.
+    public const EVENT_TABLE_SESSION_WAITER_ASSIGNED = 'table_session.waiter_assigned';
+
+    public const EVENT_TABLE_SESSION_WAITER_REASSIGNED = 'table_session.waiter_reassigned';
+
+    public const EVENT_TABLE_SESSION_WAITER_UNASSIGNED = 'table_session.waiter_unassigned';
+
+    // Staff Shift events (Bloco 3).
+    public const EVENT_STAFF_SHIFT_STARTED = 'staff_shift.started';
+
+    public const EVENT_STAFF_SHIFT_ENDED = 'staff_shift.ended';
+
+    // Table Operational Actions (Bloco 4). One aggregated event per
+    // transfer — see TransferTableSessionAction/report.
+    public const EVENT_TABLE_SESSION_TRANSFERRED = 'table_session.transferred';
+
+    // "Call responsible" is an internal Manager/Owner -> assigned-waiter
+    // escalation, modeled as its own minimal WaiterCall resource rather
+    // than reusing customer-originated TableRequest — see the Bloco 4
+    // report for why.
+    public const EVENT_TABLE_SESSION_RESPONSIBLE_WAITER_CALLED = 'table_session.responsible_waiter_called';
+
+    public const EVENT_TABLE_SESSION_RESPONSIBLE_WAITER_CALL_ACKNOWLEDGED = 'table_session.responsible_waiter_call_acknowledged';
+
     /**
      * @var array<int, string>
      */
@@ -154,6 +181,14 @@ class AuditLog extends Model
         self::EVENT_ZONE_UPDATED,
         self::EVENT_ZONE_DELETED,
         self::EVENT_FLOOR_PLAN_LAYOUT_UPDATED,
+        self::EVENT_TABLE_SESSION_WAITER_ASSIGNED,
+        self::EVENT_TABLE_SESSION_WAITER_REASSIGNED,
+        self::EVENT_TABLE_SESSION_WAITER_UNASSIGNED,
+        self::EVENT_STAFF_SHIFT_STARTED,
+        self::EVENT_STAFF_SHIFT_ENDED,
+        self::EVENT_TABLE_SESSION_TRANSFERRED,
+        self::EVENT_TABLE_SESSION_RESPONSIBLE_WAITER_CALLED,
+        self::EVENT_TABLE_SESSION_RESPONSIBLE_WAITER_CALL_ACKNOWLEDGED,
     ];
 
     public const RESOURCE_STAFF = 'staff';
@@ -180,6 +215,10 @@ class AuditLog extends Model
 
     public const RESOURCE_ZONE = 'zone';
 
+    public const RESOURCE_STAFF_SHIFT = 'staff_shift';
+
+    public const RESOURCE_WAITER_CALL = 'waiter_call';
+
     /**
      * @var array<int, string>
      */
@@ -196,6 +235,8 @@ class AuditLog extends Model
         self::RESOURCE_ORGANIZATION,
         self::RESOURCE_FLOOR,
         self::RESOURCE_ZONE,
+        self::RESOURCE_STAFF_SHIFT,
+        self::RESOURCE_WAITER_CALL,
     ];
 
     /**

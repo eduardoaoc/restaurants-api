@@ -13,10 +13,12 @@ use App\Models\Organization;
 use App\Models\Product;
 use App\Models\Restaurant;
 use App\Models\RestaurantProduct;
+use App\Models\StaffShift;
 use App\Models\Table;
 use App\Models\TableRequest;
 use App\Models\TableSession;
 use App\Models\User;
+use App\Models\WaiterCall;
 use App\Models\Zone;
 use App\Policies\AuditLogPolicy;
 use App\Policies\CategoryPolicy;
@@ -30,9 +32,11 @@ use App\Policies\ProductPolicy;
 use App\Policies\RestaurantPolicy;
 use App\Policies\RestaurantProductPolicy;
 use App\Policies\StaffPolicy;
+use App\Policies\StaffShiftPolicy;
 use App\Policies\TablePolicy;
 use App\Policies\TableRequestPolicy;
 use App\Policies\TableSessionPolicy;
+use App\Policies\WaiterCallPolicy;
 use App\Policies\ZonePolicy;
 use App\Support\Tenancy\TenantContext;
 use Illuminate\Cache\RateLimiting\Limit;
@@ -97,5 +101,7 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(AuditLog::class, AuditLogPolicy::class);
         Gate::policy(Floor::class, FloorPolicy::class);
         Gate::policy(Zone::class, ZonePolicy::class);
+        Gate::policy(StaffShift::class, StaffShiftPolicy::class);
+        Gate::policy(WaiterCall::class, WaiterCallPolicy::class);
     }
 }

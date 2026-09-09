@@ -2,6 +2,7 @@
 
 namespace App\Actions\TableRequests;
 
+use App\Events\Realtime\TableRequestAcknowledged;
 use App\Exceptions\TableRequests\TableRequestStateConflictException;
 use App\Models\AuditLog;
 use App\Models\TableRequest;
@@ -92,6 +93,13 @@ class TransitionTableRequestStatusAction
                 resourceId: $fresh->id,
                 metadata: ['previous_status' => $previousStatus, 'new_status' => $to, 'type' => $fresh->type],
             );
+
+            // Only "acknowledged" is broadcast — the minimum realtime
+            // contract for TableRequest (Bloco 7, item 26); completed/
+            // cancelled were deliberately left out of scope (see report).
+            if ($to === TableRequest::STATUS_ACKNOWLEDGED) {
+                TableRequestAcknowledged::dispatch($fresh->restaurant_id, $fresh->table_id, $fresh->table_session_id, $fresh->id, $fresh->type, $to);
+            }
 
             return $fresh;
         });

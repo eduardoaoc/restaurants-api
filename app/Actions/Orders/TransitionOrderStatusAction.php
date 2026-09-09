@@ -2,6 +2,7 @@
 
 namespace App\Actions\Orders;
 
+use App\Events\Realtime\OrderStatusChanged;
 use App\Exceptions\Orders\OrderStateConflictException;
 use App\Models\AuditLog;
 use App\Models\Order;
@@ -89,6 +90,8 @@ class TransitionOrderStatusAction
                 resourceId: $fresh->id,
                 metadata: ['previous_status' => $expectedFrom, 'new_status' => $to],
             );
+
+            OrderStatusChanged::dispatch($fresh->restaurant_id, $fresh->table_id, $fresh->table_session_id, $fresh->id, $expectedFrom, $to, $fresh->{"{$auditFieldPrefix}_at"});
 
             return $fresh;
         });

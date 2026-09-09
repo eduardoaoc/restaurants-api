@@ -2,6 +2,7 @@
 
 namespace App\Actions\Orders;
 
+use App\Events\Realtime\OrderStatusChanged;
 use App\Exceptions\Orders\OrderStateConflictException;
 use App\Models\AuditLog;
 use App\Models\Order;
@@ -47,6 +48,8 @@ class RejectOrderAction
                 resourceId: $fresh->id,
                 metadata: ['previous_status' => $previousStatus, 'new_status' => Order::STATUS_CANCELLED],
             );
+
+            OrderStatusChanged::dispatch($fresh->restaurant_id, $fresh->table_id, $fresh->table_session_id, $fresh->id, $previousStatus, Order::STATUS_CANCELLED, $fresh->cancelled_at);
 
             return $fresh;
         });

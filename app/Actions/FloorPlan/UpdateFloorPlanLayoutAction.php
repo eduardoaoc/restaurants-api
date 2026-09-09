@@ -2,6 +2,7 @@
 
 namespace App\Actions\FloorPlan;
 
+use App\Events\Realtime\FloorPlanUpdated;
 use App\Models\AuditLog;
 use App\Models\Restaurant;
 use App\Models\Table;
@@ -65,6 +66,8 @@ class UpdateFloorPlanLayoutAction
                     'table_ids' => $updatedIds,
                 ],
             );
+
+            FloorPlanUpdated::dispatch($restaurant->id, count($updatedIds), $updatedIds);
 
             return count($updatedIds);
         });

@@ -2,6 +2,7 @@
 
 namespace App\Actions\Orders;
 
+use App\Events\Realtime\OrderCreated;
 use App\Exceptions\Billing\TableSessionAlreadyPaidException;
 use App\Exceptions\Orders\OrderCreationConflictException;
 use App\Models\AuditLog;
@@ -124,6 +125,8 @@ class OrderCreationService
                 resourceId: $order->id,
                 metadata: ['origin' => $origin, 'initial_status' => $status],
             );
+
+            OrderCreated::dispatch($table->restaurant_id, $table->id, $session->id, $order->id, $order->origin, $order->status, $order->created_at);
 
             return $order->load('items.modifiers');
         });

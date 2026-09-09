@@ -103,4 +103,19 @@ class RestaurantPolicy
             && RestaurantScope::canAccessRestaurant($user, $restaurant)
             && $user->hasPermission('manage_floor_plan', $restaurant->organization);
     }
+
+    /**
+     * Viewing the live operations snapshot (Bloco 5) — the administrative/
+     * managerial command center. Deliberately its own dedicated permission
+     * (view_operations), not view_reports: this is real-time operational
+     * state, not the historical/analytical dashboard, and not automatically
+     * granted to waiter/kitchen/cashier — they get their own operational
+     * surfaces later, not this cross-cutting snapshot.
+     */
+    public function viewOperations(User $user, Restaurant $restaurant): bool
+    {
+        return $user->organizations()->whereKey($restaurant->organization_id)->exists()
+            && $user->hasPermission('view_operations', $restaurant->organization)
+            && RestaurantScope::canAccessRestaurant($user, $restaurant);
+    }
 }

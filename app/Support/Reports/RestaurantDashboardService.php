@@ -8,6 +8,7 @@ use App\Models\Restaurant;
 use App\Models\TableRequest;
 use App\Models\TableSession;
 use App\Models\User;
+use App\Support\Billing\PaymentsSummary;
 use App\Support\Money\Money;
 use Carbon\CarbonImmutable;
 
@@ -50,7 +51,11 @@ class RestaurantDashboardService
     /**
      * sales.total is SUM(payment_records.amount) filtered by recorded_at —
      * money actually collected, not Order totals (an order can be served
-     * and never paid, or paid across several PaymentRecords).
+     * and never paid, or paid across several PaymentRecords). The SUM
+     * itself is PaymentsSummary::totalCents() — the single shared
+     * implementation also used by the Operations Live snapshot's
+     * sales.received_today (Bloco 5), so this and the live snapshot can
+     * never drift into two different definitions of "money collected".
      * sessions_with_payments is the count of distinct sessions with at
      * least one payment in the period — including a partially paid one,
      * not only fully-settled sessions, hence the name (renamed from the
@@ -63,21 +68,12 @@ class RestaurantDashboardService
      */
     private function sales(Restaurant $restaurant, CarbonImmutable $from, CarbonImmutable $toExclusive): array
     {
-        $row = PaymentRecord::query()
-            ->where('restaurant_id', $restaurant->id)
-            ->where('recorded_at', '>=', $from)
-            ->where('recorded_at', '<', $toExclusive)
-            ->selectRaw('COALESCE(SUM(amount), 0) as total_amount, COUNT(DISTINCT table_session_id) as sessions_with_payments')
-            ->first();
-
-        $totalCents = Money::decimalToCents((string) $row->total_amount);
-        $sessionsWithPayments = (int) $row->sessions_with_payments;
+        $totalCents = PaymentsSummary::totalCents($restaurant->id, $from, $toExclusive);
+        $sessionsWithPayments = PaymentsSummary::sessionsWithPaymentsCount($restaurant->id, $from, $toExclusive);
 
         return [
             'total' => Money::centsToDecimal($totalCents),
-            'average_ticket' => $sessionsWithPayments > 0
-                ? Money::centsToDecimal((int) round($totalCents / $sessionsWithPayments))
-                : '0.00',
+            'average_ticket' => Money::centsToDecimal(PaymentsSummary::averageTicketCents($totalCents, $sessionsWithPayments)),
             'sessions_with_payments' => $sessionsWithPayments,
         ];
     }

@@ -2,6 +2,7 @@
 
 namespace App\Actions\Tables;
 
+use App\Events\Realtime\TableSessionOpened;
 use App\Exceptions\TableSessionConflictException;
 use App\Models\AuditLog;
 use App\Models\Table;
@@ -50,6 +51,14 @@ class OpenTableAction
                 resourceType: AuditLog::RESOURCE_TABLE_SESSION,
                 resourceId: $session->id,
                 metadata: ['table_id' => $table->id, 'status' => $session->status],
+            );
+
+            TableSessionOpened::dispatch(
+                $table->restaurant_id,
+                $table->id,
+                $session->id,
+                $session->guest_count,
+                $session->opened_at,
             );
 
             return $session;

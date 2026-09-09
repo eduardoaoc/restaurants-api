@@ -24,17 +24,23 @@ use App\Http\Controllers\Api\V1\Public\PublicMenuController;
 use App\Http\Controllers\Api\V1\Public\PublicOrderController;
 use App\Http\Controllers\Api\V1\Public\PublicTableController;
 use App\Http\Controllers\Api\V1\Public\PublicTableRequestController;
+use App\Http\Controllers\Api\V1\RestaurantAnalyticsController;
 use App\Http\Controllers\Api\V1\RestaurantController;
 use App\Http\Controllers\Api\V1\RestaurantDashboardController;
+use App\Http\Controllers\Api\V1\RestaurantOperationsController;
 use App\Http\Controllers\Api\V1\RestaurantProductController;
 use App\Http\Controllers\Api\V1\RestaurantSettingsController;
 use App\Http\Controllers\Api\V1\StaffController;
 use App\Http\Controllers\Api\V1\StaffPerformanceController;
 use App\Http\Controllers\Api\V1\StaffReviewController;
+use App\Http\Controllers\Api\V1\StaffShiftController;
 use App\Http\Controllers\Api\V1\TableController;
 use App\Http\Controllers\Api\V1\TableRequestController;
 use App\Http\Controllers\Api\V1\TableSessionBillController;
 use App\Http\Controllers\Api\V1\TableSessionController;
+use App\Http\Controllers\Api\V1\TableSessionTransferController;
+use App\Http\Controllers\Api\V1\TableSessionWaiterController;
+use App\Http\Controllers\Api\V1\WaiterCallController;
 use App\Http\Controllers\Api\V1\ZoneController;
 use Illuminate\Support\Facades\Route;
 
@@ -103,6 +109,14 @@ Route::prefix('v1')->group(function () {
         Route::get('/restaurants/{restaurant}', [RestaurantController::class, 'show']);
         Route::patch('/restaurants/{restaurant}', [RestaurantController::class, 'update']);
         Route::get('/restaurants/{restaurant}/dashboard', [RestaurantDashboardController::class, 'show']);
+        // Operations Live (Bloco 5): real-time operational snapshot,
+        // deliberately separate from the historical/period dashboard
+        // above — see RestaurantOperationsController.
+        Route::get('/restaurants/{restaurant}/operations/live', [RestaurantOperationsController::class, 'live']);
+        // Analytics (Bloco 6): historical/period read model, distinct
+        // from both /dashboard above and /operations/live — see
+        // RestaurantAnalyticsController.
+        Route::get('/restaurants/{restaurant}/analytics', [RestaurantAnalyticsController::class, 'show']);
         Route::get('/restaurants/{restaurant}/settings', [RestaurantSettingsController::class, 'show']);
         Route::patch('/restaurants/{restaurant}/settings', [RestaurantSettingsController::class, 'update']);
 
@@ -196,5 +210,25 @@ Route::prefix('v1')->group(function () {
         Route::post('/table-sessions/{tableSession}/payments', [TableSessionBillController::class, 'storePayment']);
         Route::get('/table-sessions/{tableSession}/receipt', [BillReceiptController::class, 'show']);
         Route::post('/table-sessions/{tableSession}/receipt/print', [BillReceiptController::class, 'print']);
+
+        // Waiter assignment (Bloco 2): belongs to the TableSession, not the
+        // Table — see TableSessionWaiterController.
+        Route::put('/table-sessions/{tableSession}/waiter', [TableSessionWaiterController::class, 'update']);
+        Route::delete('/table-sessions/{tableSession}/waiter', [TableSessionWaiterController::class, 'destroy']);
+
+        // Staff Shift (Bloco 3): canonical operational presence, scoped to
+        // one Restaurant — see StaffShiftController.
+        Route::get('/restaurants/{restaurant}/staff-shifts', [StaffShiftController::class, 'index']);
+        Route::post('/restaurants/{restaurant}/staff-shifts', [StaffShiftController::class, 'store']);
+        Route::post('/staff-shifts/{staffShift}/end', [StaffShiftController::class, 'end']);
+
+        // Table Operational Actions (Bloco 4): transfer belongs to the
+        // TableSession, not the Table — see TableSessionTransferController.
+        Route::post('/table-sessions/{tableSession}/transfer', [TableSessionTransferController::class, 'transfer']);
+
+        // "Call responsible waiter" — internal escalation, its own minimal
+        // resource (WaiterCall), not a TableRequest — see WaiterCallController.
+        Route::post('/table-sessions/{tableSession}/waiter-calls', [WaiterCallController::class, 'store']);
+        Route::post('/waiter-calls/{waiterCall}/acknowledge', [WaiterCallController::class, 'acknowledge']);
     });
 });
