@@ -34,6 +34,69 @@ use OpenApi\Attributes as OA;
     type: 'object'
 )]
 #[OA\Schema(
+    schema: 'AuthContextUser',
+    description: 'The minimal identity fields exposed inside AuthContext — deliberately not a ref to the full User schema, which carries email_verified_at/timestamps this endpoint does not return.',
+    required: ['id', 'name', 'email', 'status'],
+    properties: [
+        new OA\Property(property: 'id', type: 'integer', format: 'int64', example: 1),
+        new OA\Property(property: 'name', type: 'string', example: 'Example User'),
+        new OA\Property(property: 'email', type: 'string', format: 'email', example: 'user@example.com'),
+        new OA\Property(property: 'status', type: 'string', example: 'active'),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
+    schema: 'AuthContextPlatform',
+    description: 'Platform-level access, entirely separate from tenant (organization/restaurant) access. is_platform_admin is the single field the frontend needs to decide whether /platform is reachable at all — never inferred from name/email or from any tenant role.',
+    required: ['is_platform_admin', 'roles', 'permissions'],
+    properties: [
+        new OA\Property(property: 'is_platform_admin', type: 'boolean', example: false),
+        new OA\Property(property: 'roles', type: 'array', items: new OA\Items(type: 'string'), example: []),
+        new OA\Property(property: 'permissions', type: 'array', items: new OA\Items(type: 'string'), example: []),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
+    schema: 'AuthContextRestaurant',
+    description: 'One restaurant reachable by the user within an organization. permissions is scoped to THIS restaurant only — an organization-wide role contributes to every restaurant, a restaurant-scoped role contributes only here (see AuthContextBuilder).',
+    required: ['id', 'name', 'slug', 'status', 'roles', 'permissions'],
+    properties: [
+        new OA\Property(property: 'id', type: 'integer', format: 'int64', example: 10),
+        new OA\Property(property: 'name', type: 'string', example: 'Downtown Branch'),
+        new OA\Property(property: 'slug', type: 'string', example: 'downtown-branch'),
+        new OA\Property(property: 'status', type: 'string', example: 'active'),
+        new OA\Property(property: 'roles', type: 'array', items: new OA\Items(type: 'string'), example: ['manager']),
+        new OA\Property(property: 'permissions', type: 'array', items: new OA\Items(type: 'string'), example: ['manage_menu', 'manage_tables', 'view_operations']),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
+    schema: 'AuthContextOrganization',
+    description: 'One organization the user belongs to. permissions here mirrors what User::hasPermission() enforces for organization-scoped actions (create/update restaurants, manage staff, ...) — restaurants[] lists only the restaurants this user can actually reach within it (see RestaurantScope), each with its own narrower permissions array.',
+    required: ['id', 'name', 'slug', 'status', 'roles', 'permissions', 'restaurants'],
+    properties: [
+        new OA\Property(property: 'id', type: 'integer', format: 'int64', example: 1),
+        new OA\Property(property: 'name', type: 'string', example: 'Grupo Exemplo'),
+        new OA\Property(property: 'slug', type: 'string', example: 'grupo-exemplo'),
+        new OA\Property(property: 'status', type: 'string', example: 'active'),
+        new OA\Property(property: 'roles', type: 'array', items: new OA\Items(type: 'string'), example: ['owner']),
+        new OA\Property(property: 'permissions', type: 'array', items: new OA\Items(type: 'string'), example: ['manage_organization', 'manage_restaurants', 'manage_users', 'view_audit']),
+        new OA\Property(property: 'restaurants', type: 'array', items: new OA\Items(ref: '#/components/schemas/AuthContextRestaurant')),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
+    schema: 'AuthContext',
+    description: 'The authenticated user\'s full authorization context — see GET /api/v1/auth/context and AuthContextBuilder. A read projection over existing role/permission relationships: it introduces no new authorization, it only describes ahead of time what the real Policies would currently allow.',
+    required: ['user', 'platform', 'organizations'],
+    properties: [
+        new OA\Property(property: 'user', ref: '#/components/schemas/AuthContextUser'),
+        new OA\Property(property: 'platform', ref: '#/components/schemas/AuthContextPlatform'),
+        new OA\Property(property: 'organizations', type: 'array', items: new OA\Items(ref: '#/components/schemas/AuthContextOrganization')),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
     schema: 'Organization',
     required: ['id', 'name', 'slug', 'status'],
     properties: [

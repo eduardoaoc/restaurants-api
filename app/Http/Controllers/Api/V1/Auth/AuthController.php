@@ -4,7 +4,9 @@ namespace App\Http\Controllers\Api\V1\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\Auth\LoginRequest;
+use App\Http\Resources\Api\V1\Auth\AuthContextResource;
 use App\Models\User;
+use App\Support\Auth\AuthContextBuilder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -140,6 +142,54 @@ class AuthController extends Controller
             'data' => [
                 'user' => $request->user(),
             ],
+        ]);
+    }
+
+    /**
+     * Return the authenticated user's full authorization context: every
+     * organization they belong to, the restaurants they can reach within
+     * each, the permissions that apply at each of those two scopes, and
+     * their platform-level access (kept separate from tenant access) —
+     * see AuthContextBuilder.
+     *
+     * Deliberately outside the `tenant` middleware group: resolving "which
+     * organizations can this user reach" cannot depend on an already-
+     * resolved active organization (see ResolveTenant, which just takes
+     * the user's first organization) — that would be circular, and would
+     * make this endpoint unusable at initial login, before any
+     * organization has been chosen. Every organization/restaurant/
+     * permission returned here is instead derived directly from the
+     * user's own membership and role rows, scoped exactly like every
+     * other tenant endpoint (RestaurantScope, hasPermission()) — no
+     * organization or restaurant belonging to another tenant is ever
+     * reachable through this response.
+     */
+    #[OA\Get(
+        path: '/api/v1/auth/context',
+        operationId: 'authContext',
+        summary: "Get the authenticated user's full authorization context",
+        description: 'Returns every organization the user belongs to, the restaurants reachable within each, the permissions effective at each scope, and platform-level access. Intended for app bootstrap / login, not for frequent polling — see /auth/me for a lightweight identity check.',
+        security: [['sessionCookie' => []]],
+        tags: ['Authentication'],
+        responses: [
+            new OA\Response(
+                response: 200,
+                description: "The authenticated user's authorization context",
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(property: 'data', ref: '#/components/schemas/AuthContext'),
+                    ]
+                )
+            ),
+            new OA\Response(response: 401, description: 'Unauthenticated'),
+        ]
+    )]
+    public function context(Request $request, AuthContextBuilder $authContextBuilder): JsonResponse
+    {
+        $user = $request->user();
+
+        return response()->json([
+            'data' => new AuthContextResource($user, $authContextBuilder->build($user)),
         ]);
     }
 

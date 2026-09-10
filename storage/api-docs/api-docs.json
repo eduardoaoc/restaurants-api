@@ -291,6 +291,41 @@
                 ]
             }
         },
+        "/api/v1/auth/context": {
+            "get": {
+                "tags": [
+                    "Authentication"
+                ],
+                "summary": "Get the authenticated user's full authorization context",
+                "description": "Returns every organization the user belongs to, the restaurants reachable within each, the permissions effective at each scope, and platform-level access. Intended for app bootstrap / login, not for frequent polling — see /auth/me for a lightweight identity check.",
+                "operationId": "authContext",
+                "responses": {
+                    "200": {
+                        "description": "The authenticated user's authorization context",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/AuthContext"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    }
+                },
+                "security": [
+                    {
+                        "sessionCookie": []
+                    }
+                ]
+            }
+        },
         "/api/v1/auth/logout": {
             "post": {
                 "tags": [
@@ -7778,6 +7813,198 @@
                     "updated_at": {
                         "type": "string",
                         "format": "date-time"
+                    }
+                },
+                "type": "object"
+            },
+            "AuthContextUser": {
+                "description": "The minimal identity fields exposed inside AuthContext — deliberately not a ref to the full User schema, which carries email_verified_at/timestamps this endpoint does not return.",
+                "required": [
+                    "id",
+                    "name",
+                    "email",
+                    "status"
+                ],
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "format": "int64",
+                        "example": 1
+                    },
+                    "name": {
+                        "type": "string",
+                        "example": "Example User"
+                    },
+                    "email": {
+                        "type": "string",
+                        "format": "email",
+                        "example": "user@example.com"
+                    },
+                    "status": {
+                        "type": "string",
+                        "example": "active"
+                    }
+                },
+                "type": "object"
+            },
+            "AuthContextPlatform": {
+                "description": "Platform-level access, entirely separate from tenant (organization/restaurant) access. is_platform_admin is the single field the frontend needs to decide whether /platform is reachable at all — never inferred from name/email or from any tenant role.",
+                "required": [
+                    "is_platform_admin",
+                    "roles",
+                    "permissions"
+                ],
+                "properties": {
+                    "is_platform_admin": {
+                        "type": "boolean",
+                        "example": false
+                    },
+                    "roles": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "example": []
+                    },
+                    "permissions": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "example": []
+                    }
+                },
+                "type": "object"
+            },
+            "AuthContextRestaurant": {
+                "description": "One restaurant reachable by the user within an organization. permissions is scoped to THIS restaurant only — an organization-wide role contributes to every restaurant, a restaurant-scoped role contributes only here (see AuthContextBuilder).",
+                "required": [
+                    "id",
+                    "name",
+                    "slug",
+                    "status",
+                    "roles",
+                    "permissions"
+                ],
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "format": "int64",
+                        "example": 10
+                    },
+                    "name": {
+                        "type": "string",
+                        "example": "Downtown Branch"
+                    },
+                    "slug": {
+                        "type": "string",
+                        "example": "downtown-branch"
+                    },
+                    "status": {
+                        "type": "string",
+                        "example": "active"
+                    },
+                    "roles": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "example": [
+                            "manager"
+                        ]
+                    },
+                    "permissions": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "example": [
+                            "manage_menu",
+                            "manage_tables",
+                            "view_operations"
+                        ]
+                    }
+                },
+                "type": "object"
+            },
+            "AuthContextOrganization": {
+                "description": "One organization the user belongs to. permissions here mirrors what User::hasPermission() enforces for organization-scoped actions (create/update restaurants, manage staff, ...) — restaurants[] lists only the restaurants this user can actually reach within it (see RestaurantScope), each with its own narrower permissions array.",
+                "required": [
+                    "id",
+                    "name",
+                    "slug",
+                    "status",
+                    "roles",
+                    "permissions",
+                    "restaurants"
+                ],
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "format": "int64",
+                        "example": 1
+                    },
+                    "name": {
+                        "type": "string",
+                        "example": "Grupo Exemplo"
+                    },
+                    "slug": {
+                        "type": "string",
+                        "example": "grupo-exemplo"
+                    },
+                    "status": {
+                        "type": "string",
+                        "example": "active"
+                    },
+                    "roles": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "example": [
+                            "owner"
+                        ]
+                    },
+                    "permissions": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "example": [
+                            "manage_organization",
+                            "manage_restaurants",
+                            "manage_users",
+                            "view_audit"
+                        ]
+                    },
+                    "restaurants": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/AuthContextRestaurant"
+                        }
+                    }
+                },
+                "type": "object"
+            },
+            "AuthContext": {
+                "description": "The authenticated user's full authorization context — see GET /api/v1/auth/context and AuthContextBuilder. A read projection over existing role/permission relationships: it introduces no new authorization, it only describes ahead of time what the real Policies would currently allow.",
+                "required": [
+                    "user",
+                    "platform",
+                    "organizations"
+                ],
+                "properties": {
+                    "user": {
+                        "$ref": "#/components/schemas/AuthContextUser"
+                    },
+                    "platform": {
+                        "$ref": "#/components/schemas/AuthContextPlatform"
+                    },
+                    "organizations": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/AuthContextOrganization"
+                        }
                     }
                 },
                 "type": "object"
