@@ -5,6 +5,7 @@ namespace App\Http\Requests\Api\V1\ModifierGroup;
 use App\Http\Requests\Api\V1\Concerns\ValidatesModifierSelection;
 use App\Http\Requests\Api\V1\Concerns\ValidatesUniqueTranslationLocales;
 use App\Models\ModifierGroup;
+use App\Support\Locale\LocaleResolver;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
@@ -36,7 +37,7 @@ class UpdateModifierGroupRequest extends FormRequest
             'sort_order' => ['sometimes', 'integer', 'min:0'],
             'status' => ['sometimes', Rule::in(['active', 'inactive'])],
             'translations' => ['sometimes', 'array', 'min:1'],
-            'translations.*.locale' => ['required', 'string', 'max:10', 'regex:/^[a-z]{2}(-[A-Z]{2})?$/'],
+            'translations.*.locale' => ['required', 'string', 'max:20', 'regex:'.LocaleResolver::PATTERN],
             'translations.*.name' => ['required', 'string', 'max:255'],
             'translations.*.description' => ['nullable', 'string'],
         ];

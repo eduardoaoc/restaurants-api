@@ -171,11 +171,14 @@ Route::prefix('v1')->group(function () {
         Route::get('/products/{product}', [ProductController::class, 'show']);
         Route::patch('/products/{product}', [ProductController::class, 'update']);
 
+        Route::get('/restaurants/{restaurant}/products', [RestaurantProductController::class, 'index']);
         Route::post('/restaurants/{restaurant}/products', [RestaurantProductController::class, 'store']);
         Route::patch('/restaurant-products/{restaurantProduct}', [RestaurantProductController::class, 'update']);
 
+        Route::get('/categories/{category}/products', [CategoryProductController::class, 'index']);
         Route::post('/categories/{category}/products', [CategoryProductController::class, 'store']);
         Route::patch('/categories/{category}/products/{restaurantProduct}', [CategoryProductController::class, 'update']);
+        Route::delete('/categories/{category}/products/{restaurantProduct}', [CategoryProductController::class, 'destroy']);
 
         Route::get('/restaurant-products/{restaurantProduct}/modifier-groups', [ModifierGroupController::class, 'index']);
         Route::post('/restaurant-products/{restaurantProduct}/modifier-groups', [ModifierGroupController::class, 'store']);

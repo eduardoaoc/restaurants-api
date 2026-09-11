@@ -9,6 +9,11 @@ use App\Models\User;
 
 class RestaurantProductPolicy
 {
+    public function viewAny(User $user, Restaurant $restaurant): bool
+    {
+        return $this->canManage($user, $restaurant->organization);
+    }
+
     public function create(User $user, Restaurant $restaurant): bool
     {
         return $this->canManage($user, $restaurant->organization);

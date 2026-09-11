@@ -148,4 +148,54 @@ class RestaurantProductTest extends TestCase
             ])
             ->assertForbidden();
     }
+
+    public function test_owner_can_list_the_restaurant_products_of_a_restaurant(): void
+    {
+        [$organization, $owner, $restaurant] = $this->createTenant();
+        $productA = $this->createProduct($organization, 'Coca-Cola');
+        $productB = $this->createProduct($organization, 'Agua');
+        $this->createRestaurantProduct($restaurant, $productA, 3.0);
+        $this->createRestaurantProduct($restaurant, $productB, 2.0, false);
+
+        $response = $this->actingAs($owner, 'web')
+            ->getJson("/api/v1/restaurants/{$restaurant->id}/products")
+            ->assertOk();
+
+        $items = collect($response->json('data.restaurant_products'));
+        $this->assertSame(2, $items->count());
+        $this->assertTrue($items->contains(fn ($item) => $item['product']['id'] === $productA->id && $item['price'] === '3.00'));
+        $this->assertTrue($items->contains(fn ($item) => $item['product']['id'] === $productB->id && $item['available'] === false));
+    }
+
+    public function test_listing_restaurant_products_only_returns_the_active_organizations_restaurant(): void
+    {
+        [$organizationA, $ownerA, $restaurantA] = $this->createTenant();
+        [$organizationB, , $restaurantB] = $this->createTenant();
+        $productA = $this->createProduct($organizationA);
+        $productB = $this->createProduct($organizationB);
+        $this->createRestaurantProduct($restaurantA, $productA);
+        $this->createRestaurantProduct($restaurantB, $productB);
+
+        $this->actingAs($ownerA, 'web')
+            ->getJson("/api/v1/restaurants/{$restaurantB->id}/products")
+            ->assertNotFound();
+
+        $response = $this->actingAs($ownerA, 'web')
+            ->getJson("/api/v1/restaurants/{$restaurantA->id}/products")
+            ->assertOk();
+
+        $this->assertCount(1, $response->json('data.restaurant_products'));
+    }
+
+    public function test_user_without_manage_products_permission_cannot_list_restaurant_products(): void
+    {
+        [$organization, , $restaurant] = $this->createTenant();
+        $product = $this->createProduct($organization);
+        $this->createRestaurantProduct($restaurant, $product);
+        $kitchen = $this->createStaff($organization, $restaurant, 'kitchen', 'K-1');
+
+        $this->actingAs($kitchen, 'web')
+            ->getJson("/api/v1/restaurants/{$restaurant->id}/products")
+            ->assertForbidden();
+    }
 }
