@@ -56,8 +56,15 @@ Action → Event mapping.
 - `config/broadcasting.php` — Laravel's standard config, `reverb`
   connection added automatically when the package is required.
 - `config/reverb.php` — Reverb's own config; `apps.apps.0.allowed_origins`
-  is restricted to the same dev origins as `config/cors.php` (never `*`
-  — see Security below), overridable via `REVERB_ALLOWED_ORIGINS`.
+  holds **bare hostnames only** (`localhost`, `127.0.0.1` — no scheme, no
+  port). Reverb's `verifyOrigin()` extracts just the host from the
+  browser's `Origin` header (`parse_url($origin, PHP_URL_HOST)`) and
+  matches it against this list with `Str::is()`; a scheme-qualified entry
+  like `http://localhost:5173` never matches and the handshake is
+  rejected with `InvalidOrigin` (Bloco 1.3B — this exact mismatch broke
+  the real browser handshake until fixed here). Never `*`. Overridable
+  via `REVERB_ALLOWED_ORIGINS` (comma-separated hostnames) — production
+  must set this to its real authorized hosts, still no wildcard.
 - `routes/channels.php` — one private channel definition.
 - `bootstrap/app.php` — `->withBroadcasting(routes/channels.php, [...])`,
   registered as its own explicit call (not via `withRouting()`'s
@@ -226,8 +233,9 @@ project.
   leak by accident through an added Eloquent attribute/relation later
   (see `EventPayloadContractTest`). `payment.recorded` never carries a
   card number, gateway token, or other payment credential.
-- Reverb's own `allowed_origins` is restricted to the known dev origins,
-  matching `config/cors.php` (never `*`).
+- Reverb's own `allowed_origins` holds bare hostnames only (`localhost`,
+  `127.0.0.1` in dev), never full URLs and never `*` — see Reverb setup
+  above for why the host-only format is required.
 
 ## Local manual test
 

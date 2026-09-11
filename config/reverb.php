@@ -82,10 +82,18 @@ return [
                     'scheme' => env('REVERB_SCHEME', 'https'),
                     'useTLS' => env('REVERB_SCHEME', 'https') === 'https',
                 ],
-                // Bloco 7: same dev origins already allowed by
-                // config/cors.php — never '*' (see the report's Security
-                // section). Override REVERB_ALLOWED_ORIGINS in production.
-                'allowed_origins' => explode(',', env('REVERB_ALLOWED_ORIGINS', 'http://localhost:5173,http://localhost:5174,http://localhost:8080')),
+                // Bloco 7 / 1.3B: Reverb's verifyOrigin() (see
+                // vendor/laravel/reverb/src/Protocols/Pusher/Server.php)
+                // extracts only the HOST from the browser's Origin header
+                // (parse_url($origin, PHP_URL_HOST)) and compares it
+                // against this list with Str::is() — so entries here must
+                // be bare hostnames, never full URLs with scheme/port. A
+                // scheme-qualified default (e.g. "http://localhost:5173")
+                // never matches the extracted host ("localhost") and the
+                // handshake is rejected with InvalidOrigin regardless of
+                // dev origin — never '*'. Override REVERB_ALLOWED_ORIGINS
+                // in production with the real authorized hosts.
+                'allowed_origins' => explode(',', env('REVERB_ALLOWED_ORIGINS', 'localhost,127.0.0.1')),
                 'ping_interval' => env('REVERB_APP_PING_INTERVAL', 60),
                 'activity_timeout' => env('REVERB_APP_ACTIVITY_TIMEOUT', 30),
                 'max_connections' => env('REVERB_APP_MAX_CONNECTIONS'),
