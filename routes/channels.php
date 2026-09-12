@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Organization;
+use App\Models\OrganizationUser;
 use App\Models\Restaurant;
 use App\Models\User;
 use App\Support\Restaurants\RestaurantScope;
@@ -51,6 +52,14 @@ Broadcast::channel('restaurant.{restaurantId}', function (User $user, int $resta
         return false;
     }
 
-    return $user->organizations()->whereKey($restaurant->organization_id)->exists()
+    // Passo 2.8B-FIX: same active-membership gate ResolveTenant applies to
+    // ordinary tenant routes, re-checked here for the same reason as the
+    // suspended-organization check above — a staff member deactivated in
+    // THIS organization (OrganizationUser::STATUS_INACTIVE) must not be
+    // able to authenticate this restaurant's channel, even while still
+    // fully active in another organization.
+    return $user->organizations()
+        ->wherePivot('status', OrganizationUser::STATUS_ACTIVE)
+        ->whereKey($restaurant->organization_id)->exists()
         && RestaurantScope::canAccessRestaurant($user, $restaurant);
 });

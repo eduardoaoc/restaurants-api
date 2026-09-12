@@ -9,6 +9,7 @@ use App\Http\Requests\Api\V1\Staff\StoreStaffRequest;
 use App\Http\Requests\Api\V1\Staff\UpdateStaffRequest;
 use App\Http\Resources\Api\V1\StaffResource;
 use App\Models\Organization;
+use App\Models\OrganizationUser;
 use App\Models\Restaurant;
 use App\Models\User;
 use App\Support\Restaurants\RestaurantScope;
@@ -233,6 +234,18 @@ class StaffController extends Controller
 
         $this->authorize('update', [$staff, $organization]);
 
+        // Self-deactivation is refused outright, same rule as
+        // PlatformUserController::updateStatus() at the platform level: a
+        // manager/owner with manage_users must never be able to lock
+        // themselves out via the very endpoint meant to manage OTHER
+        // staff members' access. This checks the TENANT-level status only
+        // (OrganizationUser::STATUS_INACTIVE) — the Staff API has no
+        // ability to touch users.status at all, so there is nothing to
+        // guard there.
+        if ($staff->id === $request->user()->id && $request->validated('status') === OrganizationUser::STATUS_INACTIVE) {
+            abort(403, 'You cannot deactivate your own account.');
+        }
+
         // Every restaurant_assignments entry (if sent) must itself be
         // within the requester's RestaurantScope — resolved before the
         // Action ever runs, so an out-of-scope restaurant_id yields 404
@@ -294,6 +307,14 @@ class StaffController extends Controller
                 },
                 'roles' => function ($query) use ($organization) {
                     $query->wherePivot('organization_id', $organization->id);
+                },
+                // Scoped to this one organization so StaffResource reads
+                // the correct membership pivot (`->organizations->first()
+                // ->pivot->status`) even for a staff member who, in a
+                // multi-org future, might belong to more than one
+                // organization — see Passo 2.8B-FIX.
+                'organizations' => function ($query) use ($organization) {
+                    $query->whereKey($organization->id);
                 },
             ]);
     }

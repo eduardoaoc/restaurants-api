@@ -42,13 +42,22 @@ class User extends Authenticatable
     }
 
     /**
-     * The organizations this user belongs to.
+     * The organizations this user belongs to. Includes every membership
+     * regardless of its operational status (active/inactive) — callers
+     * that must only consider USABLE memberships (ResolveTenant,
+     * AuthContextBuilder, routes/channels.php) filter explicitly via
+     * `wherePivot('status', OrganizationUser::STATUS_ACTIVE)` or by
+     * inspecting `->pivot->status`, rather than this relation silently
+     * hiding inactive rows — Platform Admin's own view of a user's
+     * organizations (PlatformUserResource) deliberately needs to see ALL
+     * of them, inactive included.
      *
      * @return BelongsToMany<Organization, $this>
      */
     public function organizations(): BelongsToMany
     {
         return $this->belongsToMany(Organization::class, 'organization_users')
+            ->withPivot('status')
             ->withTimestamps();
     }
 

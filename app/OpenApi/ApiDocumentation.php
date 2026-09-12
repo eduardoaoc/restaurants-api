@@ -126,11 +126,17 @@ use OpenApi\Attributes as OA;
 #[OA\Schema(
     schema: 'Staff',
     description: 'An operational staff member with 1..N restaurant assignments — never a wildcard/all-restaurants marker (see report).',
-    required: ['id', 'name', 'email', 'role', 'restaurants'],
+    required: ['id', 'name', 'email', 'status', 'role', 'restaurants'],
     properties: [
         new OA\Property(property: 'id', type: 'integer', format: 'int64', example: 10),
         new OA\Property(property: 'name', type: 'string', example: 'Carlos'),
         new OA\Property(property: 'email', type: 'string', format: 'email', example: 'carlos@example.com'),
+        new OA\Property(
+            property: 'status',
+            description: 'active or inactive — this staff member\'s OPERATIONAL membership in the active organization (App\Models\OrganizationUser::STATUSES). This is NOT platform-level suspension: it is a tenant-controlled flag, scoped to one organization, that never appears for and never affects the user\'s global account (App\Models\User::status). inactive means the staff member cannot authenticate/operate within THIS organization (login, tenant API requests, Auth Context, and realtime channels of this organization\'s restaurants are all blocked), but roles, restaurant assignments, and history are preserved, and the same user may still be fully active in another organization.',
+            type: 'string',
+            example: 'active'
+        ),
         new OA\Property(
             property: 'role',
             description: 'The same operational role applies across every one of this staff member\'s restaurants in this MVP.',
@@ -191,6 +197,12 @@ use OpenApi\Attributes as OA;
     properties: [
         new OA\Property(property: 'name', type: 'string', example: 'Carlos García'),
         new OA\Property(property: 'email', type: 'string', format: 'email', example: 'carlos@example.com'),
+        new OA\Property(
+            property: 'status',
+            description: 'active or inactive (App\Models\OrganizationUser::STATUSES). Deactivates/reactivates the staff member\'s membership in THIS organization only, without touching restaurant assignments, roles, or the user\'s global account status. This endpoint can never read or write platform-level suspension (App\Models\User::status) — that remains exclusively a Platform Admin concern. Self-deactivation is refused.',
+            type: 'string',
+            example: 'inactive'
+        ),
         new OA\Property(property: 'role', type: 'string', example: 'waiter'),
         new OA\Property(
             property: 'restaurant_assignments',

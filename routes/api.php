@@ -50,9 +50,17 @@ Route::prefix('v1')->group(function () {
     Route::prefix('auth')->group(function () {
         Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:login');
 
-        Route::middleware('auth:sanctum')->group(function () {
+        // /me and /context are gated by active_user too — a suspended
+        // staff member must never receive identity/authorization context
+        // usable by the frontend as if they were still authorized (Passo
+        // 2.8B). /logout stays on auth:sanctum alone: a suspended user
+        // must still be able to clear their own (already-dead) session.
+        Route::middleware(['auth:sanctum', 'active_user'])->group(function () {
             Route::get('/me', [AuthController::class, 'me']);
             Route::get('/context', [AuthController::class, 'context']);
+        });
+
+        Route::middleware('auth:sanctum')->group(function () {
             Route::post('/logout', [AuthController::class, 'logout']);
         });
     });

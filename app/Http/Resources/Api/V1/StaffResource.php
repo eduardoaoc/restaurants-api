@@ -8,6 +8,14 @@ use Illuminate\Http\Resources\Json\JsonResource;
 
 /**
  * @mixin User
+ *
+ * `status` here is the staff member's OPERATIONAL membership in the
+ * active organization (OrganizationUser::STATUSES — active/inactive), read
+ * from the organization_users pivot row that StaffController::staffQuery()
+ * eager-loads scoped to that one organization. It is deliberately never
+ * users.status (the global, platform-only suspension flag) — that field
+ * is never exposed by the Staff API at all, to keep the two authorities
+ * visibly separate for the frontend (Passo 2.8B-FIX).
  */
 class StaffResource extends JsonResource
 {
@@ -17,11 +25,13 @@ class StaffResource extends JsonResource
     public function toArray(Request $request): array
     {
         $role = $this->roles->first();
+        $membership = $this->organizations->first();
 
         return [
             'id' => $this->id,
             'name' => $this->name,
             'email' => $this->email,
+            'status' => $membership?->pivot?->status,
             'role' => $role ? [
                 'id' => $role->id,
                 'slug' => $role->slug,

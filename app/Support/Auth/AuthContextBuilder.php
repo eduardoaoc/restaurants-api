@@ -3,6 +3,7 @@
 namespace App\Support\Auth;
 
 use App\Models\Organization;
+use App\Models\OrganizationUser;
 use App\Models\PlatformRoleAssignment;
 use App\Models\Restaurant;
 use App\Models\User;
@@ -79,7 +80,17 @@ class AuthContextBuilder
                 'status' => $user->status,
             ],
             'platform' => $this->buildPlatform($user),
+            // Passo 2.8B-FIX: an organization where this user's OWN
+            // membership is inactive (OrganizationUser::STATUS_INACTIVE —
+            // an owner/manager deactivated them there) is left out
+            // entirely — the frontend must never treat it as a usable
+            // operational context, even though the user's account and
+            // membership row still exist. This is unrelated to
+            // Organization::status itself (a SUSPENDED organization still
+            // appears, transparently, for members with an active
+            // membership — see AuthContextTest).
             'organizations' => $user->organizations
+                ->filter(fn (Organization $organization) => $organization->pivot->status === OrganizationUser::STATUS_ACTIVE)
                 ->map(fn (Organization $organization) => $this->buildOrganization($user, $organization))
                 ->values()
                 ->all(),

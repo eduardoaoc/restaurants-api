@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Api\V1\Staff;
 
+use App\Models\OrganizationUser;
 use App\Support\Tenancy\TenantContext;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -27,6 +28,16 @@ class UpdateStaffRequest extends FormRequest
      * organization-wide assignment. The Staff API must never be able to
      * produce that escalation, so `min:1` is enforced even on update.
      *
+     * status accepts ONLY the tenant-level operational enum
+     * (OrganizationUser::STATUSES — active/inactive). This is the staff
+     * member's membership status in THIS organization, never
+     * users.status (the global, platform-only suspension flag owned
+     * exclusively by PlatformUserController) — the Staff API has no rule
+     * anywhere that names or accepts that field. Setting `inactive` here
+     * is how an owner/manager deactivates a staff member; it never
+     * removes restaurant assignments, roles, or history — see
+     * UpdateStaffAction and StaffController's self-deactivation guard.
+     *
      * @return array<string, mixed>
      */
     public function rules(TenantContext $tenantContext): array
@@ -37,6 +48,7 @@ class UpdateStaffRequest extends FormRequest
         $rules = [
             'name' => ['sometimes', 'string', 'max:255'],
             'email' => ['sometimes', 'email', 'max:255', Rule::unique('users', 'email')->ignore($staffId)],
+            'status' => ['sometimes', 'string', Rule::in(OrganizationUser::STATUSES)],
             'role' => [
                 'sometimes',
                 'string',
