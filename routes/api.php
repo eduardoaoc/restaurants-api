@@ -68,20 +68,35 @@ Route::prefix('v1')->group(function () {
     // Public surface: QR resolution + menu + order creation. No auth, no
     // tenant context — everything is derived from the public_token itself
     // (see Bloco 9). Order creation gets its own, stricter limiter.
-    Route::prefix('public')->group(function () {
-        Route::middleware('throttle:public-menu')->group(function () {
-            Route::get('/tables/{publicToken}', [PublicTableController::class, 'show']);
-            Route::get('/tables/{publicToken}/menu', [PublicMenuController::class, 'show']);
-        });
+    //
+    // withoutMiddleware([EnsureFrontendRequestsAreStateful::class]) is
+    // required here because bootstrap/app.php's statefulApi() injects that
+    // middleware into the whole `api` group (not just authenticated
+    // routes). It classifies any request whose Origin/Referer matches
+    // config('sanctum.stateful') (which includes the SPA's own dev origin,
+    // e.g. localhost:5174) as "from the frontend" and pipes it through
+    // StartSession + CSRF validation — even though this surface never
+    // issues a session cookie or XSRF token to the anonymous QR client.
+    // That produced a 419 CSRF mismatch on every public POST made by a
+    // browser tab with that Origin, while curl (no Origin/Referer) sailed
+    // through. Excluding the middleware only for this group keeps it
+    // (and Sanctum SPA auth/CSRF) fully intact for the admin panel.
+    Route::prefix('public')
+        ->withoutMiddleware([\Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful::class])
+        ->group(function () {
+            Route::middleware('throttle:public-menu')->group(function () {
+                Route::get('/tables/{publicToken}', [PublicTableController::class, 'show']);
+                Route::get('/tables/{publicToken}/menu', [PublicMenuController::class, 'show']);
+            });
 
-        Route::post('/tables/{publicToken}/orders', [PublicOrderController::class, 'store'])
-            ->middleware('throttle:public-orders');
+            Route::post('/tables/{publicToken}/orders', [PublicOrderController::class, 'store'])
+                ->middleware('throttle:public-orders');
 
-        Route::middleware('throttle:public-table-requests')->group(function () {
-            Route::post('/tables/{publicToken}/requests/call-waiter', [PublicTableRequestController::class, 'callWaiter']);
-            Route::post('/tables/{publicToken}/requests/bill', [PublicTableRequestController::class, 'bill']);
+            Route::middleware('throttle:public-table-requests')->group(function () {
+                Route::post('/tables/{publicToken}/requests/call-waiter', [PublicTableRequestController::class, 'callWaiter']);
+                Route::post('/tables/{publicToken}/requests/bill', [PublicTableRequestController::class, 'bill']);
+            });
         });
-    });
 
     // Platform namespace: cross-tenant administration for AFORO platform
     // admins only (see EnsurePlatformAdmin). Deliberately its own
