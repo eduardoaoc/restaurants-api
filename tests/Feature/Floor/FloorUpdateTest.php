@@ -3,6 +3,7 @@
 namespace Tests\Feature\Floor;
 
 use App\Models\AuditLog;
+use App\Models\Restaurant;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\Concerns\InteractsWithTenants;
 use Tests\TestCase;
@@ -55,6 +56,25 @@ class FloorUpdateTest extends TestCase
             ->assertNotFound();
 
         $this->assertDatabaseMissing('floors', ['name' => 'Pwned']);
+    }
+
+    /**
+     * Hardening follow-up (Passo 3.2): a manager scoped only to Restaurant A
+     * must not be able to update a Floor of a SIBLING Restaurant B of the
+     * same organization, not just a different organization's.
+     */
+    public function test_updating_a_floor_of_a_sibling_restaurant_of_the_same_organization_returns_not_found(): void
+    {
+        [$organization, , $restaurantA] = $this->createTenant();
+        $restaurantB = Restaurant::factory()->create(['organization_id' => $organization->id]);
+        $managerA = $this->createStaff($organization, $restaurantA, 'manager', 'M-A');
+        $floorB = $this->createFloor($restaurantB, 'Original Name');
+
+        $this->actingAs($managerA, 'web')
+            ->patchJson("/api/v1/floors/{$floorB->id}", ['name' => 'Pwned'])
+            ->assertNotFound();
+
+        $this->assertDatabaseHas('floors', ['id' => $floorB->id, 'name' => 'Original Name']);
     }
 
     public function test_updating_a_floor_records_an_audit_event_with_old_and_new_values(): void

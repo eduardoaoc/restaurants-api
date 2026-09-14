@@ -3,6 +3,7 @@
 namespace Tests\Feature\Floor;
 
 use App\Models\AuditLog;
+use App\Models\Restaurant;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\Concerns\InteractsWithTenants;
 use Tests\TestCase;
@@ -85,6 +86,24 @@ class FloorStoreTest extends TestCase
         [, , $restaurantB] = $this->createTenant();
 
         $this->actingAs($ownerA, 'web')
+            ->postJson("/api/v1/restaurants/{$restaurantB->id}/floors", ['name' => 'Pwned'])
+            ->assertNotFound();
+
+        $this->assertDatabaseMissing('floors', ['name' => 'Pwned']);
+    }
+
+    /**
+     * Hardening follow-up (Passo 3.2): a manager scoped only to Restaurant A
+     * must not be able to create a Floor under a SIBLING Restaurant B of
+     * the same organization, not just a different organization's.
+     */
+    public function test_creating_a_floor_under_a_sibling_restaurant_of_the_same_organization_returns_not_found(): void
+    {
+        [$organization, , $restaurantA] = $this->createTenant();
+        $restaurantB = Restaurant::factory()->create(['organization_id' => $organization->id]);
+        $managerA = $this->createStaff($organization, $restaurantA, 'manager', 'M-A');
+
+        $this->actingAs($managerA, 'web')
             ->postJson("/api/v1/restaurants/{$restaurantB->id}/floors", ['name' => 'Pwned'])
             ->assertNotFound();
 

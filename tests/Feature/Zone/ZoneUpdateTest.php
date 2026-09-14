@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Zone;
 
+use App\Models\Restaurant;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\Concerns\InteractsWithTenants;
 use Tests\TestCase;
@@ -82,5 +83,25 @@ class ZoneUpdateTest extends TestCase
         $this->actingAs($ownerA, 'web')
             ->patchJson("/api/v1/zones/{$zoneB->id}", ['name' => 'Pwned'])
             ->assertNotFound();
+    }
+
+    /**
+     * Hardening follow-up (Passo 3.2): a manager scoped only to Restaurant A
+     * must not be able to update a Zone of a SIBLING Restaurant B of the
+     * same organization, not just a different organization's.
+     */
+    public function test_updating_a_zone_of_a_sibling_restaurant_of_the_same_organization_returns_not_found(): void
+    {
+        [$organization, , $restaurantA] = $this->createTenant();
+        $restaurantB = Restaurant::factory()->create(['organization_id' => $organization->id]);
+        $managerA = $this->createStaff($organization, $restaurantA, 'manager', 'M-A');
+        $floorB = $this->createFloor($restaurantB);
+        $zoneB = $this->createZone($floorB, 'Original Name');
+
+        $this->actingAs($managerA, 'web')
+            ->patchJson("/api/v1/zones/{$zoneB->id}", ['name' => 'Pwned'])
+            ->assertNotFound();
+
+        $this->assertDatabaseHas('zones', ['id' => $zoneB->id, 'name' => 'Original Name']);
     }
 }

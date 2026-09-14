@@ -3,6 +3,7 @@
 namespace Tests\Feature\Zone;
 
 use App\Models\AuditLog;
+use App\Models\Restaurant;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\Concerns\InteractsWithTenants;
 use Tests\TestCase;
@@ -78,6 +79,25 @@ class ZoneStoreTest extends TestCase
         $floorB = $this->createFloor($restaurantB);
 
         $this->actingAs($ownerA, 'web')
+            ->postJson("/api/v1/restaurants/{$restaurantB->id}/zones", ['name' => 'Pwned', 'floor_id' => $floorB->id])
+            ->assertNotFound();
+
+        $this->assertDatabaseMissing('zones', ['name' => 'Pwned']);
+    }
+
+    /**
+     * Hardening follow-up (Passo 3.2): a manager scoped only to Restaurant A
+     * must not be able to create a Zone under a SIBLING Restaurant B of the
+     * same organization, not just a different organization's.
+     */
+    public function test_creating_a_zone_under_a_sibling_restaurant_of_the_same_organization_returns_not_found(): void
+    {
+        [$organization, , $restaurantA] = $this->createTenant();
+        $restaurantB = Restaurant::factory()->create(['organization_id' => $organization->id]);
+        $managerA = $this->createStaff($organization, $restaurantA, 'manager', 'M-A');
+        $floorB = $this->createFloor($restaurantB);
+
+        $this->actingAs($managerA, 'web')
             ->postJson("/api/v1/restaurants/{$restaurantB->id}/zones", ['name' => 'Pwned', 'floor_id' => $floorB->id])
             ->assertNotFound();
 

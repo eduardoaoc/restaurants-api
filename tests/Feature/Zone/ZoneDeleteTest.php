@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Zone;
 
+use App\Models\Restaurant;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\Concerns\InteractsWithTenants;
 use Tests\TestCase;
@@ -67,6 +68,26 @@ class ZoneDeleteTest extends TestCase
         $zoneB = $this->createZone($floorB);
 
         $this->actingAs($ownerA, 'web')
+            ->deleteJson("/api/v1/zones/{$zoneB->id}")
+            ->assertNotFound();
+
+        $this->assertDatabaseHas('zones', ['id' => $zoneB->id]);
+    }
+
+    /**
+     * Hardening follow-up (Passo 3.2): a manager scoped only to Restaurant A
+     * must not be able to delete a Zone of a SIBLING Restaurant B of the
+     * same organization, not just a different organization's.
+     */
+    public function test_deleting_a_zone_of_a_sibling_restaurant_of_the_same_organization_returns_not_found(): void
+    {
+        [$organization, , $restaurantA] = $this->createTenant();
+        $restaurantB = Restaurant::factory()->create(['organization_id' => $organization->id]);
+        $managerA = $this->createStaff($organization, $restaurantA, 'manager', 'M-A');
+        $floorB = $this->createFloor($restaurantB);
+        $zoneB = $this->createZone($floorB);
+
+        $this->actingAs($managerA, 'web')
             ->deleteJson("/api/v1/zones/{$zoneB->id}")
             ->assertNotFound();
 
