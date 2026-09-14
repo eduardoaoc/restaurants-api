@@ -274,9 +274,10 @@ class KitchenQueueTest extends TestCase
         $orderJson = $response->json('data.orders.0');
 
         $this->assertEqualsCanonicalizing(
-            ['id', 'status', 'origin', 'restaurant', 'table', 'order_note', 'created_at', 'elapsed_seconds', 'items'],
+            ['id', 'order_number', 'status', 'origin', 'restaurant', 'table', 'order_note', 'created_at', 'elapsed_seconds', 'items'],
             array_keys($orderJson)
         );
+        $this->assertSame('#'.$orderJson['id'], $orderJson['order_number']);
         $this->assertSame('Order-level note', $orderJson['order_note']);
         $this->assertEqualsCanonicalizing(['id', 'name'], array_keys($orderJson['restaurant']));
         $this->assertEqualsCanonicalizing(['id', 'name', 'number'], array_keys($orderJson['table']));

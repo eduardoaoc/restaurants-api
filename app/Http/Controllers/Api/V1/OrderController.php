@@ -113,7 +113,7 @@ class OrderController extends Controller
                     properties: [
                         new OA\Property(
                             property: 'data',
-                            properties: [new OA\Property(property: 'orders', type: 'array', items: new OA\Items(ref: '#/components/schemas/Order'))],
+                            properties: [new OA\Property(property: 'orders', type: 'array', items: new OA\Items(description: 'Order for staff with full operational access; KitchenOrder for kitchen-only access.', oneOf: [new OA\Schema(ref: '#/components/schemas/Order'), new OA\Schema(ref: '#/components/schemas/KitchenOrder')]))],
                             type: 'object'
                         ),
                     ]
@@ -173,7 +173,7 @@ class OrderController extends Controller
                 description: 'The order',
                 content: new OA\JsonContent(
                     properties: [
-                        new OA\Property(property: 'data', properties: [new OA\Property(property: 'order', ref: '#/components/schemas/Order')], type: 'object'),
+                        new OA\Property(property: 'data', properties: [new OA\Property(property: 'order', description: 'Order for staff with full operational access; KitchenOrder for kitchen-only access.', oneOf: [new OA\Schema(ref: '#/components/schemas/Order'), new OA\Schema(ref: '#/components/schemas/KitchenOrder')])], type: 'object'),
                     ]
                 )
             ),
@@ -298,7 +298,7 @@ class OrderController extends Controller
         tags: ['Orders'],
         parameters: [new OA\Parameter(name: 'order', in: 'path', required: true, schema: new OA\Schema(type: 'integer'))],
         responses: [
-            new OA\Response(response: 200, description: 'Order accepted successfully', content: new OA\JsonContent(properties: [new OA\Property(property: 'message', type: 'string'), new OA\Property(property: 'data', properties: [new OA\Property(property: 'order', ref: '#/components/schemas/Order')], type: 'object')])),
+            new OA\Response(response: 200, description: 'Order accepted successfully', content: new OA\JsonContent(properties: [new OA\Property(property: 'message', type: 'string'), new OA\Property(property: 'data', properties: [new OA\Property(property: 'order', description: 'Order for staff with full operational access; KitchenOrder for kitchen-only access.', oneOf: [new OA\Schema(ref: '#/components/schemas/Order'), new OA\Schema(ref: '#/components/schemas/KitchenOrder')])], type: 'object')])),
             new OA\Response(response: 401, description: 'Unauthenticated'),
             new OA\Response(response: 403, description: 'The user is not allowed to accept orders'),
             new OA\Response(response: 404, description: 'Order not found'),
@@ -321,7 +321,7 @@ class OrderController extends Controller
         tags: ['Orders'],
         parameters: [new OA\Parameter(name: 'order', in: 'path', required: true, schema: new OA\Schema(type: 'integer'))],
         responses: [
-            new OA\Response(response: 200, description: 'Order marked as preparing', content: new OA\JsonContent(properties: [new OA\Property(property: 'message', type: 'string'), new OA\Property(property: 'data', properties: [new OA\Property(property: 'order', ref: '#/components/schemas/Order')], type: 'object')])),
+            new OA\Response(response: 200, description: 'Order marked as preparing', content: new OA\JsonContent(properties: [new OA\Property(property: 'message', type: 'string'), new OA\Property(property: 'data', properties: [new OA\Property(property: 'order', description: 'Order for staff with full operational access; KitchenOrder for kitchen-only access.', oneOf: [new OA\Schema(ref: '#/components/schemas/Order'), new OA\Schema(ref: '#/components/schemas/KitchenOrder')])], type: 'object')])),
             new OA\Response(response: 401, description: 'Unauthenticated'),
             new OA\Response(response: 403, description: 'The user is not allowed to update this order'),
             new OA\Response(response: 404, description: 'Order not found'),
@@ -344,7 +344,7 @@ class OrderController extends Controller
         tags: ['Orders'],
         parameters: [new OA\Parameter(name: 'order', in: 'path', required: true, schema: new OA\Schema(type: 'integer'))],
         responses: [
-            new OA\Response(response: 200, description: 'Order marked as ready', content: new OA\JsonContent(properties: [new OA\Property(property: 'message', type: 'string'), new OA\Property(property: 'data', properties: [new OA\Property(property: 'order', ref: '#/components/schemas/Order')], type: 'object')])),
+            new OA\Response(response: 200, description: 'Order marked as ready', content: new OA\JsonContent(properties: [new OA\Property(property: 'message', type: 'string'), new OA\Property(property: 'data', properties: [new OA\Property(property: 'order', description: 'Order for staff with full operational access; KitchenOrder for kitchen-only access.', oneOf: [new OA\Schema(ref: '#/components/schemas/Order'), new OA\Schema(ref: '#/components/schemas/KitchenOrder')])], type: 'object')])),
             new OA\Response(response: 401, description: 'Unauthenticated'),
             new OA\Response(response: 403, description: 'The user is not allowed to update this order'),
             new OA\Response(response: 404, description: 'Order not found'),

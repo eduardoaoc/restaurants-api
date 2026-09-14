@@ -2703,7 +2703,15 @@
                                                 "orders": {
                                                     "type": "array",
                                                     "items": {
-                                                        "$ref": "#/components/schemas/Order"
+                                                        "description": "Order for staff with full operational access; KitchenOrder for kitchen-only access.",
+                                                        "oneOf": [
+                                                            {
+                                                                "$ref": "#/components/schemas/Order"
+                                                            },
+                                                            {
+                                                                "$ref": "#/components/schemas/KitchenOrder"
+                                                            }
+                                                        ]
                                                     }
                                                 }
                                             },
@@ -2757,7 +2765,15 @@
                                         "data": {
                                             "properties": {
                                                 "order": {
-                                                    "$ref": "#/components/schemas/Order"
+                                                    "description": "Order for staff with full operational access; KitchenOrder for kitchen-only access.",
+                                                    "oneOf": [
+                                                        {
+                                                            "$ref": "#/components/schemas/Order"
+                                                        },
+                                                        {
+                                                            "$ref": "#/components/schemas/KitchenOrder"
+                                                        }
+                                                    ]
                                                 }
                                             },
                                             "type": "object"
@@ -2942,7 +2958,15 @@
                                         "data": {
                                             "properties": {
                                                 "order": {
-                                                    "$ref": "#/components/schemas/Order"
+                                                    "description": "Order for staff with full operational access; KitchenOrder for kitchen-only access.",
+                                                    "oneOf": [
+                                                        {
+                                                            "$ref": "#/components/schemas/Order"
+                                                        },
+                                                        {
+                                                            "$ref": "#/components/schemas/KitchenOrder"
+                                                        }
+                                                    ]
                                                 }
                                             },
                                             "type": "object"
@@ -3004,7 +3028,15 @@
                                         "data": {
                                             "properties": {
                                                 "order": {
-                                                    "$ref": "#/components/schemas/Order"
+                                                    "description": "Order for staff with full operational access; KitchenOrder for kitchen-only access.",
+                                                    "oneOf": [
+                                                        {
+                                                            "$ref": "#/components/schemas/Order"
+                                                        },
+                                                        {
+                                                            "$ref": "#/components/schemas/KitchenOrder"
+                                                        }
+                                                    ]
                                                 }
                                             },
                                             "type": "object"
@@ -3066,7 +3098,15 @@
                                         "data": {
                                             "properties": {
                                                 "order": {
-                                                    "$ref": "#/components/schemas/Order"
+                                                    "description": "Order for staff with full operational access; KitchenOrder for kitchen-only access.",
+                                                    "oneOf": [
+                                                        {
+                                                            "$ref": "#/components/schemas/Order"
+                                                        },
+                                                        {
+                                                            "$ref": "#/components/schemas/KitchenOrder"
+                                                        }
+                                                    ]
                                                 }
                                             },
                                             "type": "object"
@@ -10263,6 +10303,7 @@
             "KitchenOrder": {
                 "required": [
                     "id",
+                    "order_number",
                     "status",
                     "origin",
                     "restaurant",
@@ -10277,6 +10318,10 @@
                         "type": "integer",
                         "format": "int64",
                         "example": 1042
+                    },
+                    "order_number": {
+                        "type": "string",
+                        "example": "#1042"
                     },
                     "status": {
                         "type": "string",
@@ -10726,6 +10771,7 @@
                     "order": {
                         "required": [
                             "id",
+                            "order_number",
                             "status",
                             "origin",
                             "created_at"
@@ -10735,6 +10781,10 @@
                                 "type": "integer",
                                 "format": "int64",
                                 "example": 1042
+                            },
+                            "order_number": {
+                                "type": "string",
+                                "example": "#1042"
                             },
                             "status": {
                                 "type": "string",

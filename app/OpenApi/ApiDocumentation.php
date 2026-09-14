@@ -916,9 +916,10 @@ use OpenApi\Attributes as OA;
 )]
 #[OA\Schema(
     schema: 'KitchenOrder',
-    required: ['id', 'status', 'origin', 'restaurant', 'table', 'order_note', 'created_at', 'elapsed_seconds', 'items'],
+    required: ['id', 'order_number', 'status', 'origin', 'restaurant', 'table', 'order_note', 'created_at', 'elapsed_seconds', 'items'],
     properties: [
         new OA\Property(property: 'id', type: 'integer', format: 'int64', example: 1042),
+        new OA\Property(property: 'order_number', type: 'string', example: '#1042'),
         new OA\Property(property: 'status', type: 'string', example: 'preparing'),
         new OA\Property(property: 'origin', type: 'string', example: 'customer_qr'),
         new OA\Property(
@@ -1091,9 +1092,10 @@ use OpenApi\Attributes as OA;
         new OA\Property(property: 'restaurant', ref: '#/components/schemas/PublicRestaurant'),
         new OA\Property(
             property: 'order',
-            required: ['id', 'status', 'origin', 'created_at'],
+            required: ['id', 'order_number', 'status', 'origin', 'created_at'],
             properties: [
                 new OA\Property(property: 'id', type: 'integer', format: 'int64', example: 1042),
+                new OA\Property(property: 'order_number', type: 'string', example: '#1042'),
                 new OA\Property(property: 'status', type: 'string', example: 'confirmed'),
                 new OA\Property(property: 'origin', type: 'string', example: 'customer_qr'),
                 new OA\Property(property: 'created_at', type: 'string', format: 'date-time'),

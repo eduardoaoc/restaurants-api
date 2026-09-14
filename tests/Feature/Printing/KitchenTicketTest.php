@@ -179,8 +179,9 @@ class KitchenTicketTest extends TestCase
             array_keys($json)
         );
         $this->assertEqualsCanonicalizing(['id', 'name'], array_keys($json['restaurant']));
-        $this->assertEqualsCanonicalizing(['id', 'status', 'origin', 'created_at'], array_keys($json['order']));
+        $this->assertEqualsCanonicalizing(['id', 'order_number', 'status', 'origin', 'created_at'], array_keys($json['order']));
         $this->assertEqualsCanonicalizing(['id', 'name', 'number'], array_keys($json['table']));
+        $this->assertSame('#'.$order->id, $json['order']['order_number']);
         $this->assertSame('Order note', $json['order_note']);
         $this->assertNotNull($json['generated_at']);
     }
@@ -245,11 +246,15 @@ class KitchenTicketTest extends TestCase
         $this->openSession($table, $owner);
         $order = $this->createWaiterOrder($table, $owner, [['restaurant_product_id' => $rp->id, 'quantity' => 1]]);
 
+        $order->refresh();
+
         $this->actingAs($owner, 'web')->postJson("/api/v1/orders/{$order->id}/kitchen-ticket/print")->assertStatus(201);
         $this->actingAs($owner, 'web')->postJson("/api/v1/orders/{$order->id}/kitchen-ticket/print")->assertStatus(201);
         $this->actingAs($owner, 'web')->postJson("/api/v1/orders/{$order->id}/kitchen-ticket/print")->assertStatus(201);
 
         $this->assertDatabaseCount('print_records', 3);
+        $this->assertDatabaseCount('orders', 1);
+        $this->assertSame($order->getAttributes(), $order->fresh()->getAttributes());
     }
 
     public function test_served_order_kitchen_ticket_can_still_be_printed(): void

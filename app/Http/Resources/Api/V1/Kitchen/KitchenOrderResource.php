@@ -24,6 +24,7 @@ class KitchenOrderResource extends JsonResource
     {
         return [
             'id' => $this->id,
+            'order_number' => sprintf('#%d', $this->id),
             'status' => $this->status,
             'origin' => $this->origin,
             'restaurant' => [

@@ -32,6 +32,7 @@ class KitchenTicketResource extends JsonResource
             ],
             'order' => [
                 'id' => $this->id,
+                'order_number' => sprintf('#%d', $this->id),
                 'status' => $this->status,
                 'origin' => $this->origin,
                 'created_at' => $this->created_at,
