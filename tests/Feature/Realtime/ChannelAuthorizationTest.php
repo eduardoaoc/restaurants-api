@@ -78,9 +78,10 @@ class ChannelAuthorizationTest extends TestCase
     public function test_manager_within_restaurant_scope_is_authorized_without_any_dashboard_permission(): void
     {
         [$organization, , $restaurant] = $this->createTenant();
-        // A waiter holds no view_operations/view_reports permission at
-        // all (see RolePermissionSeeder) — channel auth must not require
-        // either, per item 11.
+        // A waiter holds no view_reports permission at all, and channel
+        // auth must not require view_operations either (see
+        // RolePermissionSeeder — a waiter DOES hold view_operations since
+        // the Passo 3.2 fix, but that's incidental here) — per item 11.
         $waiter = $this->createStaff($organization, $restaurant, 'waiter', 'W-1');
 
         $this->actingAs($waiter, 'web')

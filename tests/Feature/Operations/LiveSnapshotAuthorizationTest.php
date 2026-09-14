@@ -8,9 +8,9 @@ use Tests\Concerns\InteractsWithTenants;
 use Tests\TestCase;
 
 /**
- * Bloco 5 — Operations Live authorization: view_operations (owner/manager
- * by default, never waiter/kitchen/cashier), RestaurantScope, cross
- * tenant, guest.
+ * Bloco 5 — Operations Live authorization: view_operations (owner/manager,
+ * and waiter since the Passo 3.2 fix — see RolePermissionSeeder — but
+ * never kitchen/cashier), RestaurantScope, cross tenant, guest.
  */
 class LiveSnapshotAuthorizationTest extends TestCase
 {
@@ -43,14 +43,21 @@ class LiveSnapshotAuthorizationTest extends TestCase
             ->assertOk();
     }
 
-    public function test_waiter_is_forbidden(): void
+    /**
+     * Passo 3.2 fix: a waiter needs the live operations snapshot to work
+     * the floor (tables/sessions/orders in real time) — see
+     * RolePermissionSeeder's waiter view_operations grant and the fix
+     * report. Read-only; a waiter still cannot manage the Carta (see
+     * WaiterOperationalAccessTest).
+     */
+    public function test_waiter_is_allowed(): void
     {
         [$organization, , $restaurant] = $this->createTenant();
         $waiter = $this->createStaff($organization, $restaurant, 'waiter', 'W-1');
 
         $this->actingAs($waiter, 'web')
             ->getJson("/api/v1/restaurants/{$restaurant->id}/operations/live")
-            ->assertForbidden();
+            ->assertOk();
     }
 
     public function test_kitchen_is_forbidden(): void

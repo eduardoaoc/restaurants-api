@@ -70,6 +70,12 @@ class RolePermissionSeeder extends Seeder
             'record_payments',
             'manage_tables',
             'close_bill',
+            // Read-only: the live operations snapshot a waiter needs to see
+            // tables/sessions/orders in real time while working the floor.
+            // Never grants any write — see RestaurantOperationsController
+            // (a single GET, no mutating side effect) and the Passo 3.2 fix
+            // report for the audit that confirmed this.
+            'view_operations',
         ],
         'kitchen' => [
             'update_kitchen_status',

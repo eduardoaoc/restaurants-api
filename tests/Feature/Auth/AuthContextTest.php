@@ -116,7 +116,11 @@ class AuthContextTest extends TestCase
 
         $waiterPermissions = $response->json('data.organizations.0.restaurants.0.permissions');
         $this->assertContains('create_orders', $waiterPermissions);
-        $this->assertNotContains('view_operations', $waiterPermissions);
+        // Passo 3.2 fix: waiter now holds view_operations (read-only — see
+        // RolePermissionSeeder) but still no administrative permission.
+        $this->assertContains('view_operations', $waiterPermissions);
+        $this->assertNotContains('manage_menu', $waiterPermissions);
+        $this->assertNotContains('manage_products', $waiterPermissions);
         $this->assertNotContains('manage_users', $waiterPermissions);
         $this->assertNotContains('manage_restaurants', $waiterPermissions);
 
