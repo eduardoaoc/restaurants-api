@@ -25,6 +25,7 @@ use App\Exceptions\Public\CustomerOrderingDisabledException;
 use App\Exceptions\Public\InvalidPublicLocaleException;
 use App\Exceptions\Public\PublicMenuNotAvailableException;
 use App\Exceptions\Public\PublicTableNotFoundException;
+use App\Exceptions\Public\TableSessionBillRequestedException;
 use App\Exceptions\Public\WaiterCallDisabledException;
 use App\Exceptions\Reports\InvalidReportPeriodException;
 use App\Exceptions\Staff\CannotReviewSelfException;
@@ -221,6 +222,11 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->render(function (CustomerOrderingDisabledException $e, Request $request) {
             return response()->json([
                 'error' => ['code' => 'CUSTOMER_ORDERING_DISABLED', 'message' => 'Customer ordering is disabled for this restaurant.'],
+            ], 409);
+        });
+        $exceptions->render(function (TableSessionBillRequestedException $e, Request $request) {
+            return response()->json([
+                'error' => ['code' => 'TABLE_SESSION_BILL_REQUESTED', 'message' => 'The bill has already been requested for this table session.'],
             ], 409);
         });
         $exceptions->render(function (WaiterCallDisabledException $e, Request $request) {

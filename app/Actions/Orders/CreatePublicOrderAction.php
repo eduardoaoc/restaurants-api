@@ -55,8 +55,11 @@ class CreatePublicOrderAction
         // No existing order for this key (or no key at all): this is a
         // genuine creation attempt, so the full validation chain applies.
         // Ordering per "Ordem de validação pública": Table -> Restaurant ->
-        // settings -> feature enabled -> active session -> validation ->
-        // creation. Checked here, never before the replay lookup above.
+        // settings -> feature enabled -> active session -> bill requested ->
+        // validation -> creation. Checked here, never before the replay
+        // lookup above. The bill-requested check itself runs inside
+        // OrderCreationService's locked transaction (blockIfBillRequested
+        // below), alongside the isPaid() check it mirrors.
         if (! $table->restaurant->settings->customer_ordering_enabled) {
             throw new CustomerOrderingDisabledException;
         }
@@ -80,6 +83,7 @@ class CreatePublicOrderAction
                 idempotencyKey: $idempotencyKey,
                 idempotencyPayloadHash: $payloadHash,
                 requiresApproval: $table->restaurant->settings->customer_order_requires_approval,
+                blockIfBillRequested: true,
             );
         } catch (UniqueConstraintViolationException $e) {
             // Lost a race against another request using the same key: the

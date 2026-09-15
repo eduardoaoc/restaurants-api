@@ -4409,7 +4409,7 @@
                         }
                     },
                     "409": {
-                        "description": "No active table session, a concurrent session close, a reused idempotency key, or CUSTOMER_ORDERING_DISABLED",
+                        "description": "No active table session, a concurrent session close, a reused idempotency key, CUSTOMER_ORDERING_DISABLED, or TABLE_SESSION_BILL_REQUESTED (the customer already requested the bill for this session)",
                         "content": {
                             "application/json": {
                                 "schema": {

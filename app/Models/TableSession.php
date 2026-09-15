@@ -84,6 +84,20 @@ class TableSession extends Model
     }
 
     /**
+     * Whether this session has a still-open (pending or acknowledged)
+     * request_bill TableRequest — the real domain signal that the customer
+     * has asked for the bill, used to gate further public ordering. See
+     * TableRequest::openStatuses().
+     */
+    public function hasOpenBillRequest(): bool
+    {
+        return $this->tableRequests()
+            ->where('type', TableRequest::TYPE_REQUEST_BILL)
+            ->whereIn('status', TableRequest::openStatuses())
+            ->exists();
+    }
+
+    /**
      * The orders placed during this session. A session can accumulate many
      * orders; a new session (after this one closes) starts with none.
      *

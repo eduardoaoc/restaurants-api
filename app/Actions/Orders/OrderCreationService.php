@@ -5,6 +5,7 @@ namespace App\Actions\Orders;
 use App\Events\Realtime\OrderCreated;
 use App\Exceptions\Billing\TableSessionAlreadyPaidException;
 use App\Exceptions\Orders\OrderCreationConflictException;
+use App\Exceptions\Public\TableSessionBillRequestedException;
 use App\Models\AuditLog;
 use App\Models\Order;
 use App\Models\Table;
@@ -57,11 +58,12 @@ class OrderCreationService
         ?string $idempotencyKey = null,
         ?string $idempotencyPayloadHash = null,
         bool $requiresApproval = true,
+        bool $blockIfBillRequested = false,
     ): Order {
         return DB::transaction(function () use (
             $table, $tableSessionId, $origin, $createdBy, $locale, $items,
             $customerName, $customerNote, $idempotencyKey, $idempotencyPayloadHash,
-            $requiresApproval,
+            $requiresApproval, $blockIfBillRequested,
         ) {
             $session = TableSession::query()->whereKey($tableSessionId)->lockForUpdate()->first();
 
@@ -71,6 +73,15 @@ class OrderCreationService
 
             if ($session->isPaid()) {
                 throw new TableSessionAlreadyPaidException;
+            }
+
+            // Public-only gate (see CreatePublicOrderAction, the sole
+            // caller passing true here): once the customer has asked for
+            // the bill, the QR surface stops accepting new orders for this
+            // session. Staff ordering (CreateStaffOrderAction) never
+            // passes this flag and stays unaffected.
+            if ($blockIfBillRequested && $session->hasOpenBillRequest()) {
+                throw new TableSessionBillRequestedException;
             }
 
             $built = $this->buildOrderItems->execute($table->restaurant, $items, $locale);
