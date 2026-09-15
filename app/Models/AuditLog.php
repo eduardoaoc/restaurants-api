@@ -144,6 +144,8 @@ class AuditLog extends Model
 
     public const EVENT_TABLE_SESSION_RESPONSIBLE_WAITER_CALL_ACKNOWLEDGED = 'table_session.responsible_waiter_call_acknowledged';
 
+    public const EVENT_CUSTOMER_FEEDBACK_CREATED = 'customer_feedback.created';
+
     /**
      * @var array<int, string>
      */
@@ -189,6 +191,7 @@ class AuditLog extends Model
         self::EVENT_TABLE_SESSION_TRANSFERRED,
         self::EVENT_TABLE_SESSION_RESPONSIBLE_WAITER_CALLED,
         self::EVENT_TABLE_SESSION_RESPONSIBLE_WAITER_CALL_ACKNOWLEDGED,
+        self::EVENT_CUSTOMER_FEEDBACK_CREATED,
     ];
 
     public const RESOURCE_STAFF = 'staff';
@@ -219,6 +222,8 @@ class AuditLog extends Model
 
     public const RESOURCE_WAITER_CALL = 'waiter_call';
 
+    public const RESOURCE_CUSTOMER_FEEDBACK = 'customer_feedback';
+
     /**
      * @var array<int, string>
      */
@@ -237,6 +242,7 @@ class AuditLog extends Model
         self::RESOURCE_ZONE,
         self::RESOURCE_STAFF_SHIFT,
         self::RESOURCE_WAITER_CALL,
+        self::RESOURCE_CUSTOMER_FEEDBACK,
     ];
 
     /**

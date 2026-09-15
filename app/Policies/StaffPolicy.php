@@ -74,6 +74,18 @@ class StaffPolicy
         return $this->canAccessStaffInRestaurant($user, $staff, $organization, $restaurant, 'manage_staff_reviews');
     }
 
+    /**
+     * Viewing a staff member's aggregate customer-feedback summary for one
+     * explicit Restaurant (Passo 3.5 §13) — same shape as viewPerformance,
+     * gated by view_customer_feedback (owner/manager only) instead of
+     * view_reports. Still never exposes individual feedback rows — see
+     * CustomerFeedbackSummaryController.
+     */
+    public function viewFeedbackSummary(User $user, User $staff, Organization $organization, Restaurant $restaurant): bool
+    {
+        return $this->canAccessStaffInRestaurant($user, $staff, $organization, $restaurant, 'view_customer_feedback');
+    }
+
     private function canManageUsers(User $user, Organization $organization): bool
     {
         return $user->organizations()->whereKey($organization->id)->exists()

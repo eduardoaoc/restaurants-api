@@ -34,6 +34,7 @@ class PermissionSeeder extends Seeder
         'view_reports' => 'View reports',
         'view_audit' => 'View audit log',
         'manage_staff_reviews' => 'Manage staff reviews',
+        'view_customer_feedback' => "View customers' post-visit feedback in detail",
     ];
 
     /**

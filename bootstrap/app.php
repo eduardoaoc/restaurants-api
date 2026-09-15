@@ -22,10 +22,13 @@ use App\Exceptions\Printing\KitchenTicketPrintingDisabledException;
 use App\Exceptions\Printing\OrderNotPrintableException;
 use App\Exceptions\Public\BillRequestDisabledException;
 use App\Exceptions\Public\CustomerOrderingDisabledException;
+use App\Exceptions\Public\FeedbackAlreadySubmittedException;
+use App\Exceptions\Public\FeedbackTokenNotFoundException;
 use App\Exceptions\Public\InvalidPublicLocaleException;
 use App\Exceptions\Public\PublicMenuNotAvailableException;
 use App\Exceptions\Public\PublicTableNotFoundException;
 use App\Exceptions\Public\TableSessionBillRequestedException;
+use App\Exceptions\Public\TableSessionNotPaidForFeedbackException;
 use App\Exceptions\Public\WaiterCallDisabledException;
 use App\Exceptions\Reports\InvalidReportPeriodException;
 use App\Exceptions\Staff\CannotReviewSelfException;
@@ -227,6 +230,21 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->render(function (TableSessionBillRequestedException $e, Request $request) {
             return response()->json([
                 'error' => ['code' => 'TABLE_SESSION_BILL_REQUESTED', 'message' => 'The bill has already been requested for this table session.'],
+            ], 409);
+        });
+        $exceptions->render(function (FeedbackTokenNotFoundException $e, Request $request) {
+            return response()->json([
+                'error' => ['code' => 'FEEDBACK_TOKEN_NOT_FOUND', 'message' => 'This feedback link is invalid or has expired.'],
+            ], 404);
+        });
+        $exceptions->render(function (FeedbackAlreadySubmittedException $e, Request $request) {
+            return response()->json([
+                'error' => ['code' => 'FEEDBACK_ALREADY_SUBMITTED', 'message' => 'Feedback has already been submitted for this visit.'],
+            ], 409);
+        });
+        $exceptions->render(function (TableSessionNotPaidForFeedbackException $e, Request $request) {
+            return response()->json([
+                'error' => ['code' => 'TABLE_SESSION_NOT_PAID_FOR_FEEDBACK', 'message' => 'This visit is not eligible for feedback yet.'],
             ], 409);
         });
         $exceptions->render(function (WaiterCallDisabledException $e, Request $request) {

@@ -5,6 +5,8 @@ use App\Http\Controllers\Api\V1\Auth\AuthController;
 use App\Http\Controllers\Api\V1\BillReceiptController;
 use App\Http\Controllers\Api\V1\CategoryController;
 use App\Http\Controllers\Api\V1\CategoryProductController;
+use App\Http\Controllers\Api\V1\CustomerFeedbackController;
+use App\Http\Controllers\Api\V1\CustomerFeedbackSummaryController;
 use App\Http\Controllers\Api\V1\FloorController;
 use App\Http\Controllers\Api\V1\FloorPlanController;
 use App\Http\Controllers\Api\V1\HealthController;
@@ -20,6 +22,7 @@ use App\Http\Controllers\Api\V1\Platform\PlatformOrganizationController;
 use App\Http\Controllers\Api\V1\Platform\PlatformRestaurantController;
 use App\Http\Controllers\Api\V1\Platform\PlatformUserController;
 use App\Http\Controllers\Api\V1\ProductController;
+use App\Http\Controllers\Api\V1\Public\PublicFeedbackController;
 use App\Http\Controllers\Api\V1\Public\PublicMenuController;
 use App\Http\Controllers\Api\V1\Public\PublicOrderController;
 use App\Http\Controllers\Api\V1\Public\PublicTableController;
@@ -43,6 +46,7 @@ use App\Http\Controllers\Api\V1\TableSessionWaiterController;
 use App\Http\Controllers\Api\V1\WaiterCallController;
 use App\Http\Controllers\Api\V1\ZoneController;
 use Illuminate\Support\Facades\Route;
+use Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful;
 
 Route::prefix('v1')->group(function () {
     Route::get('/health', HealthController::class);
@@ -82,7 +86,7 @@ Route::prefix('v1')->group(function () {
     // through. Excluding the middleware only for this group keeps it
     // (and Sanctum SPA auth/CSRF) fully intact for the admin panel.
     Route::prefix('public')
-        ->withoutMiddleware([\Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful::class])
+        ->withoutMiddleware([EnsureFrontendRequestsAreStateful::class])
         ->group(function () {
             Route::middleware('throttle:public-menu')->group(function () {
                 Route::get('/tables/{publicToken}', [PublicTableController::class, 'show']);
@@ -95,6 +99,16 @@ Route::prefix('v1')->group(function () {
             Route::middleware('throttle:public-table-requests')->group(function () {
                 Route::post('/tables/{publicToken}/requests/call-waiter', [PublicTableRequestController::class, 'callWaiter']);
                 Route::post('/tables/{publicToken}/requests/bill', [PublicTableRequestController::class, 'bill']);
+            });
+
+            // Post-visit feedback (Passo 3.5): keyed ONLY by the opaque
+            // feedback_token minted at payment time — never by
+            // table_session_id/table_id/the table's own public_token. See
+            // TableSession::generateUniqueFeedbackToken() and
+            // PublicSessionStateResource for how the token is discovered.
+            Route::middleware('throttle:public-feedback')->group(function () {
+                Route::get('/feedback/{feedbackToken}', [PublicFeedbackController::class, 'show']);
+                Route::post('/feedback/{feedbackToken}', [PublicFeedbackController::class, 'store']);
             });
         });
 
@@ -153,6 +167,15 @@ Route::prefix('v1')->group(function () {
         Route::get('/restaurants/{restaurant}/staff/{staff}/performance', [StaffPerformanceController::class, 'show']);
         Route::post('/restaurants/{restaurant}/staff/{staff}/reviews', [StaffReviewController::class, 'store']);
         Route::get('/restaurants/{restaurant}/staff/{staff}/reviews', [StaffReviewController::class, 'index']);
+
+        // Customer Feedback (Passo 3.5): owner/manager detail (see
+        // CustomerFeedbackController) is deliberately separate from the
+        // waiter-facing aggregate-only summary (CustomerFeedbackSummaryController)
+        // — different permission gate, never the same endpoint.
+        Route::get('/restaurants/{restaurant}/feedback', [CustomerFeedbackController::class, 'index']);
+        Route::get('/feedback/{customerFeedback}', [CustomerFeedbackController::class, 'show']);
+        Route::get('/me/feedback-summary', [CustomerFeedbackSummaryController::class, 'me']);
+        Route::get('/restaurants/{restaurant}/staff/{staff}/feedback-summary', [CustomerFeedbackSummaryController::class, 'show']);
 
         Route::get('/restaurants/{restaurant}/tables', [TableController::class, 'index']);
         Route::post('/restaurants/{restaurant}/tables', [TableController::class, 'store']);

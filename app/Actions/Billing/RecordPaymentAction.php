@@ -134,6 +134,10 @@ class RecordPaymentAction
             $newPaidTotalCents = $summary['paidTotalCents'] + $amountCents;
 
             if ($newPaidTotalCents === $summary['ordersTotalCents']) {
+                // feedback_token itself is generated at session-open time
+                // (see OpenTableAction) — payment only flips payment_status,
+                // it is never responsible for minting the visit's public
+                // feedback identity (Passo 3.5 token-lifecycle fix).
                 $locked->update([
                     'payment_status' => TableSession::PAYMENT_STATUS_PAID,
                     'paid_at' => now(),

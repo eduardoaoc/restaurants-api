@@ -78,7 +78,7 @@ class PublicTableResolutionTest extends TestCase
         $this->assertStringNotContainsString('session.id', $json);
 
         $data = $response->json('data');
-        $this->assertEqualsCanonicalizing(['active', 'status'], array_keys($data['session']));
+        $this->assertEqualsCanonicalizing(['active', 'status', 'feedback'], array_keys($data['session']));
     }
 
     public function test_unknown_token_returns_neutral_404(): void
@@ -238,7 +238,7 @@ class PublicTableResolutionTest extends TestCase
             array_keys($response->json('data.restaurant'))
         );
         $this->assertEqualsCanonicalizing(['id', 'name', 'number'], array_keys($response->json('data.table')));
-        $this->assertEqualsCanonicalizing(['active', 'status'], array_keys($response->json('data.session')));
+        $this->assertEqualsCanonicalizing(['active', 'status', 'feedback'], array_keys($response->json('data.session')));
         $this->assertEqualsCanonicalizing(['available'], array_keys($response->json('data.menu')));
     }
 }

@@ -6,11 +6,14 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Support\Str;
 use InvalidArgumentException;
 
 #[Fillable([
     'restaurant_id', 'table_id', 'opened_by_user_id', 'closed_by_user_id', 'guest_count',
     'status', 'opened_at', 'closed_at', 'payment_status', 'paid_at', 'assigned_waiter_user_id',
+    'feedback_token',
 ])]
 class TableSession extends Model
 {
@@ -98,6 +101,51 @@ class TableSession extends Model
     }
 
     /**
+     * Whether a CustomerFeedback row already exists for this visit (Passo
+     * 3.5 §4 — at most one per session).
+     */
+    public function hasSubmittedFeedback(): bool
+    {
+        return $this->customerFeedback()->exists();
+    }
+
+    /**
+     * Generate an unpredictable, high-entropy feedback token — same
+     * pattern as Table::generateUniquePublicToken(), not derived from the
+     * id. Called once, at session-open time (see OpenTableAction).
+     */
+    public static function generateUniqueFeedbackToken(): string
+    {
+        do {
+            $token = Str::random(48);
+        } while (self::query()->where('feedback_token', $token)->exists());
+
+        return $token;
+    }
+
+    /**
+     * Backfills feedback_token for a session that predates the
+     * token-lifecycle fix (Passo 3.5): every session opened via
+     * OpenTableAction already has one, but a session that was still active
+     * across the deploy that introduced open-time generation would not.
+     * Safe to call on every resolution — a no-op once the column is set.
+     * Public-read-triggered (PublicSessionStateResource), so this is a
+     * lazy backfill by design, not a migration-time one: it only ever
+     * touches a session the moment it's actually being resolved for a
+     * customer, and never resurrects a CLOSED session (see
+     * PublicSessionStateResource, which only ever receives activeSession).
+     */
+    public function ensureFeedbackToken(): string
+    {
+        if ($this->feedback_token === null) {
+            $this->feedback_token = self::generateUniqueFeedbackToken();
+            $this->save();
+        }
+
+        return $this->feedback_token;
+    }
+
+    /**
      * The orders placed during this session. A session can accumulate many
      * orders; a new session (after this one closes) starts with none.
      *
@@ -126,6 +174,18 @@ class TableSession extends Model
     public function paymentRecords(): HasMany
     {
         return $this->hasMany(PaymentRecord::class);
+    }
+
+    /**
+     * This visit's customer feedback, if the customer has submitted one
+     * (Passo 3.5) — at most one per session, enforced by a unique
+     * constraint on customer_feedbacks.table_session_id.
+     *
+     * @return HasOne<CustomerFeedback, $this>
+     */
+    public function customerFeedback(): HasOne
+    {
+        return $this->hasOne(CustomerFeedback::class);
     }
 
     protected static function booted(): void

@@ -37,6 +37,14 @@ class OpenTableAction
                     'guest_count' => $guestCount,
                     'status' => 'occupied',
                     'opened_at' => now(),
+                    // Generated at open, not at payment (Passo 3.5
+                    // token-lifecycle fix): the public feedback identity
+                    // must not depend on the payment->close window, which
+                    // can be seconds wide. eligible stays false until the
+                    // session is paid — see PublicSessionStateResource /
+                    // SubmitPublicFeedbackAction, both of which stay
+                    // authoritative on payment_status.
+                    'feedback_token' => TableSession::generateUniqueFeedbackToken(),
                 ]);
             } catch (UniqueConstraintViolationException $e) {
                 throw new TableSessionConflictException('This table already has an active session.', previous: $e);

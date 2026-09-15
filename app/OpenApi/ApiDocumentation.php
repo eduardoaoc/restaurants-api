@@ -625,10 +625,21 @@ use OpenApi\Attributes as OA;
 )]
 #[OA\Schema(
     schema: 'PublicSessionState',
-    required: ['active', 'status'],
+    required: ['active', 'status', 'feedback'],
     properties: [
         new OA\Property(property: 'active', type: 'boolean', example: true),
         new OA\Property(property: 'status', type: 'string', example: 'occupied', nullable: true),
+        new OA\Property(
+            property: 'feedback',
+            description: 'Present for the whole lifetime of the table\'s active session, unpaid or paid — the token is minted at session-open, not at payment, precisely so the client can persist it well before any payment happens (see PublicSessionStateResource / OpenTableAction). `eligible` alone reflects whether the visit is paid yet and is backend-authoritative: holding `token` while eligible=false does NOT let POST /public/feedback/{token} succeed early — SubmitPublicFeedbackAction re-checks payment_status on every call. Absent (only `eligible: false`, no `token`) when the table has no active session at all.',
+            required: ['eligible'],
+            properties: [
+                new OA\Property(property: 'eligible', type: 'boolean', example: true),
+                new OA\Property(property: 'token', type: 'string', example: 'K7pQ...', nullable: true),
+                new OA\Property(property: 'already_submitted', type: 'boolean', example: false, nullable: true),
+            ],
+            type: 'object'
+        ),
     ],
     type: 'object'
 )]
@@ -1084,6 +1095,61 @@ use OpenApi\Attributes as OA;
     type: 'object'
 )]
 #[OA\Schema(
+    schema: 'PublicFeedbackContext',
+    required: ['already_submitted', 'restaurant', 'table'],
+    description: 'Minimal context for the public feedback form — never exposes internal ids, the table\'s public_token, financial data, or staff identities.',
+    properties: [
+        new OA\Property(property: 'already_submitted', type: 'boolean', example: false),
+        new OA\Property(
+            property: 'restaurant',
+            required: ['name'],
+            properties: [new OA\Property(property: 'name', type: 'string', example: 'Casa Pepe')],
+            type: 'object'
+        ),
+        new OA\Property(
+            property: 'table',
+            required: ['name'],
+            properties: [new OA\Property(property: 'name', type: 'string', example: 'Mesa 12')],
+            type: 'object'
+        ),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
+    schema: 'CreatePublicFeedbackRequest',
+    required: ['first_name', 'last_name', 'wait_time_rating', 'food_rating', 'service_rating', 'overall_rating'],
+    properties: [
+        new OA\Property(property: 'first_name', type: 'string', example: 'Ana'),
+        new OA\Property(property: 'last_name', type: 'string', example: 'García'),
+        new OA\Property(property: 'wait_time_rating', type: 'integer', example: 4, description: '1-5'),
+        new OA\Property(property: 'food_rating', type: 'integer', example: 5, description: '1-5'),
+        new OA\Property(property: 'service_rating', type: 'integer', example: 5, description: '1-5'),
+        new OA\Property(property: 'overall_rating', type: 'integer', example: 5, description: '1-5'),
+        new OA\Property(property: 'experience_comment', type: 'string', example: 'Great evening.', nullable: true),
+        new OA\Property(property: 'improvement_comment', type: 'string', example: 'Faster drinks next time.', nullable: true),
+        new OA\Property(property: 'contact', type: 'string', example: 'ana@example.com', nullable: true),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
+    schema: 'PublicFeedback',
+    description: 'Confirmation echoed back to the customer who just submitted (or replayed) their own feedback.',
+    required: ['first_name', 'last_name', 'wait_time_rating', 'food_rating', 'service_rating', 'overall_rating', 'submitted_at'],
+    properties: [
+        new OA\Property(property: 'first_name', type: 'string', example: 'Ana'),
+        new OA\Property(property: 'last_name', type: 'string', example: 'García'),
+        new OA\Property(property: 'wait_time_rating', type: 'integer', example: 4),
+        new OA\Property(property: 'food_rating', type: 'integer', example: 5),
+        new OA\Property(property: 'service_rating', type: 'integer', example: 5),
+        new OA\Property(property: 'overall_rating', type: 'integer', example: 5),
+        new OA\Property(property: 'experience_comment', type: 'string', example: 'Great evening.', nullable: true),
+        new OA\Property(property: 'improvement_comment', type: 'string', example: 'Faster drinks next time.', nullable: true),
+        new OA\Property(property: 'contact', type: 'string', example: 'ana@example.com', nullable: true),
+        new OA\Property(property: 'submitted_at', type: 'string', format: 'date-time'),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
     schema: 'KitchenTicket',
     required: ['document_type', 'restaurant', 'order', 'table', 'order_note', 'items', 'generated_at'],
     description: 'Reuses KitchenOrderItem/KitchenOrderItemModifier (Bloco 11) for items — it is the exact same snapshot-only, no-price shape the Kitchen Display already shows on screen.',
@@ -1281,6 +1347,95 @@ use OpenApi\Attributes as OA;
         new OA\Property(property: 'comment', type: 'string', example: 'Great shift, very attentive.', nullable: true),
         new OA\Property(property: 'reviewer', ref: '#/components/schemas/StaffReviewActor', nullable: true),
         new OA\Property(property: 'created_at', type: 'string', format: 'date-time'),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
+    schema: 'CustomerFeedbackTable',
+    required: ['id', 'name', 'number'],
+    properties: [
+        new OA\Property(property: 'id', type: 'integer', format: 'int64', example: 12),
+        new OA\Property(property: 'name', type: 'string', example: 'Mesa 12'),
+        new OA\Property(property: 'number', type: 'integer', example: 12, nullable: true),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
+    schema: 'CustomerFeedbackWaiter',
+    required: ['id', 'name'],
+    properties: [
+        new OA\Property(property: 'id', type: 'integer', format: 'int64', example: 7),
+        new OA\Property(property: 'name', type: 'string', example: 'Carlos'),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
+    schema: 'CustomerFeedbackListItem',
+    description: 'Minimal listing row (Passo 3.5) — no comments/contact. See CustomerFeedback for the full detail.',
+    required: ['id', 'submitted_at', 'customer_name', 'table', 'overall_rating', 'food_rating', 'service_rating', 'wait_time_rating', 'waiter'],
+    properties: [
+        new OA\Property(property: 'id', type: 'integer', format: 'int64', example: 41),
+        new OA\Property(property: 'submitted_at', type: 'string', format: 'date-time'),
+        new OA\Property(property: 'customer_name', type: 'string', example: 'Ana García'),
+        new OA\Property(property: 'table', ref: '#/components/schemas/CustomerFeedbackTable'),
+        new OA\Property(property: 'overall_rating', type: 'integer', example: 5),
+        new OA\Property(property: 'food_rating', type: 'integer', example: 5),
+        new OA\Property(property: 'service_rating', type: 'integer', example: 5),
+        new OA\Property(property: 'wait_time_rating', type: 'integer', example: 4),
+        new OA\Property(property: 'waiter', ref: '#/components/schemas/CustomerFeedbackWaiter', nullable: true),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
+    schema: 'CustomerFeedback',
+    description: 'Full customer feedback detail, including PII (first_name/last_name/contact) and free-text comments. Gated by view_customer_feedback (owner/manager only).',
+    required: ['id', 'restaurant', 'table_session', 'waiter', 'first_name', 'last_name', 'wait_time_rating', 'food_rating', 'service_rating', 'overall_rating', 'experience_comment', 'improvement_comment', 'contact', 'submitted_at'],
+    properties: [
+        new OA\Property(property: 'id', type: 'integer', format: 'int64', example: 41),
+        new OA\Property(
+            property: 'restaurant',
+            required: ['id', 'name'],
+            properties: [
+                new OA\Property(property: 'id', type: 'integer', format: 'int64', example: 3),
+                new OA\Property(property: 'name', type: 'string', example: 'Casa Pepe'),
+            ],
+            type: 'object'
+        ),
+        new OA\Property(
+            property: 'table_session',
+            required: ['id', 'table', 'opened_at', 'closed_at'],
+            properties: [
+                new OA\Property(property: 'id', type: 'integer', format: 'int64', example: 88),
+                new OA\Property(property: 'table', ref: '#/components/schemas/CustomerFeedbackTable'),
+                new OA\Property(property: 'opened_at', type: 'string', format: 'date-time'),
+                new OA\Property(property: 'closed_at', type: 'string', format: 'date-time', nullable: true),
+            ],
+            type: 'object'
+        ),
+        new OA\Property(property: 'waiter', ref: '#/components/schemas/CustomerFeedbackWaiter', nullable: true),
+        new OA\Property(property: 'first_name', type: 'string', example: 'Ana'),
+        new OA\Property(property: 'last_name', type: 'string', example: 'García'),
+        new OA\Property(property: 'wait_time_rating', type: 'integer', example: 4),
+        new OA\Property(property: 'food_rating', type: 'integer', example: 5),
+        new OA\Property(property: 'service_rating', type: 'integer', example: 5),
+        new OA\Property(property: 'overall_rating', type: 'integer', example: 5),
+        new OA\Property(property: 'experience_comment', type: 'string', example: 'Great evening.', nullable: true),
+        new OA\Property(property: 'improvement_comment', type: 'string', example: 'Faster drinks next time.', nullable: true),
+        new OA\Property(property: 'contact', type: 'string', example: 'ana@example.com', nullable: true),
+        new OA\Property(property: 'submitted_at', type: 'string', format: 'date-time'),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
+    schema: 'CustomerFeedbackSummary',
+    description: 'Aggregate-only — a waiter\'s own numbers, or an owner/manager consulting one staff member\'s numbers. NEVER individual feedback rows or PII.',
+    required: ['feedback_count', 'average_overall', 'average_service', 'average_wait_time', 'average_food'],
+    properties: [
+        new OA\Property(property: 'feedback_count', type: 'integer', example: 12),
+        new OA\Property(property: 'average_overall', type: 'number', format: 'float', example: 4.58, nullable: true, description: 'null when feedback_count is 0.'),
+        new OA\Property(property: 'average_service', type: 'number', format: 'float', example: 4.75, nullable: true),
+        new OA\Property(property: 'average_wait_time', type: 'number', format: 'float', example: 4.2, nullable: true),
+        new OA\Property(property: 'average_food', type: 'number', format: 'float', example: 4.6, nullable: true),
     ],
     type: 'object'
 )]

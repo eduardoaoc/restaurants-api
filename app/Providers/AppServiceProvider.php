@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use App\Models\AuditLog;
 use App\Models\Category;
+use App\Models\CustomerFeedback;
 use App\Models\Floor;
 use App\Models\Menu;
 use App\Models\ModifierGroup;
@@ -22,6 +23,7 @@ use App\Models\WaiterCall;
 use App\Models\Zone;
 use App\Policies\AuditLogPolicy;
 use App\Policies\CategoryPolicy;
+use App\Policies\CustomerFeedbackPolicy;
 use App\Policies\FloorPolicy;
 use App\Policies\MenuPolicy;
 use App\Policies\ModifierGroupPolicy;
@@ -85,6 +87,14 @@ class AppServiceProvider extends ServiceProvider
             return Limit::perMinute(10)->by($request->ip().'|'.$token);
         });
 
+        // Keyed by IP + feedbackToken (not IP alone), same reasoning as
+        // public-orders/public-table-requests above.
+        RateLimiter::for('public-feedback', function (Request $request) {
+            $token = (string) $request->route('feedbackToken');
+
+            return Limit::perMinute(10)->by($request->ip().'|'.$token);
+        });
+
         Gate::policy(Organization::class, OrganizationPolicy::class);
         Gate::policy(Restaurant::class, RestaurantPolicy::class);
         Gate::policy(User::class, StaffPolicy::class);
@@ -103,5 +113,6 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(Zone::class, ZonePolicy::class);
         Gate::policy(StaffShift::class, StaffShiftPolicy::class);
         Gate::policy(WaiterCall::class, WaiterCallPolicy::class);
+        Gate::policy(CustomerFeedback::class, CustomerFeedbackPolicy::class);
     }
 }
