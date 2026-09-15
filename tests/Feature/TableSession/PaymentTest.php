@@ -2,7 +2,10 @@
 
 namespace Tests\Feature\TableSession;
 
+use App\Actions\Billing\RecordPaymentAction;
 use App\Actions\Tables\CloseTableAction;
+use App\Exceptions\Billing\TableSessionAlreadyPaidException;
+use App\Exceptions\Billing\TableSessionClosedException;
 use App\Models\Order;
 use App\Models\PaymentRecord;
 use App\Models\Restaurant;
@@ -350,17 +353,112 @@ class PaymentTest extends TestCase
             ->assertStatus(201);
     }
 
+    // --- Concurrency: two different actors on the same session ----------
+
+    /**
+     * Waiter and cashier both open the same table's bill (Passo 3.4, item
+     * 8/14). Both actions run through the real RecordPaymentAction — the
+     * same transaction + lockForUpdate() path the HTTP endpoint uses — so
+     * this exercises the actual concurrency guard, not just a sequential
+     * HTTP replay under one identity. The waiter's payment commits first;
+     * the cashier's request against the same pre-payment balance loses the
+     * race and is rejected as already paid, never as a second successful
+     * payment.
+     *
+     * (Goes through the Action directly, not two actingAs()-switched HTTP
+     * calls in one test: this app's SPA session-cookie guard resolution
+     * does not support switching the authenticated user mid-test via
+     * actingAs() for two different restaurant-linked staff members — a
+     * PHPUnit/Sanctum test-harness limitation with no production impact,
+     * since real requests each carry their own session. See report,
+     * section 24.)
+     */
+    public function test_waiter_and_cashier_racing_on_the_same_session_only_one_payment_succeeds(): void
+    {
+        [$organization, $owner, $restaurant] = $this->createTenant();
+        $waiter = $this->createStaff($organization, $restaurant, 'waiter', 'W-1');
+        $cashier = $this->createStaff($organization, $restaurant, 'cashier', 'C-1');
+        [$session] = $this->sessionWithBillableOrderFor($organization, $restaurant, $owner);
+
+        $result = app(RecordPaymentAction::class)->execute($session, $waiter, ['method' => 'cash', 'amount' => '20.00']);
+        $this->assertFalse($result['replayed']);
+
+        $this->expectException(TableSessionAlreadyPaidException::class);
+
+        try {
+            app(RecordPaymentAction::class)->execute($session, $cashier, ['method' => 'card', 'amount' => '20.00']);
+        } finally {
+            $this->assertDatabaseCount('payment_records', 1);
+            $this->assertSame(PaymentRecord::METHOD_CASH, PaymentRecord::query()->sole()->method);
+        }
+    }
+
+    /**
+     * Same race, but on close: the waiter pays and closes the session; the
+     * cashier's attempt to close against the now-stale (already closed)
+     * session is rejected via the real CloseTableAction, never silently
+     * accepted or corrupting state. See the note above on why this goes
+     * through the Action directly rather than two actingAs()-switched HTTP
+     * calls.
+     */
+    public function test_waiter_and_cashier_racing_to_close_the_same_session(): void
+    {
+        [$organization, $owner, $restaurant] = $this->createTenant();
+        $waiter = $this->createStaff($organization, $restaurant, 'waiter', 'W-1');
+        $cashier = $this->createStaff($organization, $restaurant, 'cashier', 'C-1');
+        [$session] = $this->sessionWithBillableOrderForWithTable($organization, $restaurant, $owner);
+
+        app(RecordPaymentAction::class)->execute($session, $waiter, ['method' => 'cash', 'amount' => '20.00']);
+        $closed = app(CloseTableAction::class)->execute($session, $waiter);
+        $this->assertSame('closed', $closed->status);
+
+        $this->expectException(TableSessionClosedException::class);
+
+        try {
+            app(CloseTableAction::class)->execute($session, $cashier);
+        } finally {
+            $this->assertSame('closed', $session->fresh()->status);
+        }
+    }
+
+    // --- Public / unauthenticated -----------------------------------------
+
+    public function test_unauthenticated_request_cannot_record_a_payment(): void
+    {
+        [$session] = $this->sessionWithBillableOrder();
+
+        $this->postJson("/api/v1/table-sessions/{$session->id}/payments", ['method' => 'cash', 'amount' => '10.00'])
+            ->assertStatus(401);
+
+        $this->assertDatabaseCount('payment_records', 0);
+    }
+
     /**
      * @return array{0: TableSession}
      */
     private function sessionWithBillableOrderFor($organization, $restaurant, $owner): array
     {
+        [$session] = $this->sessionWithBillableOrderForWithTable($organization, $restaurant, $owner);
+
+        return [$session];
+    }
+
+    /**
+     * Same as sessionWithBillableOrderFor(), but also returns the Table —
+     * needed by tests that exercise POST /tables/{table}/close, which is
+     * keyed by table, not session.
+     *
+     * @return array{0: TableSession, 1: \App\Models\Table}
+     */
+    private function sessionWithBillableOrderForWithTable($organization, $restaurant, $owner): array
+    {
         $product = $this->createProduct($organization);
         $rp = $this->createRestaurantProduct($restaurant, $product, 20.0);
         $table = $this->createTable($restaurant);
         $session = $this->openSession($table, $owner);
-        $this->createWaiterOrder($table, $owner, [['restaurant_product_id' => $rp->id, 'quantity' => 1]]);
+        $order = $this->createWaiterOrder($table, $owner, [['restaurant_product_id' => $rp->id, 'quantity' => 1]]);
+        $this->advanceOrderTo($order, Order::STATUS_SERVED, $owner);
 
-        return [$session];
+        return [$session, $table];
     }
 }
