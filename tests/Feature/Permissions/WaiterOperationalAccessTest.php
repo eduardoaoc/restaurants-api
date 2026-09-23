@@ -165,7 +165,8 @@ class WaiterOperationalAccessTest extends TestCase
         $this->actingAs($waiter, 'web')
             ->postJson('/api/v1/products', [
                 'internal_name' => 'New product',
-                'translations' => [['locale' => 'en', 'name' => 'New product']],
+                'translations' => [['locale' => 'en', 'name' => 'New product', 'description' => 'A new product.']],
+                'allergens' => [],
             ])
             ->assertForbidden();
 

@@ -225,6 +225,85 @@ class PublicMenuTest extends TestCase
         $this->assertSame([], $response->json('data.menu.categories'));
     }
 
+    public function test_product_without_allergen_declaration_does_not_appear(): void
+    {
+        [, , $restaurant] = $this->createTenant();
+        $table = $this->createTable($restaurant);
+        $menu = $this->createMenu($restaurant);
+        $category = $this->createCategory($menu, 'cat', [['locale' => 'es', 'name' => 'Categoria']]);
+        // allergens: null — legacy data, declaration never made.
+        $product = $this->createProduct($restaurant->organization, null, [['locale' => 'es', 'name' => 'Producto']], allergens: null);
+        $rp = $this->createRestaurantProduct($restaurant, $product);
+        CategoryProduct::query()->create(['category_id' => $category->id, 'restaurant_product_id' => $rp->id, 'sort_order' => 0]);
+
+        $response = $this->getJson("/api/v1/public/tables/{$table->public_token}/menu")->assertOk();
+
+        $this->assertSame([], $response->json('data.menu.categories'));
+    }
+
+    public function test_product_with_explicitly_empty_allergens_appears(): void
+    {
+        [, , $restaurant] = $this->createTenant();
+        $table = $this->createTable($restaurant);
+        $menu = $this->createMenu($restaurant);
+        $category = $this->createCategory($menu, 'cat', [['locale' => 'es', 'name' => 'Categoria']]);
+        $product = $this->createProduct($restaurant->organization, null, [['locale' => 'es', 'name' => 'Producto']], allergens: []);
+        $rp = $this->createRestaurantProduct($restaurant, $product);
+        CategoryProduct::query()->create(['category_id' => $category->id, 'restaurant_product_id' => $rp->id, 'sort_order' => 0]);
+
+        $response = $this->getJson("/api/v1/public/tables/{$table->public_token}/menu")->assertOk();
+
+        $this->assertCount(1, $response->json('data.menu.categories.0.products'));
+        $this->assertSame([], $response->json('data.menu.categories.0.products.0.allergens'));
+    }
+
+    public function test_product_without_a_valid_description_does_not_appear(): void
+    {
+        [, , $restaurant] = $this->createTenant();
+        $table = $this->createTable($restaurant);
+        $menu = $this->createMenu($restaurant);
+        $category = $this->createCategory($menu, 'cat', [['locale' => 'es', 'name' => 'Categoria']]);
+        $product = $this->createProduct($restaurant->organization, null, [
+            ['locale' => 'es', 'name' => 'Producto', 'description' => '   '],
+        ]);
+        $rp = $this->createRestaurantProduct($restaurant, $product);
+        CategoryProduct::query()->create(['category_id' => $category->id, 'restaurant_product_id' => $rp->id, 'sort_order' => 0]);
+
+        $response = $this->getJson("/api/v1/public/tables/{$table->public_token}/menu")->assertOk();
+
+        $this->assertSame([], $response->json('data.menu.categories'));
+    }
+
+    public function test_product_with_allergens_and_nutrition_exposes_both_in_the_public_menu(): void
+    {
+        [, , $restaurant] = $this->createTenant();
+        $table = $this->createTable($restaurant);
+        $menu = $this->createMenu($restaurant);
+        $category = $this->createCategory($menu, 'cat', [['locale' => 'es', 'name' => 'Categoria']]);
+        $product = $this->createProduct(
+            $restaurant->organization,
+            'Internal Burger Name',
+            [['locale' => 'es', 'name' => 'Hamburguesa AFORO', 'description' => 'Carne, queso y salsa de la casa.']],
+            allergens: ['gluten', 'milk', 'eggs'],
+            nutrition: ['calories_kcal' => 720, 'protein_g' => 38, 'carbohydrates_g' => 54, 'fat_g' => 39, 'salt_g' => 2.1],
+        );
+        $rp = $this->createRestaurantProduct($restaurant, $product, 13.5);
+        CategoryProduct::query()->create(['category_id' => $category->id, 'restaurant_product_id' => $rp->id, 'sort_order' => 0]);
+
+        $response = $this->getJson("/api/v1/public/tables/{$table->public_token}/menu")->assertOk();
+        $productJson = $response->json('data.menu.categories.0.products.0');
+
+        $this->assertEqualsCanonicalizing(['gluten', 'milk', 'eggs'], $productJson['allergens']);
+        $this->assertSame([
+            'basis' => 'per_serving',
+            'calories_kcal' => 720,
+            'protein_g' => '38.00',
+            'carbohydrates_g' => '54.00',
+            'fat_g' => '39.00',
+            'salt_g' => '2.10',
+        ], $productJson['nutrition']);
+    }
+
     public function test_product_without_translation_does_not_appear(): void
     {
         [, , $restaurant] = $this->createTenant();
@@ -273,13 +352,15 @@ class PublicMenuTest extends TestCase
         $productJson = $response->json('data.menu.categories.0.products.0');
 
         $this->assertEqualsCanonicalizing(
-            ['restaurant_product_id', 'product_id', 'name', 'description', 'price', 'modifier_groups'],
+            ['restaurant_product_id', 'product_id', 'name', 'description', 'price', 'allergens', 'nutrition', 'modifier_groups'],
             array_keys($productJson)
         );
         $this->assertSame($rp->id, $productJson['restaurant_product_id']);
         $this->assertSame($product->id, $productJson['product_id']);
         $this->assertSame('Hamburguesa Clásica', $productJson['name']);
         $this->assertSame('Carne, queso y salsa', $productJson['description']);
+        $this->assertSame([], $productJson['allergens']);
+        $this->assertNull($productJson['nutrition']);
         $this->assertSame([], $productJson['modifier_groups']);
 
         $productJsonEncoded = json_encode($productJson);

@@ -26,10 +26,11 @@ class MultilingualTest extends TestCase
             ->postJson('/api/v1/products', [
                 'internal_name' => 'Coca-Cola 330ml',
                 'translations' => [
-                    ['locale' => 'es', 'name' => 'Coca-Cola'],
-                    ['locale' => 'en', 'name' => 'Coca-Cola'],
-                    ['locale' => 'pt', 'name' => 'Coca-Cola'],
+                    ['locale' => 'es', 'name' => 'Coca-Cola', 'description' => 'Refresco de cola.'],
+                    ['locale' => 'en', 'name' => 'Coca-Cola', 'description' => 'Cola soft drink.'],
+                    ['locale' => 'pt', 'name' => 'Coca-Cola', 'description' => 'Refrigerante de cola.'],
                 ],
+                'allergens' => [],
             ])
             ->assertCreated();
 
@@ -71,8 +72,9 @@ class MultilingualTest extends TestCase
             ->postJson('/api/v1/products', [
                 'internal_name' => 'Water',
                 'translations' => [
-                    ['locale' => 'fr', 'name' => 'Eau'],
+                    ['locale' => 'fr', 'name' => 'Eau', 'description' => 'Eau minérale plate.'],
                 ],
+                'allergens' => [],
             ])
             ->assertCreated()
             ->assertJsonPath('data.product.translations.0.locale', 'fr');
@@ -131,8 +133,9 @@ class MultilingualTest extends TestCase
             ->postJson('/api/v1/products', [
                 'internal_name' => 'Horchata',
                 'translations' => [
-                    ['locale' => 'ca-ES-valencia', 'name' => 'Orxata'],
+                    ['locale' => 'ca-ES-valencia', 'name' => 'Orxata', 'description' => 'Beguda valenciana de xufa.'],
                 ],
+                'allergens' => [],
             ])
             ->assertCreated()
             ->assertJsonPath('data.product.translations.0.locale', 'ca-ES-valencia');

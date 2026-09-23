@@ -4270,7 +4270,8 @@
                             "schema": {
                                 "required": [
                                     "internal_name",
-                                    "translations"
+                                    "translations",
+                                    "allergens"
                                 ],
                                 "properties": {
                                     "sku": {
@@ -4289,8 +4290,44 @@
                                     "translations": {
                                         "type": "array",
                                         "items": {
-                                            "$ref": "#/components/schemas/Translation"
+                                            "$ref": "#/components/schemas/ProductTranslationInput"
                                         }
+                                    },
+                                    "allergens": {
+                                        "description": "Explicit allergen declaration. [] means \"none of the 14 groups apply\" — the field is required so a product is never accidentally undeclared.",
+                                        "type": "array",
+                                        "items": {
+                                            "type": "string",
+                                            "enum": [
+                                                "gluten",
+                                                "crustaceans",
+                                                "eggs",
+                                                "fish",
+                                                "peanuts",
+                                                "soybeans",
+                                                "milk",
+                                                "nuts",
+                                                "celery",
+                                                "mustard",
+                                                "sesame",
+                                                "sulphites",
+                                                "lupin",
+                                                "molluscs"
+                                            ]
+                                        },
+                                        "example": [
+                                            "gluten",
+                                            "milk",
+                                            "eggs"
+                                        ]
+                                    },
+                                    "nutrition": {
+                                        "oneOf": [
+                                            {
+                                                "$ref": "#/components/schemas/NutritionInput"
+                                            }
+                                        ],
+                                        "nullable": true
                                     }
                                 },
                                 "type": "object"
@@ -4434,8 +4471,44 @@
                                     "translations": {
                                         "type": "array",
                                         "items": {
-                                            "$ref": "#/components/schemas/Translation"
+                                            "$ref": "#/components/schemas/ProductTranslationInput"
                                         }
+                                    },
+                                    "allergens": {
+                                        "description": "Omitted preserves the current declaration. [] clears it to \"none\". null is rejected — a declaration cannot be un-made.",
+                                        "type": "array",
+                                        "items": {
+                                            "type": "string",
+                                            "enum": [
+                                                "gluten",
+                                                "crustaceans",
+                                                "eggs",
+                                                "fish",
+                                                "peanuts",
+                                                "soybeans",
+                                                "milk",
+                                                "nuts",
+                                                "celery",
+                                                "mustard",
+                                                "sesame",
+                                                "sulphites",
+                                                "lupin",
+                                                "molluscs"
+                                            ]
+                                        },
+                                        "example": [
+                                            "gluten",
+                                            "milk",
+                                            "eggs"
+                                        ]
+                                    },
+                                    "nutrition": {
+                                        "oneOf": [
+                                            {
+                                                "$ref": "#/components/schemas/NutritionInput"
+                                            }
+                                        ],
+                                        "nullable": true
                                     }
                                 },
                                 "type": "object"
@@ -9531,6 +9604,110 @@
                 },
                 "type": "object"
             },
+            "ProductTranslationInput": {
+                "description": "Unlike Category/ModifierGroup/ModifierOption translations, a Product translation always requires a non-blank description — it is the public menu's dish blurb.",
+                "required": [
+                    "locale",
+                    "name",
+                    "description"
+                ],
+                "properties": {
+                    "locale": {
+                        "type": "string",
+                        "example": "es-ES"
+                    },
+                    "name": {
+                        "type": "string",
+                        "example": "Hamburguesa AFORO"
+                    },
+                    "description": {
+                        "type": "string",
+                        "example": "Carne de vacuno, queso cheddar, tomate, lechuga y salsa de la casa.",
+                        "maxLength": 500
+                    }
+                },
+                "type": "object"
+            },
+            "NutritionInput": {
+                "description": "Optional per-serving nutrition values. Omit the whole object, or send it as null, when nothing has been recorded. Every value inside it is independently optional.",
+                "properties": {
+                    "calories_kcal": {
+                        "type": "integer",
+                        "example": 720,
+                        "nullable": true,
+                        "minimum": 0
+                    },
+                    "protein_g": {
+                        "type": "number",
+                        "format": "float",
+                        "example": 38,
+                        "nullable": true,
+                        "minimum": 0
+                    },
+                    "carbohydrates_g": {
+                        "type": "number",
+                        "format": "float",
+                        "example": 54,
+                        "nullable": true,
+                        "minimum": 0
+                    },
+                    "fat_g": {
+                        "type": "number",
+                        "format": "float",
+                        "example": 39,
+                        "nullable": true,
+                        "minimum": 0
+                    },
+                    "salt_g": {
+                        "type": "number",
+                        "format": "float",
+                        "example": 2.1,
+                        "nullable": true,
+                        "minimum": 0
+                    }
+                },
+                "type": "object",
+                "nullable": true
+            },
+            "Nutrition": {
+                "description": "Per-serving (never per-100g) nutritional information. The whole object is absent/null when no value has ever been recorded — an individual field can still be null within it.",
+                "required": [
+                    "basis"
+                ],
+                "properties": {
+                    "basis": {
+                        "type": "string",
+                        "example": "per_serving"
+                    },
+                    "calories_kcal": {
+                        "type": "integer",
+                        "example": 720,
+                        "nullable": true
+                    },
+                    "protein_g": {
+                        "type": "string",
+                        "example": "38.00",
+                        "nullable": true
+                    },
+                    "carbohydrates_g": {
+                        "type": "string",
+                        "example": "54.00",
+                        "nullable": true
+                    },
+                    "fat_g": {
+                        "type": "string",
+                        "example": "39.00",
+                        "nullable": true
+                    },
+                    "salt_g": {
+                        "type": "string",
+                        "example": "2.10",
+                        "nullable": true
+                    }
+                },
+                "type": "object",
+                "nullable": true
+            },
             "Menu": {
                 "required": [
                     "id",
@@ -9646,6 +9823,43 @@
                     "status": {
                         "type": "string",
                         "example": "active"
+                    },
+                    "allergens": {
+                        "description": "null = allergen declaration not made yet (legacy data, not publicly eligible). [] = declared explicitly as \"none\". Never confuse the two.",
+                        "type": "array",
+                        "items": {
+                            "type": "string",
+                            "enum": [
+                                "gluten",
+                                "crustaceans",
+                                "eggs",
+                                "fish",
+                                "peanuts",
+                                "soybeans",
+                                "milk",
+                                "nuts",
+                                "celery",
+                                "mustard",
+                                "sesame",
+                                "sulphites",
+                                "lupin",
+                                "molluscs"
+                            ]
+                        },
+                        "example": [
+                            "gluten",
+                            "milk",
+                            "eggs"
+                        ],
+                        "nullable": true
+                    },
+                    "nutrition": {
+                        "oneOf": [
+                            {
+                                "$ref": "#/components/schemas/Nutrition"
+                            }
+                        ],
+                        "nullable": true
                     },
                     "translations": {
                         "type": "array",
@@ -10108,12 +10322,14 @@
                 "type": "object"
             },
             "PublicProduct": {
+                "description": "Never appears without a valid description and an explicit (possibly empty) allergens declaration — see BuildPublicMenuAction eligibility rules.",
                 "required": [
                     "restaurant_product_id",
                     "product_id",
                     "name",
                     "description",
                     "price",
+                    "allergens",
                     "modifier_groups"
                 ],
                 "properties": {
@@ -10139,6 +10355,41 @@
                     "price": {
                         "type": "string",
                         "example": "12.90"
+                    },
+                    "allergens": {
+                        "type": "array",
+                        "items": {
+                            "type": "string",
+                            "enum": [
+                                "gluten",
+                                "crustaceans",
+                                "eggs",
+                                "fish",
+                                "peanuts",
+                                "soybeans",
+                                "milk",
+                                "nuts",
+                                "celery",
+                                "mustard",
+                                "sesame",
+                                "sulphites",
+                                "lupin",
+                                "molluscs"
+                            ]
+                        },
+                        "example": [
+                            "gluten",
+                            "milk",
+                            "eggs"
+                        ]
+                    },
+                    "nutrition": {
+                        "oneOf": [
+                            {
+                                "$ref": "#/components/schemas/Nutrition"
+                            }
+                        ],
+                        "nullable": true
                     },
                     "modifier_groups": {
                         "type": "array",

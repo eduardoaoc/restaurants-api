@@ -30,6 +30,7 @@ class ProductTest extends TestCase
                     ['locale' => 'en', 'name' => 'Coca-Cola', 'description' => 'Cola soft drink'],
                     ['locale' => 'pt', 'name' => 'Coca-Cola', 'description' => 'Refrigerante de cola'],
                 ],
+                'allergens' => [],
             ])
             ->assertCreated()
             ->assertJsonPath('data.product.internal_name', 'Coca-Cola 330ml');
@@ -48,7 +49,8 @@ class ProductTest extends TestCase
             ->postJson('/api/v1/products', [
                 'internal_name' => 'Water',
                 'organization_id' => $otherOrganization->id,
-                'translations' => [['locale' => 'en', 'name' => 'Water']],
+                'translations' => [['locale' => 'en', 'name' => 'Water', 'description' => 'Still mineral water.']],
+                'allergens' => [],
             ])
             ->assertCreated();
 
@@ -76,7 +78,7 @@ class ProductTest extends TestCase
         $this->actingAs($owner, 'web')
             ->patchJson("/api/v1/products/{$product->id}", [
                 'internal_name' => 'New Name',
-                'translations' => [['locale' => 'en', 'name' => 'New']],
+                'translations' => [['locale' => 'en', 'name' => 'New', 'description' => 'Updated description.']],
             ])
             ->assertOk()
             ->assertJsonPath('data.product.internal_name', 'New Name');
@@ -98,7 +100,7 @@ class ProductTest extends TestCase
 
         $this->actingAs($owner, 'web')
             ->patchJson("/api/v1/products/{$product->id}", [
-                'translations' => [['locale' => 'en', 'name' => 'Updated English']],
+                'translations' => [['locale' => 'en', 'name' => 'Updated English', 'description' => 'Updated description.']],
             ])
             ->assertOk();
 
@@ -119,7 +121,8 @@ class ProductTest extends TestCase
         $this->actingAs($kitchen, 'web')
             ->postJson('/api/v1/products', [
                 'internal_name' => 'Water',
-                'translations' => [['locale' => 'en', 'name' => 'Water']],
+                'translations' => [['locale' => 'en', 'name' => 'Water', 'description' => 'Still mineral water.']],
+                'allergens' => [],
             ])
             ->assertForbidden();
 
@@ -136,9 +139,10 @@ class ProductTest extends TestCase
             ->postJson('/api/v1/products', [
                 'internal_name' => 'Water',
                 'translations' => [
-                    ['locale' => 'en', 'name' => 'Water'],
-                    ['locale' => 'en', 'name' => 'Water again'],
+                    ['locale' => 'en', 'name' => 'Water', 'description' => 'Still mineral water.'],
+                    ['locale' => 'en', 'name' => 'Water again', 'description' => 'Still mineral water.'],
                 ],
+                'allergens' => [],
             ])
             ->assertUnprocessable()
             ->assertJsonValidationErrors('translations');
@@ -151,7 +155,8 @@ class ProductTest extends TestCase
         $this->actingAs($owner, 'web')
             ->postJson('/api/v1/products', [
                 'internal_name' => 'Water',
-                'translations' => [['locale' => 'en', 'name' => 'Water']],
+                'translations' => [['locale' => 'en', 'name' => 'Water', 'description' => 'Still mineral water.']],
+                'allergens' => [],
             ])
             ->assertCreated()
             ->assertJsonMissingPath('data.product.password')

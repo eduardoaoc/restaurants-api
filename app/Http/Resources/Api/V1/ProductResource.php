@@ -22,6 +22,8 @@ class ProductResource extends JsonResource
             'sku' => $this->sku,
             'internal_name' => $this->internal_name,
             'status' => $this->status,
+            'allergens' => $this->allergens,
+            'nutrition' => $this->resource->nutritionPayload(),
             'translations' => $this->whenLoaded('translations', fn () => $this->translations->map(fn ($translation) => [
                 'locale' => $translation->locale,
                 'name' => $translation->name,

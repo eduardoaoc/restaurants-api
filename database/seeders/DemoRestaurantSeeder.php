@@ -106,20 +106,94 @@ class DemoRestaurantSeeder extends Seeder
         ['number' => 14, 'name' => 'Mesa 14', 'zone' => 'terraza', 'capacity' => 4, 'shape' => 'round', 'x' => 0.6, 'y' => 0.7, 'width' => 80, 'height' => 80],
     ];
 
+    /**
+     * `description` is the ES public blurb every demo product must have
+     * (Carta 4.2 — a product without one is not publicly eligible).
+     * `allergens` is always an explicit declaration ([] included).
+     * `nutrition` is null for roughly half the catalog on purpose, to prove
+     * the client renders both "has nutrition" and "no nutrition" states.
+     * "Hamburguesa AFORO" carries description + allergens + nutrition +
+     * modifiers, the one complete case frontend work will lean on.
+     */
     private const PRODUCTS = [
-        'croquetas' => ['sku' => 'DEMO-CROQUETAS', 'name' => 'Croquetas de jamón', 'price' => '7.50'],
-        'bravas' => ['sku' => 'DEMO-BRAVAS', 'name' => 'Patatas bravas', 'price' => '6.90'],
-        'ensalada' => ['sku' => 'DEMO-ENSALADA', 'name' => 'Ensalada mediterránea', 'price' => '8.50'],
-        'paella' => ['sku' => 'DEMO-PAELLA', 'name' => 'Paella Valenciana', 'price' => '16.50'],
-        'senyoret' => ['sku' => 'DEMO-SENYORET', 'name' => 'Arroz del senyoret', 'price' => '17.00'],
-        'hamburguesa' => ['sku' => 'DEMO-HAMBURGUESA', 'name' => 'Hamburguesa AFORO', 'price' => '13.50'],
-        'lubina' => ['sku' => 'DEMO-LUBINA', 'name' => 'Lubina a la sal', 'price' => '19.00'],
-        'agua' => ['sku' => 'DEMO-AGUA', 'name' => 'Agua mineral', 'price' => '2.50'],
-        'cocacola' => ['sku' => 'DEMO-COCACOLA', 'name' => 'Coca-Cola', 'price' => '3.00'],
-        'cerveza' => ['sku' => 'DEMO-CERVEZA', 'name' => 'Cerveza', 'price' => '3.50'],
-        'vino' => ['sku' => 'DEMO-VINO', 'name' => 'Vino (copa)', 'price' => '4.00'],
-        'tarta' => ['sku' => 'DEMO-TARTA', 'name' => 'Tarta de queso', 'price' => '5.50'],
-        'crema' => ['sku' => 'DEMO-CREMA', 'name' => 'Crema catalana', 'price' => '5.00'],
+        'croquetas' => [
+            'sku' => 'DEMO-CROQUETAS', 'name' => 'Croquetas de jamón', 'price' => '7.50',
+            'description' => 'Croquetas caseras de jamón ibérico, cremosas por dentro y crujientes por fuera.',
+            'allergens' => ['gluten', 'milk', 'eggs'],
+            'nutrition' => ['calories_kcal' => 320, 'protein_g' => 9.5, 'carbohydrates_g' => 28, 'fat_g' => 18, 'salt_g' => 1.2],
+        ],
+        'bravas' => [
+            'sku' => 'DEMO-BRAVAS', 'name' => 'Patatas bravas', 'price' => '6.90',
+            'description' => 'Patatas fritas con salsa brava picante y alioli casero.',
+            'allergens' => ['eggs'],
+            'nutrition' => null,
+        ],
+        'ensalada' => [
+            'sku' => 'DEMO-ENSALADA', 'name' => 'Ensalada mediterránea', 'price' => '8.50',
+            'description' => 'Lechuga, tomate, aceitunas, cebolla y queso feta con vinagreta.',
+            'allergens' => ['milk'],
+            'nutrition' => ['calories_kcal' => 280, 'protein_g' => 7, 'carbohydrates_g' => 12, 'fat_g' => 20, 'salt_g' => 1.5],
+        ],
+        'paella' => [
+            'sku' => 'DEMO-PAELLA', 'name' => 'Paella Valenciana', 'price' => '16.50',
+            'description' => 'Arroz valenciano con pollo, conejo, judía verde y garrofón.',
+            'allergens' => [],
+            'nutrition' => ['calories_kcal' => 520, 'protein_g' => 28, 'carbohydrates_g' => 62, 'fat_g' => 16, 'salt_g' => 2.0],
+        ],
+        'senyoret' => [
+            'sku' => 'DEMO-SENYORET', 'name' => 'Arroz del senyoret', 'price' => '17.00',
+            'description' => 'Arroz meloso de marisco pelado, listo para disfrutar sin complicaciones.',
+            'allergens' => ['crustaceans', 'molluscs', 'fish'],
+            'nutrition' => null,
+        ],
+        'hamburguesa' => [
+            'sku' => 'DEMO-HAMBURGUESA', 'name' => 'Hamburguesa AFORO', 'price' => '13.50',
+            'description' => 'Carne de vacuno, queso cheddar, tomate, lechuga y salsa de la casa.',
+            'allergens' => ['gluten', 'milk', 'eggs', 'mustard'],
+            'nutrition' => ['calories_kcal' => 720, 'protein_g' => 38, 'carbohydrates_g' => 54, 'fat_g' => 39, 'salt_g' => 2.1],
+        ],
+        'lubina' => [
+            'sku' => 'DEMO-LUBINA', 'name' => 'Lubina a la sal', 'price' => '19.00',
+            'description' => 'Lubina entera al horno cubierta de sal marina, servida con verduras.',
+            'allergens' => ['fish'],
+            'nutrition' => null,
+        ],
+        'agua' => [
+            'sku' => 'DEMO-AGUA', 'name' => 'Agua mineral', 'price' => '2.50',
+            'description' => 'Botella de agua mineral natural, 500ml.',
+            'allergens' => [],
+            'nutrition' => ['calories_kcal' => 0, 'protein_g' => 0, 'carbohydrates_g' => 0, 'fat_g' => 0, 'salt_g' => 0],
+        ],
+        'cocacola' => [
+            'sku' => 'DEMO-COCACOLA', 'name' => 'Coca-Cola', 'price' => '3.00',
+            'description' => 'Refresco de cola servido bien frío, lata de 330ml.',
+            'allergens' => [],
+            'nutrition' => null,
+        ],
+        'cerveza' => [
+            'sku' => 'DEMO-CERVEZA', 'name' => 'Cerveza', 'price' => '3.50',
+            'description' => 'Cerveza rubia de barril, caña de 300ml.',
+            'allergens' => ['gluten'],
+            'nutrition' => null,
+        ],
+        'vino' => [
+            'sku' => 'DEMO-VINO', 'name' => 'Vino (copa)', 'price' => '4.00',
+            'description' => 'Copa de vino tinto de la Comunidad Valenciana.',
+            'allergens' => ['sulphites'],
+            'nutrition' => null,
+        ],
+        'tarta' => [
+            'sku' => 'DEMO-TARTA', 'name' => 'Tarta de queso', 'price' => '5.50',
+            'description' => 'Tarta de queso horneada, cremosa y con un toque de limón.',
+            'allergens' => ['gluten', 'milk', 'eggs'],
+            'nutrition' => ['calories_kcal' => 410, 'protein_g' => 8, 'carbohydrates_g' => 34, 'fat_g' => 27, 'salt_g' => 0.6],
+        ],
+        'crema' => [
+            'sku' => 'DEMO-CREMA', 'name' => 'Crema catalana', 'price' => '5.00',
+            'description' => 'Crema catalana tradicional con la capa de azúcar caramelizada.',
+            'allergens' => ['milk', 'eggs'],
+            'nutrition' => null,
+        ],
     ];
 
     /**
@@ -427,17 +501,34 @@ class DemoRestaurantSeeder extends Seeder
                 $product = app(CreateProductAction::class)->execute($organization, [
                     'sku' => $spec['sku'],
                     'internal_name' => $spec['name'],
-                    'translations' => [['locale' => 'es-ES', 'name' => $spec['name']]],
+                    'translations' => [['locale' => 'es-ES', 'name' => $spec['name'], 'description' => $spec['description']]],
+                    'allergens' => $spec['allergens'],
+                    'nutrition' => $spec['nutrition'],
                 ]);
             }
 
             // Upserted on every run (not just at creation) so that adding a
-            // new locale to EXTRA_LOCALE_NAMES later also reaches
-            // installs that already have this demo seeded.
+            // new locale to EXTRA_LOCALE_NAMES later, or editing
+            // description/allergens/nutrition above, also reaches installs
+            // that already have this demo seeded.
             $names = ['es-ES' => $spec['name']] + (self::EXTRA_LOCALE_NAMES['products'][$key] ?? []);
             foreach ($names as $locale => $name) {
-                $product->translations()->updateOrCreate(['locale' => $locale], ['name' => $name]);
+                $attributes = ['name' => $name];
+
+                if ($locale === 'es-ES') {
+                    $attributes['description'] = $spec['description'];
+                }
+
+                $product->translations()->updateOrCreate(['locale' => $locale], $attributes);
             }
+
+            $product->allergens = $spec['allergens'];
+            $product->calories_kcal = $spec['nutrition']['calories_kcal'] ?? null;
+            $product->protein_g = $spec['nutrition']['protein_g'] ?? null;
+            $product->carbohydrates_g = $spec['nutrition']['carbohydrates_g'] ?? null;
+            $product->fat_g = $spec['nutrition']['fat_g'] ?? null;
+            $product->salt_g = $spec['nutrition']['salt_g'] ?? null;
+            $product->save();
 
             $restaurantProduct = RestaurantProduct::query()->firstOrCreate(
                 ['restaurant_id' => $restaurant->id, 'product_id' => $product->id],

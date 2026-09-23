@@ -2,6 +2,7 @@
 
 namespace App\OpenApi;
 
+use App\Models\Product;
 use OpenApi\Attributes as OA;
 
 #[OA\Info(
@@ -466,6 +467,45 @@ use OpenApi\Attributes as OA;
     type: 'object'
 )]
 #[OA\Schema(
+    schema: 'ProductTranslationInput',
+    description: 'Unlike Category/ModifierGroup/ModifierOption translations, a Product translation always requires a non-blank description — it is the public menu\'s dish blurb.',
+    required: ['locale', 'name', 'description'],
+    properties: [
+        new OA\Property(property: 'locale', type: 'string', example: 'es-ES'),
+        new OA\Property(property: 'name', type: 'string', example: 'Hamburguesa AFORO'),
+        new OA\Property(property: 'description', type: 'string', maxLength: 500, example: 'Carne de vacuno, queso cheddar, tomate, lechuga y salsa de la casa.'),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
+    schema: 'NutritionInput',
+    description: 'Optional per-serving nutrition values. Omit the whole object, or send it as null, when nothing has been recorded. Every value inside it is independently optional.',
+    properties: [
+        new OA\Property(property: 'calories_kcal', type: 'integer', minimum: 0, example: 720, nullable: true),
+        new OA\Property(property: 'protein_g', type: 'number', format: 'float', minimum: 0, example: 38, nullable: true),
+        new OA\Property(property: 'carbohydrates_g', type: 'number', format: 'float', minimum: 0, example: 54, nullable: true),
+        new OA\Property(property: 'fat_g', type: 'number', format: 'float', minimum: 0, example: 39, nullable: true),
+        new OA\Property(property: 'salt_g', type: 'number', format: 'float', minimum: 0, example: 2.1, nullable: true),
+    ],
+    type: 'object',
+    nullable: true
+)]
+#[OA\Schema(
+    schema: 'Nutrition',
+    description: 'Per-serving (never per-100g) nutritional information. The whole object is absent/null when no value has ever been recorded — an individual field can still be null within it.',
+    required: ['basis'],
+    properties: [
+        new OA\Property(property: 'basis', type: 'string', example: 'per_serving'),
+        new OA\Property(property: 'calories_kcal', type: 'integer', example: 720, nullable: true),
+        new OA\Property(property: 'protein_g', type: 'string', example: '38.00', nullable: true),
+        new OA\Property(property: 'carbohydrates_g', type: 'string', example: '54.00', nullable: true),
+        new OA\Property(property: 'fat_g', type: 'string', example: '39.00', nullable: true),
+        new OA\Property(property: 'salt_g', type: 'string', example: '2.10', nullable: true),
+    ],
+    type: 'object',
+    nullable: true
+)]
+#[OA\Schema(
     schema: 'Menu',
     required: ['id', 'restaurant_id', 'name', 'status'],
     properties: [
@@ -506,6 +546,15 @@ use OpenApi\Attributes as OA;
         new OA\Property(property: 'sku', type: 'string', example: 'SKU-0001', nullable: true),
         new OA\Property(property: 'internal_name', type: 'string', example: 'Coca-Cola 330ml'),
         new OA\Property(property: 'status', type: 'string', example: 'active'),
+        new OA\Property(
+            property: 'allergens',
+            description: 'null = allergen declaration not made yet (legacy data, not publicly eligible). [] = declared explicitly as "none". Never confuse the two.',
+            type: 'array',
+            items: new OA\Items(type: 'string', enum: Product::ALLERGEN_CODES),
+            example: ['gluten', 'milk', 'eggs'],
+            nullable: true
+        ),
+        new OA\Property(property: 'nutrition', ref: '#/components/schemas/Nutrition', nullable: true),
         new OA\Property(
             property: 'translations',
             type: 'array',
@@ -692,13 +741,21 @@ use OpenApi\Attributes as OA;
 )]
 #[OA\Schema(
     schema: 'PublicProduct',
-    required: ['restaurant_product_id', 'product_id', 'name', 'description', 'price', 'modifier_groups'],
+    description: 'Never appears without a valid description and an explicit (possibly empty) allergens declaration — see BuildPublicMenuAction eligibility rules.',
+    required: ['restaurant_product_id', 'product_id', 'name', 'description', 'price', 'allergens', 'modifier_groups'],
     properties: [
         new OA\Property(property: 'restaurant_product_id', type: 'integer', format: 'int64', example: 100),
         new OA\Property(property: 'product_id', type: 'integer', format: 'int64', example: 15),
         new OA\Property(property: 'name', type: 'string', example: 'Hamburguesa Clásica'),
         new OA\Property(property: 'description', type: 'string', example: 'Carne, queso y salsa', nullable: true),
         new OA\Property(property: 'price', type: 'string', example: '12.90'),
+        new OA\Property(
+            property: 'allergens',
+            type: 'array',
+            items: new OA\Items(type: 'string', enum: Product::ALLERGEN_CODES),
+            example: ['gluten', 'milk', 'eggs']
+        ),
+        new OA\Property(property: 'nutrition', ref: '#/components/schemas/Nutrition', nullable: true),
         new OA\Property(
             property: 'modifier_groups',
             type: 'array',

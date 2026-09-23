@@ -77,9 +77,17 @@ class BuildPublicMenuAction
             return null;
         }
 
-        $translation = LocaleResolver::pickTranslation($restaurantProduct->product->translations, $locale, $defaultLocale);
+        $product = $restaurantProduct->product;
 
-        if (! $translation) {
+        // null = allergen declaration never made (legacy data) — not
+        // publicly eligible. [] = declared explicitly as "none" — eligible.
+        if ($product->allergens === null) {
+            return null;
+        }
+
+        $translation = LocaleResolver::pickTranslation($product->translations, $locale, $defaultLocale);
+
+        if (! $translation || trim((string) $translation->description) === '') {
             return null;
         }
 

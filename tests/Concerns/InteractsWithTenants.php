@@ -220,15 +220,37 @@ trait InteractsWithTenants
     /**
      * Create a product with translations under an organization's catalog.
      *
+     * Defaults `allergens` to `[]` (an explicit "none declared") and fills
+     * any translation missing a `description` with a placeholder, so every
+     * existing call site stays publicly eligible under Carta 4.2's rules
+     * without having to know about them. Pass `allergens: null` or a
+     * translation with an explicit `description` to opt out of a default.
+     *
      * @param  array<int, array{locale: string, name: string, description?: ?string}>|null  $translations
+     * @param  array<int, string>|null  $allergens
+     * @param  array{calories_kcal?: ?int, protein_g?: ?float, carbohydrates_g?: ?float, fat_g?: ?float, salt_g?: ?float}|null  $nutrition
      */
-    protected function createProduct(Organization $organization, ?string $internalName = null, ?array $translations = null): Product
-    {
+    protected function createProduct(
+        Organization $organization,
+        ?string $internalName = null,
+        ?array $translations = null,
+        ?array $allergens = [],
+        ?array $nutrition = null,
+    ): Product {
+        $translations = $translations ?? [
+            ['locale' => 'en', 'name' => 'Cola'],
+        ];
+
+        $translations = array_map(
+            fn (array $translation) => $translation + ['description' => 'Test product description.'],
+            $translations,
+        );
+
         return app(CreateProductAction::class)->execute($organization, [
             'internal_name' => $internalName ?? 'Product '.uniqid(),
-            'translations' => $translations ?? [
-                ['locale' => 'en', 'name' => 'Cola'],
-            ],
+            'translations' => $translations,
+            'allergens' => $allergens,
+            'nutrition' => $nutrition,
         ]);
     }
 

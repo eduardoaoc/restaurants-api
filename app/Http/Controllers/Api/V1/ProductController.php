@@ -82,7 +82,7 @@ class ProductController extends Controller
         requestBody: new OA\RequestBody(
             required: true,
             content: new OA\JsonContent(
-                required: ['internal_name', 'translations'],
+                required: ['internal_name', 'translations', 'allergens'],
                 properties: [
                     new OA\Property(property: 'sku', type: 'string', example: 'SKU-0001', nullable: true),
                     new OA\Property(property: 'internal_name', type: 'string', example: 'Coca-Cola 330ml'),
@@ -90,8 +90,16 @@ class ProductController extends Controller
                     new OA\Property(
                         property: 'translations',
                         type: 'array',
-                        items: new OA\Items(ref: '#/components/schemas/Translation')
+                        items: new OA\Items(ref: '#/components/schemas/ProductTranslationInput')
                     ),
+                    new OA\Property(
+                        property: 'allergens',
+                        description: 'Explicit allergen declaration. [] means "none of the 14 groups apply" — the field is required so a product is never accidentally undeclared.',
+                        type: 'array',
+                        items: new OA\Items(type: 'string', enum: Product::ALLERGEN_CODES),
+                        example: ['gluten', 'milk', 'eggs']
+                    ),
+                    new OA\Property(property: 'nutrition', ref: '#/components/schemas/NutritionInput', nullable: true),
                 ]
             )
         ),
@@ -202,8 +210,16 @@ class ProductController extends Controller
                     new OA\Property(
                         property: 'translations',
                         type: 'array',
-                        items: new OA\Items(ref: '#/components/schemas/Translation')
+                        items: new OA\Items(ref: '#/components/schemas/ProductTranslationInput')
                     ),
+                    new OA\Property(
+                        property: 'allergens',
+                        description: 'Omitted preserves the current declaration. [] clears it to "none". null is rejected — a declaration cannot be un-made.',
+                        type: 'array',
+                        items: new OA\Items(type: 'string', enum: Product::ALLERGEN_CODES),
+                        example: ['gluten', 'milk', 'eggs']
+                    ),
+                    new OA\Property(property: 'nutrition', ref: '#/components/schemas/NutritionInput', nullable: true),
                 ]
             )
         ),

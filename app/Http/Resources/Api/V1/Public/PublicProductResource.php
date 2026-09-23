@@ -38,6 +38,8 @@ class PublicProductResource extends JsonResource
             'name' => $this->translation->name,
             'description' => $this->translation->description,
             'price' => (string) $this->price,
+            'allergens' => $this->resource->product->allergens,
+            'nutrition' => $this->resource->product->nutritionPayload(),
             'modifier_groups' => $this->modifierGroups,
         ];
     }
