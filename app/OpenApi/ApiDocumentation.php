@@ -506,6 +506,29 @@ use OpenApi\Attributes as OA;
     nullable: true
 )]
 #[OA\Schema(
+    schema: 'ProductMedia',
+    description: 'Never exposes the storage disk or internal path — only a ready-to-use, publicly reachable URL (see ProductMediaResource).',
+    required: ['id', 'type', 'url', 'mime_type', 'size_bytes'],
+    properties: [
+        new OA\Property(property: 'id', type: 'integer', format: 'int64', example: 1),
+        new OA\Property(property: 'type', type: 'string', enum: ['image', 'video'], example: 'image'),
+        new OA\Property(property: 'url', type: 'string', example: 'http://localhost:8080/storage/products/1/15/image/9c1f2b8e-....webp'),
+        new OA\Property(property: 'mime_type', type: 'string', example: 'image/webp'),
+        new OA\Property(property: 'size_bytes', type: 'integer', example: 123456),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
+    schema: 'ProductMediaSet',
+    description: 'A product\'s media slots. Media is never required for public eligibility (Carta 4.2 rules alone decide that) — both slots are commonly null.',
+    required: ['image', 'video'],
+    properties: [
+        new OA\Property(property: 'image', ref: '#/components/schemas/ProductMedia', nullable: true),
+        new OA\Property(property: 'video', ref: '#/components/schemas/ProductMedia', nullable: true),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
     schema: 'Menu',
     required: ['id', 'restaurant_id', 'name', 'status'],
     properties: [
@@ -555,6 +578,7 @@ use OpenApi\Attributes as OA;
             nullable: true
         ),
         new OA\Property(property: 'nutrition', ref: '#/components/schemas/Nutrition', nullable: true),
+        new OA\Property(property: 'media', ref: '#/components/schemas/ProductMediaSet'),
         new OA\Property(
             property: 'translations',
             type: 'array',
@@ -741,8 +765,8 @@ use OpenApi\Attributes as OA;
 )]
 #[OA\Schema(
     schema: 'PublicProduct',
-    description: 'Never appears without a valid description and an explicit (possibly empty) allergens declaration — see BuildPublicMenuAction eligibility rules.',
-    required: ['restaurant_product_id', 'product_id', 'name', 'description', 'price', 'allergens', 'modifier_groups'],
+    description: 'Never appears without a valid description and an explicit (possibly empty) allergens declaration — see BuildPublicMenuAction eligibility rules. Media (image/video) is never required for eligibility.',
+    required: ['restaurant_product_id', 'product_id', 'name', 'description', 'price', 'allergens', 'media', 'modifier_groups'],
     properties: [
         new OA\Property(property: 'restaurant_product_id', type: 'integer', format: 'int64', example: 100),
         new OA\Property(property: 'product_id', type: 'integer', format: 'int64', example: 15),
@@ -756,6 +780,7 @@ use OpenApi\Attributes as OA;
             example: ['gluten', 'milk', 'eggs']
         ),
         new OA\Property(property: 'nutrition', ref: '#/components/schemas/Nutrition', nullable: true),
+        new OA\Property(property: 'media', ref: '#/components/schemas/ProductMediaSet'),
         new OA\Property(
             property: 'modifier_groups',
             type: 'array',

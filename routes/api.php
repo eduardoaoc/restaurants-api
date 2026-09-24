@@ -22,6 +22,7 @@ use App\Http\Controllers\Api\V1\Platform\PlatformOrganizationController;
 use App\Http\Controllers\Api\V1\Platform\PlatformRestaurantController;
 use App\Http\Controllers\Api\V1\Platform\PlatformUserController;
 use App\Http\Controllers\Api\V1\ProductController;
+use App\Http\Controllers\Api\V1\ProductMediaController;
 use App\Http\Controllers\Api\V1\Public\PublicFeedbackController;
 use App\Http\Controllers\Api\V1\Public\PublicMenuController;
 use App\Http\Controllers\Api\V1\Public\PublicOrderController;
@@ -216,6 +217,11 @@ Route::prefix('v1')->group(function () {
         Route::post('/products', [ProductController::class, 'store']);
         Route::get('/products/{product}', [ProductController::class, 'show']);
         Route::patch('/products/{product}', [ProductController::class, 'update']);
+
+        Route::post('/products/{product}/media/{type}', [ProductMediaController::class, 'store'])
+            ->whereIn('type', ['image', 'video']);
+        Route::delete('/products/{product}/media/{type}', [ProductMediaController::class, 'destroy'])
+            ->whereIn('type', ['image', 'video']);
 
         Route::get('/restaurants/{restaurant}/products', [RestaurantProductController::class, 'index']);
         Route::post('/restaurants/{restaurant}/products', [RestaurantProductController::class, 'store']);

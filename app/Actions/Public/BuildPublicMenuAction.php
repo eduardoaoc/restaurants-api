@@ -144,6 +144,7 @@ class BuildPublicMenuAction
             'categories.categoryProducts.restaurantProduct' => fn ($query) => $query->where('available', true),
             'categories.categoryProducts.restaurantProduct.product' => fn ($query) => $query->where('status', 'active'),
             'categories.categoryProducts.restaurantProduct.product.translations' => fn ($query) => $query,
+            'categories.categoryProducts.restaurantProduct.product.media' => fn ($query) => $query,
             'categories.categoryProducts.restaurantProduct.modifierGroups' => fn ($query) => $query->where('status', 'active')->orderBy('sort_order')->orderBy('id'),
             'categories.categoryProducts.restaurantProduct.modifierGroups.translations' => fn ($query) => $query,
             'categories.categoryProducts.restaurantProduct.modifierGroups.options' => fn ($query) => $query->where('status', 'active')->where('available', true)->orderBy('sort_order')->orderBy('id'),

@@ -24,6 +24,10 @@ class ProductResource extends JsonResource
             'status' => $this->status,
             'allergens' => $this->allergens,
             'nutrition' => $this->resource->nutritionPayload(),
+            'media' => [
+                'image' => optional($this->resource->mediaImage(), fn ($media) => new ProductMediaResource($media)),
+                'video' => optional($this->resource->mediaVideo(), fn ($media) => new ProductMediaResource($media)),
+            ],
             'translations' => $this->whenLoaded('translations', fn () => $this->translations->map(fn ($translation) => [
                 'locale' => $translation->locale,
                 'name' => $translation->name,

@@ -101,4 +101,37 @@ class Product extends Model
     {
         return $this->hasMany(RestaurantProduct::class);
     }
+
+    /**
+     * At most one row per ProductMedia::TYPES value (DB-enforced unique
+     * (product_id, type)) — never a general-purpose media gallery.
+     *
+     * @return HasMany<ProductMedia, $this>
+     */
+    public function media(): HasMany
+    {
+        return $this->hasMany(ProductMedia::class);
+    }
+
+    public function mediaImage(): ?ProductMedia
+    {
+        return $this->mediaOfType(ProductMedia::TYPE_IMAGE);
+    }
+
+    public function mediaVideo(): ?ProductMedia
+    {
+        return $this->mediaOfType(ProductMedia::TYPE_VIDEO);
+    }
+
+    /**
+     * Reads the already-eager-loaded `media` collection when available, so
+     * a product list never re-queries per row (see ProductResource /
+     * PublicProductResource / BuildPublicMenuAction eager loads).
+     */
+    private function mediaOfType(string $type): ?ProductMedia
+    {
+        $media = $this->relationLoaded('media') ? $this->media : $this->media()->get();
+
+        return $media->firstWhere('type', $type);
+    }
 }

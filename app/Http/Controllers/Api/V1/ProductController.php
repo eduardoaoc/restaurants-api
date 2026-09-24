@@ -61,7 +61,7 @@ class ProductController extends Controller
 
         $this->authorize('viewAny', [Product::class, $organization]);
 
-        $products = $organization->products()->with('translations')->get();
+        $products = $organization->products()->with(['translations', 'media'])->get();
 
         return response()->json([
             'data' => [
@@ -177,7 +177,7 @@ class ProductController extends Controller
     public function show(int $product): JsonResponse
     {
         $organization = $this->activeOrganization();
-        $productModel = $organization->products()->with('translations')->findOrFail($product);
+        $productModel = $organization->products()->with(['translations', 'media'])->findOrFail($product);
 
         $this->authorize('view', $productModel);
 

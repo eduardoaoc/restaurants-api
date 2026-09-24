@@ -43,7 +43,7 @@ class UpdateProductAction
                 );
             }
 
-            return $product->load('translations');
+            return $product->load(['translations', 'media']);
         });
     }
 }

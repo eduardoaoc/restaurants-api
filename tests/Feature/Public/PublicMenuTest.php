@@ -304,6 +304,47 @@ class PublicMenuTest extends TestCase
         ], $productJson['nutrition']);
     }
 
+    public function test_product_with_image_and_video_exposes_both_public_urls(): void
+    {
+        [, , $restaurant] = $this->createTenant();
+        $table = $this->createTable($restaurant);
+        $menu = $this->createMenu($restaurant);
+        $category = $this->createCategory($menu, 'cat', [['locale' => 'es', 'name' => 'Categoria']]);
+        $product = $this->createProduct($restaurant->organization, null, [['locale' => 'es', 'name' => 'Producto']]);
+        $product->media()->create([
+            'type' => 'image', 'disk' => 'public', 'path' => 'products/1/1/image/fixture.webp',
+            'mime_type' => 'image/webp', 'size_bytes' => 12345,
+        ]);
+        $product->media()->create([
+            'type' => 'video', 'disk' => 'public', 'path' => 'products/1/1/video/fixture.mp4',
+            'mime_type' => 'video/mp4', 'size_bytes' => 678910,
+        ]);
+        $rp = $this->createRestaurantProduct($restaurant, $product);
+        CategoryProduct::query()->create(['category_id' => $category->id, 'restaurant_product_id' => $rp->id, 'sort_order' => 0]);
+
+        $response = $this->getJson("/api/v1/public/tables/{$table->public_token}/menu")->assertOk();
+        $media = $response->json('data.menu.categories.0.products.0.media');
+
+        $this->assertSame('image', $media['image']['type']);
+        $this->assertStringContainsString('/storage/products/1/1/image/fixture.webp', $media['image']['url']);
+        $this->assertSame('image/webp', $media['image']['mime_type']);
+        $this->assertSame('video', $media['video']['type']);
+        $this->assertStringContainsString('/storage/products/1/1/video/fixture.mp4', $media['video']['url']);
+    }
+
+    public function test_product_without_media_shows_null_slots_in_the_public_menu(): void
+    {
+        [, , $restaurant] = $this->createTenant();
+        $table = $this->createTable($restaurant);
+        $menu = $this->createMenu($restaurant);
+        $category = $this->createCategory($menu, 'cat', [['locale' => 'es', 'name' => 'Categoria']]);
+        $this->publishProductInCategory($restaurant, $category);
+
+        $response = $this->getJson("/api/v1/public/tables/{$table->public_token}/menu")->assertOk();
+
+        $this->assertSame(['image' => null, 'video' => null], $response->json('data.menu.categories.0.products.0.media'));
+    }
+
     public function test_product_without_translation_does_not_appear(): void
     {
         [, , $restaurant] = $this->createTenant();
@@ -352,7 +393,7 @@ class PublicMenuTest extends TestCase
         $productJson = $response->json('data.menu.categories.0.products.0');
 
         $this->assertEqualsCanonicalizing(
-            ['restaurant_product_id', 'product_id', 'name', 'description', 'price', 'allergens', 'nutrition', 'modifier_groups'],
+            ['restaurant_product_id', 'product_id', 'name', 'description', 'price', 'allergens', 'nutrition', 'media', 'modifier_groups'],
             array_keys($productJson)
         );
         $this->assertSame($rp->id, $productJson['restaurant_product_id']);
@@ -361,6 +402,7 @@ class PublicMenuTest extends TestCase
         $this->assertSame('Carne, queso y salsa', $productJson['description']);
         $this->assertSame([], $productJson['allergens']);
         $this->assertNull($productJson['nutrition']);
+        $this->assertSame(['image' => null, 'video' => null], $productJson['media']);
         $this->assertSame([], $productJson['modifier_groups']);
 
         $productJsonEncoded = json_encode($productJson);

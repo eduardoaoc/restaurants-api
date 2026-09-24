@@ -32,7 +32,7 @@ class CreateProductAction
                 $product->translations()->create($translation);
             }
 
-            return $product->load('translations');
+            return $product->load(['translations', 'media']);
         });
     }
 }
