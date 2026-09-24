@@ -28,6 +28,7 @@ use App\Http\Controllers\Api\V1\Public\PublicMenuController;
 use App\Http\Controllers\Api\V1\Public\PublicOrderController;
 use App\Http\Controllers\Api\V1\Public\PublicTableController;
 use App\Http\Controllers\Api\V1\Public\PublicTableRequestController;
+use App\Http\Controllers\Api\V1\Public\PublicVisitController;
 use App\Http\Controllers\Api\V1\RestaurantAnalyticsController;
 use App\Http\Controllers\Api\V1\RestaurantController;
 use App\Http\Controllers\Api\V1\RestaurantDashboardController;
@@ -110,6 +111,10 @@ Route::prefix('v1')->group(function () {
             Route::middleware('throttle:public-feedback')->group(function () {
                 Route::get('/feedback/{feedbackToken}', [PublicFeedbackController::class, 'show']);
                 Route::post('/feedback/{feedbackToken}', [PublicFeedbackController::class, 'store']);
+
+                // Post-payment visit summary (CARTA 5.1A): same opaque
+                // credential and limiter as feedback, separate contract.
+                Route::get('/visits/{feedbackToken}', [PublicVisitController::class, 'show']);
             });
         });
 

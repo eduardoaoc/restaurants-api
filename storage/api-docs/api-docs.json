@@ -5268,6 +5268,73 @@
                 }
             }
         },
+        "/api/v1/public/visits/{feedbackToken}": {
+            "get": {
+                "tags": [
+                    "Public"
+                ],
+                "summary": "Post-payment summary of a visit, resolved from its feedback token",
+                "description": "Post-payment visit summary (CARTA 5.1A): what was consumed during a\npaid visit, keyed ONLY by the visit's opaque feedback_token. Keeps\nworking after the table is closed. A separate contract from\nGET /public/feedback/{feedbackToken}.",
+                "operationId": "publicVisitShow",
+                "parameters": [
+                    {
+                        "name": "feedbackToken",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The visit summary (billable orders only, snapshot values)",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/PublicVisit"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "FEEDBACK_TOKEN_NOT_FOUND — invalid or unknown token",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PublicApiError"
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "TABLE_SESSION_NOT_PAID_FOR_VISIT — the visit exists but is not paid yet",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PublicApiError"
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "Too many requests",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PublicApiError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/restaurants/{restaurant}/analytics": {
             "get": {
                 "tags": [
@@ -11655,6 +11722,171 @@
                             }
                         },
                         "type": "object"
+                    }
+                },
+                "type": "object"
+            },
+            "PublicVisit": {
+                "description": "Post-payment visit summary resolved from the visit's feedback_token. Only billable orders, rendered from their persisted snapshots — never the current catalog. Never exposes internal ids, payment records/methods, staff identities or notes.",
+                "required": [
+                    "restaurant",
+                    "table",
+                    "visit",
+                    "orders",
+                    "summary"
+                ],
+                "properties": {
+                    "restaurant": {
+                        "required": [
+                            "name"
+                        ],
+                        "properties": {
+                            "name": {
+                                "type": "string",
+                                "example": "Casa Pepe"
+                            }
+                        },
+                        "type": "object"
+                    },
+                    "table": {
+                        "required": [
+                            "name"
+                        ],
+                        "properties": {
+                            "name": {
+                                "type": "string",
+                                "example": "Mesa 12"
+                            }
+                        },
+                        "type": "object"
+                    },
+                    "visit": {
+                        "required": [
+                            "active",
+                            "paid_at",
+                            "closed_at"
+                        ],
+                        "properties": {
+                            "active": {
+                                "type": "boolean",
+                                "example": false
+                            },
+                            "paid_at": {
+                                "type": "string",
+                                "format": "date-time",
+                                "example": "2026-09-24T21:10:00.000000Z"
+                            },
+                            "closed_at": {
+                                "type": "string",
+                                "format": "date-time",
+                                "example": "2026-09-24T21:15:00.000000Z",
+                                "nullable": true
+                            }
+                        },
+                        "type": "object"
+                    },
+                    "orders": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/PublicVisitOrder"
+                        }
+                    },
+                    "summary": {
+                        "required": [
+                            "total"
+                        ],
+                        "properties": {
+                            "total": {
+                                "description": "Sum of billable order totals — same rule as the internal bill (SessionBillCalculator).",
+                                "type": "string",
+                                "example": "17.80"
+                            }
+                        },
+                        "type": "object"
+                    }
+                },
+                "type": "object"
+            },
+            "PublicVisitOrder": {
+                "required": [
+                    "order_number",
+                    "created_at",
+                    "total",
+                    "items"
+                ],
+                "properties": {
+                    "order_number": {
+                        "type": "string",
+                        "example": "#42"
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "example": "2026-09-24T20:30:00.000000Z"
+                    },
+                    "total": {
+                        "type": "string",
+                        "example": "17.80"
+                    },
+                    "items": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/PublicVisitOrderItem"
+                        }
+                    }
+                },
+                "type": "object"
+            },
+            "PublicVisitOrderItem": {
+                "required": [
+                    "name",
+                    "quantity",
+                    "unit_price",
+                    "modifiers",
+                    "line_total"
+                ],
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "example": "Hamburguesa"
+                    },
+                    "quantity": {
+                        "type": "integer",
+                        "example": 2
+                    },
+                    "unit_price": {
+                        "description": "Base unit price snapshot, before modifiers",
+                        "type": "string",
+                        "example": "7.90"
+                    },
+                    "modifiers": {
+                        "type": "array",
+                        "items": {
+                            "required": [
+                                "group_name",
+                                "name",
+                                "price_delta"
+                            ],
+                            "properties": {
+                                "group_name": {
+                                    "type": "string",
+                                    "example": "Extras"
+                                },
+                                "name": {
+                                    "type": "string",
+                                    "example": "Bacon"
+                                },
+                                "price_delta": {
+                                    "type": "string",
+                                    "example": "1.00"
+                                }
+                            },
+                            "type": "object"
+                        }
+                    },
+                    "line_total": {
+                        "type": "string",
+                        "example": "17.80"
                     }
                 },
                 "type": "object"

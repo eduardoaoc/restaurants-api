@@ -1198,6 +1198,78 @@ use OpenApi\Attributes as OA;
     type: 'object'
 )]
 #[OA\Schema(
+    schema: 'PublicVisit',
+    required: ['restaurant', 'table', 'visit', 'orders', 'summary'],
+    description: 'Post-payment visit summary resolved from the visit\'s feedback_token. Only billable orders, rendered from their persisted snapshots — never the current catalog. Never exposes internal ids, payment records/methods, staff identities or notes.',
+    properties: [
+        new OA\Property(
+            property: 'restaurant',
+            required: ['name'],
+            properties: [new OA\Property(property: 'name', type: 'string', example: 'Casa Pepe')],
+            type: 'object'
+        ),
+        new OA\Property(
+            property: 'table',
+            required: ['name'],
+            properties: [new OA\Property(property: 'name', type: 'string', example: 'Mesa 12')],
+            type: 'object'
+        ),
+        new OA\Property(
+            property: 'visit',
+            required: ['active', 'paid_at', 'closed_at'],
+            properties: [
+                new OA\Property(property: 'active', type: 'boolean', example: false),
+                new OA\Property(property: 'paid_at', type: 'string', format: 'date-time', example: '2026-09-24T21:10:00.000000Z'),
+                new OA\Property(property: 'closed_at', type: 'string', format: 'date-time', example: '2026-09-24T21:15:00.000000Z', nullable: true),
+            ],
+            type: 'object'
+        ),
+        new OA\Property(property: 'orders', type: 'array', items: new OA\Items(ref: '#/components/schemas/PublicVisitOrder')),
+        new OA\Property(
+            property: 'summary',
+            required: ['total'],
+            properties: [new OA\Property(property: 'total', type: 'string', example: '17.80', description: 'Sum of billable order totals — same rule as the internal bill (SessionBillCalculator).')],
+            type: 'object'
+        ),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
+    schema: 'PublicVisitOrder',
+    required: ['order_number', 'created_at', 'total', 'items'],
+    properties: [
+        new OA\Property(property: 'order_number', type: 'string', example: '#42'),
+        new OA\Property(property: 'created_at', type: 'string', format: 'date-time', example: '2026-09-24T20:30:00.000000Z'),
+        new OA\Property(property: 'total', type: 'string', example: '17.80'),
+        new OA\Property(property: 'items', type: 'array', items: new OA\Items(ref: '#/components/schemas/PublicVisitOrderItem')),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
+    schema: 'PublicVisitOrderItem',
+    required: ['name', 'quantity', 'unit_price', 'modifiers', 'line_total'],
+    properties: [
+        new OA\Property(property: 'name', type: 'string', example: 'Hamburguesa'),
+        new OA\Property(property: 'quantity', type: 'integer', example: 2),
+        new OA\Property(property: 'unit_price', type: 'string', example: '7.90', description: 'Base unit price snapshot, before modifiers'),
+        new OA\Property(
+            property: 'modifiers',
+            type: 'array',
+            items: new OA\Items(
+                required: ['group_name', 'name', 'price_delta'],
+                properties: [
+                    new OA\Property(property: 'group_name', type: 'string', example: 'Extras'),
+                    new OA\Property(property: 'name', type: 'string', example: 'Bacon'),
+                    new OA\Property(property: 'price_delta', type: 'string', example: '1.00'),
+                ],
+                type: 'object'
+            )
+        ),
+        new OA\Property(property: 'line_total', type: 'string', example: '17.80'),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
     schema: 'CreatePublicFeedbackRequest',
     required: ['first_name', 'last_name', 'wait_time_rating', 'food_rating', 'service_rating', 'overall_rating'],
     properties: [

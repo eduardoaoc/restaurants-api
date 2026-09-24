@@ -29,6 +29,7 @@ use App\Exceptions\Public\PublicMenuNotAvailableException;
 use App\Exceptions\Public\PublicTableNotFoundException;
 use App\Exceptions\Public\TableSessionBillRequestedException;
 use App\Exceptions\Public\TableSessionNotPaidForFeedbackException;
+use App\Exceptions\Public\TableSessionNotPaidForVisitException;
 use App\Exceptions\Public\WaiterCallDisabledException;
 use App\Exceptions\Reports\InvalidReportPeriodException;
 use App\Exceptions\Staff\CannotReviewSelfException;
@@ -245,6 +246,11 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->render(function (TableSessionNotPaidForFeedbackException $e, Request $request) {
             return response()->json([
                 'error' => ['code' => 'TABLE_SESSION_NOT_PAID_FOR_FEEDBACK', 'message' => 'This visit is not eligible for feedback yet.'],
+            ], 409);
+        });
+        $exceptions->render(function (TableSessionNotPaidForVisitException $e, Request $request) {
+            return response()->json([
+                'error' => ['code' => 'TABLE_SESSION_NOT_PAID_FOR_VISIT', 'message' => 'This visit has not been paid yet.'],
             ], 409);
         });
         $exceptions->render(function (WaiterCallDisabledException $e, Request $request) {
