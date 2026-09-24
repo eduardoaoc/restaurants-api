@@ -65,7 +65,11 @@ class CreatePublicTableRequestAction
                 throw new TableSessionNotActiveException;
             }
 
-            if ($lockedSession->isPaid()) {
+            // A paid-but-still-active session may still call the waiter
+            // (post-payment "want anything else?" CTA, CARTA 5.1C) — it's
+            // not a financial operation. Every other type, request_bill
+            // included, stays blocked once paid.
+            if ($lockedSession->isPaid() && $type !== TableRequest::TYPE_CALL_WAITER) {
                 throw new TableSessionAlreadyPaidException;
             }
 

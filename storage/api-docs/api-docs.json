@@ -5097,7 +5097,7 @@
                     "Public"
                 ],
                 "summary": "Call the waiter from the public QR surface",
-                "description": "Call the waiter over. Requires an active table session, exactly like\norder creation — the QR identifies the table, not a standing\nauthorization to act on it.",
+                "description": "Requires an active table session. A session that is already paid but still active may still call the waiter.",
                 "operationId": "publicTableRequestsCallWaiter",
                 "parameters": [
                     {
@@ -5148,7 +5148,7 @@
                         }
                     },
                     "409": {
-                        "description": "No active table session, a call_waiter request is already open for this session, or WAITER_CALL_DISABLED",
+                        "description": "TABLE_SESSION_NOT_ACTIVE (no active table session), TABLE_REQUEST_ALREADY_OPEN (a call_waiter request is already open for this session), or WAITER_CALL_DISABLED",
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -5236,7 +5236,7 @@
                         }
                     },
                     "409": {
-                        "description": "No active table session, a request_bill request is already open for this session, or BILL_REQUEST_DISABLED",
+                        "description": "TABLE_SESSION_NOT_ACTIVE (no active table session), TABLE_REQUEST_ALREADY_OPEN (a request_bill request is already open for this session), TABLE_SESSION_ALREADY_PAID (the session is already fully paid), or BILL_REQUEST_DISABLED",
                         "content": {
                             "application/json": {
                                 "schema": {

@@ -17,12 +17,14 @@ class PublicTableRequestController extends Controller
     /**
      * Call the waiter over. Requires an active table session, exactly like
      * order creation — the QR identifies the table, not a standing
-     * authorization to act on it.
+     * authorization to act on it. Unlike order creation and request_bill,
+     * still allowed once that session is paid (CARTA 5.1C).
      */
     #[OA\Post(
         path: '/api/v1/public/tables/{publicToken}/requests/call-waiter',
         operationId: 'publicTableRequestsCallWaiter',
         summary: 'Call the waiter from the public QR surface',
+        description: 'Requires an active table session. A session that is already paid but still active may still call the waiter.',
         tags: ['Public'],
         parameters: [
             new OA\Parameter(name: 'publicToken', in: 'path', required: true, schema: new OA\Schema(type: 'string')),
@@ -36,7 +38,7 @@ class PublicTableRequestController extends Controller
         responses: [
             new OA\Response(response: 201, description: 'Request created', content: new OA\JsonContent(ref: '#/components/schemas/PublicTableRequest')),
             new OA\Response(response: 404, description: 'Table not found or not publicly servable', content: new OA\JsonContent(ref: '#/components/schemas/PublicApiError')),
-            new OA\Response(response: 409, description: 'No active table session, a call_waiter request is already open for this session, or WAITER_CALL_DISABLED', content: new OA\JsonContent(ref: '#/components/schemas/PublicApiError')),
+            new OA\Response(response: 409, description: 'TABLE_SESSION_NOT_ACTIVE (no active table session), TABLE_REQUEST_ALREADY_OPEN (a call_waiter request is already open for this session), or WAITER_CALL_DISABLED', content: new OA\JsonContent(ref: '#/components/schemas/PublicApiError')),
             new OA\Response(response: 422, description: 'Malformed request', content: new OA\JsonContent(ref: '#/components/schemas/PublicApiError')),
             new OA\Response(response: 429, description: 'Too many requests', content: new OA\JsonContent(ref: '#/components/schemas/PublicApiError')),
         ]
@@ -67,7 +69,7 @@ class PublicTableRequestController extends Controller
         responses: [
             new OA\Response(response: 201, description: 'Request created', content: new OA\JsonContent(ref: '#/components/schemas/PublicTableRequest')),
             new OA\Response(response: 404, description: 'Table not found or not publicly servable', content: new OA\JsonContent(ref: '#/components/schemas/PublicApiError')),
-            new OA\Response(response: 409, description: 'No active table session, a request_bill request is already open for this session, or BILL_REQUEST_DISABLED', content: new OA\JsonContent(ref: '#/components/schemas/PublicApiError')),
+            new OA\Response(response: 409, description: 'TABLE_SESSION_NOT_ACTIVE (no active table session), TABLE_REQUEST_ALREADY_OPEN (a request_bill request is already open for this session), TABLE_SESSION_ALREADY_PAID (the session is already fully paid), or BILL_REQUEST_DISABLED', content: new OA\JsonContent(ref: '#/components/schemas/PublicApiError')),
             new OA\Response(response: 422, description: 'Malformed request', content: new OA\JsonContent(ref: '#/components/schemas/PublicApiError')),
             new OA\Response(response: 429, description: 'Too many requests', content: new OA\JsonContent(ref: '#/components/schemas/PublicApiError')),
         ]
