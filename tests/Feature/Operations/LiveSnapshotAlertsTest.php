@@ -82,6 +82,7 @@ class LiveSnapshotAlertsTest extends TestCase
         $table = $this->createTable($restaurant);
         $this->openSession($table, $owner);
         $this->createTableRequest($table, TableRequest::TYPE_CALL_WAITER);
+        $this->createServedOrder($table, $owner);
         $this->createTableRequest($table, TableRequest::TYPE_REQUEST_BILL);
 
         $response = $this->actingAs($owner, 'web')

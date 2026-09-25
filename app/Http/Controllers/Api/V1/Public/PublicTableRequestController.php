@@ -50,12 +50,14 @@ class PublicTableRequestController extends Controller
 
     /**
      * Ask for the bill. Does not create a payment or close the table
-     * session — that's a later block.
+     * session — that's a later block. Only accepted once the service is
+     * done: at least one billable order and none still open.
      */
     #[OA\Post(
         path: '/api/v1/public/tables/{publicToken}/requests/bill',
         operationId: 'publicTableRequestsBill',
         summary: 'Request the bill from the public QR surface',
+        description: 'Requires an active, unpaid table session with at least one billable order and no order still waiting for approval or in the kitchen/delivery.',
         tags: ['Public'],
         parameters: [
             new OA\Parameter(name: 'publicToken', in: 'path', required: true, schema: new OA\Schema(type: 'string')),
@@ -69,7 +71,7 @@ class PublicTableRequestController extends Controller
         responses: [
             new OA\Response(response: 201, description: 'Request created', content: new OA\JsonContent(ref: '#/components/schemas/PublicTableRequest')),
             new OA\Response(response: 404, description: 'Table not found or not publicly servable', content: new OA\JsonContent(ref: '#/components/schemas/PublicApiError')),
-            new OA\Response(response: 409, description: 'TABLE_SESSION_NOT_ACTIVE (no active table session), TABLE_REQUEST_ALREADY_OPEN (a request_bill request is already open for this session), TABLE_SESSION_ALREADY_PAID (the session is already fully paid), or BILL_REQUEST_DISABLED', content: new OA\JsonContent(ref: '#/components/schemas/PublicApiError')),
+            new OA\Response(response: 409, description: 'TABLE_SESSION_NOT_ACTIVE (no active table session), TABLE_SESSION_ALREADY_PAID (the session is already fully paid), TABLE_SESSION_HAS_OPEN_ORDERS (an order is still waiting for approval or in the kitchen/delivery), TABLE_SESSION_HAS_NO_BILLABLE_ORDERS (nothing billable was consumed yet), TABLE_REQUEST_ALREADY_OPEN (a request_bill request is already open for this session), or BILL_REQUEST_DISABLED', content: new OA\JsonContent(ref: '#/components/schemas/PublicApiError')),
             new OA\Response(response: 422, description: 'Malformed request', content: new OA\JsonContent(ref: '#/components/schemas/PublicApiError')),
             new OA\Response(response: 429, description: 'Too many requests', content: new OA\JsonContent(ref: '#/components/schemas/PublicApiError')),
         ]

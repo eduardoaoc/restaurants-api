@@ -47,6 +47,7 @@ class AuditLogTableSessionAndRequestTest extends TestCase
         $session = $this->openSession($table, $owner);
 
         $requestA = $this->createTableRequest($table, TableRequest::TYPE_CALL_WAITER);
+        $this->createServedOrder($table, $owner);
         $requestB = $this->createTableRequest($table, TableRequest::TYPE_REQUEST_BILL);
 
         $this->closeSessionWithFullPayment($session, $owner);

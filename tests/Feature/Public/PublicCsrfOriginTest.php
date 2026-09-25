@@ -77,6 +77,7 @@ class PublicCsrfOriginTest extends TestCase
         [, $owner, $restaurant] = $this->createTenant();
         $table = $this->createTable($restaurant);
         $this->openSession($table, $owner);
+        $this->createServedOrder($table, $owner);
 
         $response = $this
             ->withHeaders(['Origin' => self::SPA_ORIGIN])

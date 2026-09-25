@@ -44,6 +44,7 @@ class PublicOrderBillRequestedTest extends TestCase
         ])->assertStatus(201);
 
         $this->assertDatabaseCount('orders', 1);
+        $this->advanceOrderTo(Order::query()->sole(), Order::STATUS_SERVED, $owner);
 
         $this->postJson("/api/v1/public/tables/{$table->public_token}/requests/bill")
             ->assertStatus(201);
@@ -63,6 +64,7 @@ class PublicOrderBillRequestedTest extends TestCase
         [, $owner, $restaurant, $rp] = $this->createTenantWithRestaurantProduct();
         $table = $this->createTable($restaurant);
         $session = $this->openSession($table, $owner);
+        $this->createServedOrder($table, $owner);
 
         $tableRequest = $this->createTableRequest($table, TableRequest::TYPE_REQUEST_BILL);
         $this->advanceTableRequestTo($tableRequest, TableRequest::STATUS_ACKNOWLEDGED, $owner);
@@ -72,7 +74,7 @@ class PublicOrderBillRequestedTest extends TestCase
         ])->assertStatus(409);
 
         $response->assertJson(['error' => ['code' => 'TABLE_SESSION_BILL_REQUESTED']]);
-        $this->assertDatabaseCount('orders', 0);
+        $this->assertDatabaseCount('orders', 1);
         $this->assertTrue($session->refresh()->hasOpenBillRequest());
     }
 
@@ -83,6 +85,7 @@ class PublicOrderBillRequestedTest extends TestCase
         [, $owner, $restaurant, $rp] = $this->createTenantWithRestaurantProduct();
         $table = $this->createTable($restaurant);
         $this->openSession($table, $owner);
+        $this->createServedOrder($table, $owner);
 
         $this->createTableRequest($table, TableRequest::TYPE_REQUEST_BILL);
 
@@ -92,8 +95,8 @@ class PublicOrderBillRequestedTest extends TestCase
             ]);
 
         $response->assertStatus(201);
-        $this->assertDatabaseCount('orders', 1);
-        $this->assertSame(Order::ORIGIN_WAITER, Order::query()->firstOrFail()->origin);
+        $this->assertDatabaseCount('orders', 2);
+        $this->assertSame(Order::ORIGIN_WAITER, Order::query()->findOrFail($response->json('data.order.id'))->origin);
     }
 
     // --- D: no bill request -> public ordering unaffected -------------------

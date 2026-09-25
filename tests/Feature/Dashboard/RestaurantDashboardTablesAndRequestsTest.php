@@ -82,6 +82,7 @@ class RestaurantDashboardTablesAndRequestsTest extends TestCase
 
         $tableC = $this->createTable($restaurant, 'C');
         $this->openSession($tableC, $owner);
+        $this->createServedOrder($tableC, $owner);
         $this->createTableRequest($tableC, TableRequest::TYPE_REQUEST_BILL);
 
         // Only requestA is driven to completion.

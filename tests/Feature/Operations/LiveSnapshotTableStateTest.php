@@ -118,13 +118,17 @@ class LiveSnapshotTableStateTest extends TestCase
         [$organization, $owner, $restaurant] = $this->createTenant();
         $table = $this->createTable($restaurant);
         $this->openSession($table, $owner);
+        // The bill can only be requested once everything is served; the
+        // ready order is a later staff order (staff ordering isn't blocked
+        // by an open bill request).
+        $this->createServedOrder($table, $owner);
+        $this->createTableRequest($table, TableRequest::TYPE_REQUEST_BILL);
         $restaurantProduct = $this->createRestaurantProduct($restaurant, $this->createProduct($organization), 10.0);
         $order = $this->createWaiterOrder($table, $owner, [
             ['restaurant_product_id' => $restaurantProduct->id, 'quantity' => 1],
         ]);
         $this->advanceOrderTo($order, Order::STATUS_READY, $owner);
         $this->createTableRequest($table, TableRequest::TYPE_CALL_WAITER);
-        $this->createTableRequest($table, TableRequest::TYPE_REQUEST_BILL);
 
         $view = $this->fetchTableView($owner, $restaurant, $table->id);
 

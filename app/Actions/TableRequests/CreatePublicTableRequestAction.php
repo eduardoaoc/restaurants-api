@@ -5,6 +5,8 @@ namespace App\Actions\TableRequests;
 use App\Actions\Public\ResolvePublicTableAction;
 use App\Events\Realtime\TableRequestCreated;
 use App\Exceptions\Billing\TableSessionAlreadyPaidException;
+use App\Exceptions\Billing\TableSessionHasNoBillableOrdersException;
+use App\Exceptions\Billing\TableSessionHasOpenOrdersException;
 use App\Exceptions\Orders\TableSessionNotActiveException;
 use App\Exceptions\Public\BillRequestDisabledException;
 use App\Exceptions\Public\WaiterCallDisabledException;
@@ -13,6 +15,7 @@ use App\Models\AuditLog;
 use App\Models\TableRequest;
 use App\Models\TableSession;
 use App\Support\Audit\AuditLogger;
+use App\Support\Billing\SessionBillCalculator;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 
@@ -71,6 +74,23 @@ class CreatePublicTableRequestAction
             // included, stays blocked once paid.
             if ($lockedSession->isPaid() && $type !== TableRequest::TYPE_CALL_WAITER) {
                 throw new TableSessionAlreadyPaidException;
+            }
+
+            // The bill can only be requested once the service is done:
+            // at least one billable order and none still in
+            // approval/kitchen/delivery. Same summary and check order as
+            // CloseTableAction, evaluated under the session lock (order
+            // creation takes the same lock). call_waiter is unaffected.
+            if ($type === TableRequest::TYPE_REQUEST_BILL) {
+                $summary = SessionBillCalculator::summarize($lockedSession);
+
+                if ($summary['hasOpenOrders']) {
+                    throw new TableSessionHasOpenOrdersException;
+                }
+
+                if (! $summary['hasBillableOrders']) {
+                    throw new TableSessionHasNoBillableOrdersException;
+                }
             }
 
             $hasOpenRequestOfType = TableRequest::query()

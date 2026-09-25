@@ -5186,7 +5186,7 @@
                     "Public"
                 ],
                 "summary": "Request the bill from the public QR surface",
-                "description": "Ask for the bill. Does not create a payment or close the table\nsession — that's a later block.",
+                "description": "Requires an active, unpaid table session with at least one billable order and no order still waiting for approval or in the kitchen/delivery.",
                 "operationId": "publicTableRequestsBill",
                 "parameters": [
                     {
@@ -5236,7 +5236,7 @@
                         }
                     },
                     "409": {
-                        "description": "TABLE_SESSION_NOT_ACTIVE (no active table session), TABLE_REQUEST_ALREADY_OPEN (a request_bill request is already open for this session), TABLE_SESSION_ALREADY_PAID (the session is already fully paid), or BILL_REQUEST_DISABLED",
+                        "description": "TABLE_SESSION_NOT_ACTIVE (no active table session), TABLE_SESSION_ALREADY_PAID (the session is already fully paid), TABLE_SESSION_HAS_OPEN_ORDERS (an order is still waiting for approval or in the kitchen/delivery), TABLE_SESSION_HAS_NO_BILLABLE_ORDERS (nothing billable was consumed yet), TABLE_REQUEST_ALREADY_OPEN (a request_bill request is already open for this session), or BILL_REQUEST_DISABLED",
                         "content": {
                             "application/json": {
                                 "schema": {

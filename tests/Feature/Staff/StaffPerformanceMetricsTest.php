@@ -103,6 +103,7 @@ class StaffPerformanceMetricsTest extends TestCase
         $requestAcknowledgedOnly = $this->createTableRequest($table, TableRequest::TYPE_CALL_WAITER);
         $this->advanceTableRequestTo($requestAcknowledgedOnly, TableRequest::STATUS_ACKNOWLEDGED, $waiter);
 
+        $this->createServedOrder($table, $owner);
         $requestCompleted = $this->createTableRequest($table, TableRequest::TYPE_REQUEST_BILL);
         $this->advanceTableRequestTo($requestCompleted, TableRequest::STATUS_COMPLETED, $waiter);
 

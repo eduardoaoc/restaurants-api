@@ -62,6 +62,7 @@ class TableRequestAndWaiterCallEventsTest extends TestCase
         [, $owner, $restaurant] = $this->createTenant();
         $table = $this->createTable($restaurant);
         $this->openSession($table, $owner);
+        $this->createServedOrder($table, $owner);
         $request = $this->createTableRequest($table, TableRequest::TYPE_REQUEST_BILL);
 
         Event::fake([TableRequestAcknowledged::class]);
@@ -80,6 +81,7 @@ class TableRequestAndWaiterCallEventsTest extends TestCase
         [, $owner, $restaurant] = $this->createTenant();
         $table = $this->createTable($restaurant);
         $this->openSession($table, $owner);
+        $this->createServedOrder($table, $owner);
         $request = $this->createTableRequest($table, TableRequest::TYPE_REQUEST_BILL);
         $action = app(TransitionTableRequestStatusAction::class);
         $request = $action->acknowledge($request, $owner);
