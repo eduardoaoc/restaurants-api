@@ -6,6 +6,7 @@ use App\Models\Order;
 use App\Models\PaymentRecord;
 use App\Models\TableSession;
 use App\Support\Money\Money;
+use Illuminate\Support\Collection;
 
 /**
  * Computes a table session's financial summary from its Orders'
@@ -27,7 +28,7 @@ class SessionBillCalculator
         $orders = $session->orders()->get(['id', 'status', 'total']);
 
         $billableOrders = $orders->whereIn('status', Order::billableStatuses());
-        $hasOpenOrders = $orders->whereIn('status', Order::openStatuses())->isNotEmpty();
+        $serviceState = self::serviceStateFromStatuses($orders->pluck('status'));
 
         $ordersTotalCents = $billableOrders->sum(fn (Order $order) => Money::decimalToCents((string) $order->total));
         $paidTotalCents = $session->paymentRecords()->get(['amount'])
@@ -37,8 +38,35 @@ class SessionBillCalculator
             'ordersTotalCents' => $ordersTotalCents,
             'paidTotalCents' => $paidTotalCents,
             'balanceCents' => $ordersTotalCents - $paidTotalCents,
-            'hasBillableOrders' => $billableOrders->isNotEmpty(),
-            'hasOpenOrders' => $hasOpenOrders,
+            'hasBillableOrders' => $serviceState['hasBillableOrders'],
+            'hasOpenOrders' => $serviceState['hasOpenOrders'],
+        ];
+    }
+
+    /**
+     * Just the hasBillableOrders/hasOpenOrders half of summarize(), for
+     * read-only projections that don't need money (the public
+     * bill_request state, polled by the QR client). One query selecting the
+     * session's DISTINCT order statuses — bounded by the number of statuses,
+     * not of orders — and no PaymentRecord query. Both methods derive the
+     * flags through serviceStateFromStatuses(), so they cannot disagree.
+     *
+     * @return array{hasBillableOrders: bool, hasOpenOrders: bool}
+     */
+    public static function serviceState(TableSession $session): array
+    {
+        return self::serviceStateFromStatuses($session->orders()->distinct()->pluck('status'));
+    }
+
+    /**
+     * @param  Collection<int, string>  $statuses
+     * @return array{hasBillableOrders: bool, hasOpenOrders: bool}
+     */
+    private static function serviceStateFromStatuses(Collection $statuses): array
+    {
+        return [
+            'hasBillableOrders' => $statuses->intersect(Order::billableStatuses())->isNotEmpty(),
+            'hasOpenOrders' => $statuses->intersect(Order::openStatuses())->isNotEmpty(),
         ];
     }
 

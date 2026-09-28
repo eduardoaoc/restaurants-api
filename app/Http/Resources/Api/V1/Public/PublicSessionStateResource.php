@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources\Api\V1\Public;
 
+use App\Actions\Public\ResolvePublicBillRequestStateAction;
 use App\Models\TableSession;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -30,6 +31,12 @@ use stdClass;
  * /public/feedback/{feedbackToken} endpoints keep working after close on
  * their own (they check the specific session's isPaid(), not the table's
  * current state) — no other discovery path is needed.
+ *
+ * bill_request (CARTA 5.1D): backend-derived {eligible, reason} for the
+ * "request the bill" CTA — see ResolvePublicBillRequestStateAction. UX
+ * only; the POST stays authoritative. Independent of feedback and of
+ * call_waiter (a paid active session is not bill-eligible but may still
+ * call the waiter).
  */
 class PublicSessionStateResource extends JsonResource
 {
@@ -53,6 +60,7 @@ class PublicSessionStateResource extends JsonResource
         return [
             'active' => $this->session !== null,
             'status' => $this->session?->status,
+            'bill_request' => app(ResolvePublicBillRequestStateAction::class)->execute($this->session),
             'feedback' => $this->feedback(),
         ];
     }

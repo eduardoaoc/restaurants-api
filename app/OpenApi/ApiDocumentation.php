@@ -698,10 +698,20 @@ use OpenApi\Attributes as OA;
 )]
 #[OA\Schema(
     schema: 'PublicSessionState',
-    required: ['active', 'status', 'feedback'],
+    required: ['active', 'status', 'bill_request', 'feedback'],
     properties: [
         new OA\Property(property: 'active', type: 'boolean', example: true),
         new OA\Property(property: 'status', type: 'string', example: 'occupied', nullable: true),
+        new OA\Property(
+            property: 'bill_request',
+            description: 'Backend-derived, presentation-only state of the "request the bill" CTA for the current visit (see ResolvePublicBillRequestStateAction). The client shows the CTA only when restaurant.capabilities.bill_request AND session.bill_request.eligible — the restaurant feature flag is deliberately NOT folded in here. NOT authoritative: POST /public/tables/{publicToken}/requests/bill re-validates everything and decides the real outcome. `reason` is null exactly when eligible=true; otherwise the first match of: no_active_session (no active session) > already_paid (session paid) > already_requested (a request_bill is pending/acknowledged) > open_orders (an order is still waiting approval/in the kitchen/being delivered) > no_billable_orders (nothing consumed yet). This priority intentionally differs from the POST\'s error order: once the bill has been requested, already_requested wins even if staff later add an order that is still open. Unrelated to call_waiter — eligible=false never means the waiter cannot be called.',
+            required: ['eligible', 'reason'],
+            properties: [
+                new OA\Property(property: 'eligible', type: 'boolean', example: false),
+                new OA\Property(property: 'reason', type: 'string', enum: ['no_active_session', 'already_paid', 'already_requested', 'open_orders', 'no_billable_orders', null], example: 'open_orders', nullable: true),
+            ],
+            type: 'object'
+        ),
         new OA\Property(
             property: 'feedback',
             description: 'Present for the whole lifetime of the table\'s active session, unpaid or paid — the token is minted at session-open, not at payment, precisely so the client can persist it well before any payment happens (see PublicSessionStateResource / OpenTableAction). `eligible` alone reflects whether the visit is paid yet and is backend-authoritative: holding `token` while eligible=false does NOT let POST /public/feedback/{token} succeed early — SubmitPublicFeedbackAction re-checks payment_status on every call. Absent (only `eligible: false`, no `token`) when the table has no active session at all.',
