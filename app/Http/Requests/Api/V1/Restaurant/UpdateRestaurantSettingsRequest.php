@@ -2,7 +2,9 @@
 
 namespace App\Http\Requests\Api\V1\Restaurant;
 
+use App\Http\Requests\Api\V1\Rules\GoogleReviewUrl;
 use App\Models\RestaurantSettings;
+use App\Support\Restaurants\GoogleReviewUrl as GoogleReviewUrlPolicy;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -23,6 +25,17 @@ class UpdateRestaurantSettingsRequest extends FormRequest
     }
 
     /**
+     * google_review_url: trim, blank => null (clears the link) — done
+     * here explicitly rather than relying on global middleware.
+     */
+    protected function prepareForValidation(): void
+    {
+        if ($this->exists('google_review_url')) {
+            $this->merge(['google_review_url' => GoogleReviewUrlPolicy::normalize($this->input('google_review_url'))]);
+        }
+    }
+
+    /**
      * @return array<string, mixed>
      */
     public function rules(): array
@@ -39,6 +52,7 @@ class UpdateRestaurantSettingsRequest extends FormRequest
             'bill_request_enabled' => ['sometimes', 'boolean'],
             'kitchen_ticket_printing_enabled' => ['sometimes', 'boolean'],
             'bill_receipt_printing_enabled' => ['sometimes', 'boolean'],
+            'google_review_url' => ['sometimes', 'nullable', 'string', 'max:'.GoogleReviewUrlPolicy::MAX_LENGTH, new GoogleReviewUrl],
         ];
     }
 

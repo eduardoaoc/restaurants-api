@@ -1209,7 +1209,7 @@ use OpenApi\Attributes as OA;
 )]
 #[OA\Schema(
     schema: 'PublicVisit',
-    required: ['restaurant', 'table', 'visit', 'orders', 'summary'],
+    required: ['restaurant', 'table', 'visit', 'orders', 'summary', 'google_review'],
     description: 'Post-payment visit summary resolved from the visit\'s feedback_token. Only billable orders, rendered from their persisted snapshots — never the current catalog. Never exposes internal ids, payment records/methods, staff identities or notes.',
     properties: [
         new OA\Property(
@@ -1239,6 +1239,16 @@ use OpenApi\Attributes as OA;
             property: 'summary',
             required: ['total'],
             properties: [new OA\Property(property: 'total', type: 'string', example: '17.80', description: 'Sum of billable order totals — same rule as the internal bill (SessionBillCalculator).')],
+            type: 'object'
+        ),
+        new OA\Property(
+            property: 'google_review',
+            description: 'Whether the restaurant configured a Google Review link (settings.google_review_url). available=false ⇔ url=null; available=true ⇔ url is the stored HTTPS Google review/share link (a format currently supported by AFORO). Derived only from that setting — never from feedback ratings nor from whether feedback was submitted (no review gating); the client decides when to show the CTA.',
+            required: ['available', 'url'],
+            properties: [
+                new OA\Property(property: 'available', type: 'boolean', example: true),
+                new OA\Property(property: 'url', type: 'string', format: 'uri', example: 'https://g.page/r/CabcdEFGhij123/review', nullable: true),
+            ],
             type: 'object'
         ),
     ],
@@ -1834,6 +1844,7 @@ use OpenApi\Attributes as OA;
         'customer_ordering_enabled', 'customer_order_requires_approval',
         'waiter_call_enabled', 'bill_request_enabled',
         'kitchen_ticket_printing_enabled', 'bill_receipt_printing_enabled',
+        'google_review_url',
     ],
     properties: [
         new OA\Property(property: 'default_locale', type: 'string', example: 'es-ES', description: 'One of es-ES / ca-ES-valencia / en-GB. Always a member of enabled_locales.'),
@@ -1846,6 +1857,7 @@ use OpenApi\Attributes as OA;
         new OA\Property(property: 'bill_request_enabled', type: 'boolean', example: true),
         new OA\Property(property: 'kitchen_ticket_printing_enabled', type: 'boolean', example: true, description: 'Gates POST .../kitchen-ticket/print only — the GET preview is always available.'),
         new OA\Property(property: 'bill_receipt_printing_enabled', type: 'boolean', example: true, description: 'Gates POST .../receipt/print only — the GET preview is always available.'),
+        new OA\Property(property: 'google_review_url', type: 'string', format: 'uri', maxLength: 2048, example: 'https://g.page/r/CabcdEFGhij123/review', nullable: true, description: 'HTTPS Google review/share link for this restaurant; null = Google Review disabled (there is no separate enabled flag). Must match one of the Google review/share URL formats currently supported by AFORO — not a normative list published by Google: g.page, maps.app.goo.gl, search.google.com (/local/writereview, /local/reviews), www.google.com / google.com (/maps...), maps.google.com (root or /maps...). Maps links are accepted as Google/Maps links and are not guaranteed to open the review form directly; the recommended link is the one from Business Profile → Read reviews → Get more reviews → Copy. The scheme is matched case-insensitively and stored lowercase; the rest of the URL is stored verbatim. Validated structurally only — never fetched or redirect-resolved server-side.'),
         new OA\Property(property: 'updated_at', type: 'string', format: 'date-time'),
     ],
     type: 'object'
@@ -1864,6 +1876,7 @@ use OpenApi\Attributes as OA;
         new OA\Property(property: 'bill_request_enabled', type: 'boolean', example: true),
         new OA\Property(property: 'kitchen_ticket_printing_enabled', type: 'boolean', example: true),
         new OA\Property(property: 'bill_receipt_printing_enabled', type: 'boolean', example: true),
+        new OA\Property(property: 'google_review_url', type: 'string', format: 'uri', maxLength: 2048, example: 'https://g.page/r/CabcdEFGhij123/review', nullable: true, description: 'Trimmed; an empty/blank string or null clears it. Must be an HTTPS Google review/share link in a format currently supported by AFORO (see RestaurantSettings.google_review_url) — anything else is 422. The scheme is case-insensitive (HTTPS:// is accepted and stored as https://).'),
     ],
     type: 'object'
 )]

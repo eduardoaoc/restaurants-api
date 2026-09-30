@@ -33,6 +33,7 @@ class ResolvePublicVisitAction
         }
 
         return $session->load([
+            'restaurant.settings',
             'orders' => fn (HasMany $query) => $query
                 ->whereIn('status', Order::billableStatuses())
                 ->orderBy('created_at')

@@ -11761,7 +11761,8 @@
                     "table",
                     "visit",
                     "orders",
-                    "summary"
+                    "summary",
+                    "google_review"
                 ],
                 "properties": {
                     "restaurant": {
@@ -11828,6 +11829,26 @@
                                 "description": "Sum of billable order totals — same rule as the internal bill (SessionBillCalculator).",
                                 "type": "string",
                                 "example": "17.80"
+                            }
+                        },
+                        "type": "object"
+                    },
+                    "google_review": {
+                        "description": "Whether the restaurant configured a Google Review link (settings.google_review_url). available=false ⇔ url=null; available=true ⇔ url is the stored HTTPS Google review/share link (a format currently supported by AFORO). Derived only from that setting — never from feedback ratings nor from whether feedback was submitted (no review gating); the client decides when to show the CTA.",
+                        "required": [
+                            "available",
+                            "url"
+                        ],
+                        "properties": {
+                            "available": {
+                                "type": "boolean",
+                                "example": true
+                            },
+                            "url": {
+                                "type": "string",
+                                "format": "uri",
+                                "example": "https://g.page/r/CabcdEFGhij123/review",
+                                "nullable": true
                             }
                         },
                         "type": "object"
@@ -13217,7 +13238,8 @@
                     "waiter_call_enabled",
                     "bill_request_enabled",
                     "kitchen_ticket_printing_enabled",
-                    "bill_receipt_printing_enabled"
+                    "bill_receipt_printing_enabled",
+                    "google_review_url"
                 ],
                 "properties": {
                     "default_locale": {
@@ -13271,6 +13293,14 @@
                         "description": "Gates POST .../receipt/print only — the GET preview is always available.",
                         "type": "boolean",
                         "example": true
+                    },
+                    "google_review_url": {
+                        "description": "HTTPS Google review/share link for this restaurant; null = Google Review disabled (there is no separate enabled flag). Must match one of the Google review/share URL formats currently supported by AFORO — not a normative list published by Google: g.page, maps.app.goo.gl, search.google.com (/local/writereview, /local/reviews), www.google.com / google.com (/maps...), maps.google.com (root or /maps...). Maps links are accepted as Google/Maps links and are not guaranteed to open the review form directly; the recommended link is the one from Business Profile → Read reviews → Get more reviews → Copy. The scheme is matched case-insensitively and stored lowercase; the rest of the URL is stored verbatim. Validated structurally only — never fetched or redirect-resolved server-side.",
+                        "type": "string",
+                        "format": "uri",
+                        "example": "https://g.page/r/CabcdEFGhij123/review",
+                        "nullable": true,
+                        "maxLength": 2048
                     },
                     "updated_at": {
                         "type": "string",
@@ -13327,6 +13357,14 @@
                     "bill_receipt_printing_enabled": {
                         "type": "boolean",
                         "example": true
+                    },
+                    "google_review_url": {
+                        "description": "Trimmed; an empty/blank string or null clears it. Must be an HTTPS Google review/share link in a format currently supported by AFORO (see RestaurantSettings.google_review_url) — anything else is 422. The scheme is case-insensitive (HTTPS:// is accepted and stored as https://).",
+                        "type": "string",
+                        "format": "uri",
+                        "example": "https://g.page/r/CabcdEFGhij123/review",
+                        "nullable": true,
+                        "maxLength": 2048
                     }
                 },
                 "type": "object"

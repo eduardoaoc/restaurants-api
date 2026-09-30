@@ -19,6 +19,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
     'customer_ordering_enabled', 'customer_order_requires_approval',
     'waiter_call_enabled', 'bill_request_enabled',
     'kitchen_ticket_printing_enabled', 'bill_receipt_printing_enabled',
+    'google_review_url',
 ])]
 class RestaurantSettings extends Model
 {

@@ -259,6 +259,7 @@ class PublicVisitTest extends TestCase
                     ]],
                 ]],
                 'summary' => ['total' => '23.50'],
+                'google_review' => ['available' => false, 'url' => null],
             ]]);
 
         $this->assertEqualsCanonicalizing(['Bacon', 'Cheese'], $item->modifiers->pluck('modifier_option_name_snapshot')->all());
