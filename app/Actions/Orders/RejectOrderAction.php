@@ -7,6 +7,9 @@ use App\Exceptions\Orders\OrderStateConflictException;
 use App\Models\AuditLog;
 use App\Models\Order;
 use App\Models\User;
+use App\Support\Activity\ActivityActor;
+use App\Support\Activity\RestaurantActivityRecorder;
+use App\Support\Activity\RestaurantActivityType;
 use App\Support\Audit\AuditLogger;
 use Illuminate\Support\Facades\DB;
 
@@ -17,7 +20,10 @@ use Illuminate\Support\Facades\DB;
  */
 class RejectOrderAction
 {
-    public function __construct(private readonly AuditLogger $auditLogger) {}
+    public function __construct(
+        private readonly AuditLogger $auditLogger,
+        private readonly RestaurantActivityRecorder $activityRecorder,
+    ) {}
 
     public function execute(Order $order, User $rejectedBy): Order
     {
@@ -47,6 +53,16 @@ class RejectOrderAction
                 resourceType: AuditLog::RESOURCE_ORDER,
                 resourceId: $fresh->id,
                 metadata: ['previous_status' => $previousStatus, 'new_status' => Order::STATUS_CANCELLED],
+            );
+
+            $this->activityRecorder->record(
+                restaurantId: $fresh->restaurant_id,
+                type: RestaurantActivityType::ORDER_REJECTED,
+                actor: ActivityActor::staff($rejectedBy),
+                table: $fresh->table,
+                tableSessionId: $fresh->table_session_id,
+                order: $fresh,
+                occurredAt: $fresh->cancelled_at,
             );
 
             OrderStatusChanged::dispatch($fresh->restaurant_id, $fresh->table_id, $fresh->table_session_id, $fresh->id, $previousStatus, Order::STATUS_CANCELLED, $fresh->cancelled_at);

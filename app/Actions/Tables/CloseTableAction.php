@@ -11,6 +11,9 @@ use App\Models\AuditLog;
 use App\Models\TableRequest;
 use App\Models\TableSession;
 use App\Models\User;
+use App\Support\Activity\ActivityActor;
+use App\Support\Activity\RestaurantActivityRecorder;
+use App\Support\Activity\RestaurantActivityType;
 use App\Support\Audit\AuditLogger;
 use App\Support\Billing\SessionBillCalculator;
 use App\Support\Money\Money;
@@ -35,7 +38,10 @@ use Illuminate\Support\Facades\DB;
  */
 class CloseTableAction
 {
-    public function __construct(private readonly AuditLogger $auditLogger) {}
+    public function __construct(
+        private readonly AuditLogger $auditLogger,
+        private readonly RestaurantActivityRecorder $activityRecorder,
+    ) {}
 
     public function execute(TableSession $session, User $closedBy): TableSession
     {
@@ -83,6 +89,16 @@ class CloseTableAction
                     'orders_total' => Money::centsToDecimal($summary['ordersTotalCents']),
                     'paid_total' => Money::centsToDecimal($summary['paidTotalCents']),
                 ],
+            );
+
+            $this->activityRecorder->record(
+                restaurantId: $locked->restaurant_id,
+                type: RestaurantActivityType::TABLE_SESSION_CLOSED,
+                actor: ActivityActor::staff($closedBy),
+                table: $locked->table,
+                tableSessionId: $locked->id,
+                metadata: ['total' => Money::centsToDecimal($summary['ordersTotalCents'])],
+                occurredAt: $locked->closed_at,
             );
 
             TableSessionClosed::dispatch($locked->restaurant_id, $locked->table_id, $locked->id, $locked->closed_at);

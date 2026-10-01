@@ -29,6 +29,7 @@ use App\Http\Controllers\Api\V1\Public\PublicOrderController;
 use App\Http\Controllers\Api\V1\Public\PublicTableController;
 use App\Http\Controllers\Api\V1\Public\PublicTableRequestController;
 use App\Http\Controllers\Api\V1\Public\PublicVisitController;
+use App\Http\Controllers\Api\V1\RestaurantActivityController;
 use App\Http\Controllers\Api\V1\RestaurantAnalyticsController;
 use App\Http\Controllers\Api\V1\RestaurantController;
 use App\Http\Controllers\Api\V1\RestaurantDashboardController;
@@ -157,6 +158,12 @@ Route::prefix('v1')->group(function () {
         // deliberately separate from the historical/period dashboard
         // above — see RestaurantOperationsController.
         Route::get('/restaurants/{restaurant}/operations/live', [RestaurantOperationsController::class, 'live']);
+        // Activity feed (CARTA 6.1A): persistent operational timeline +
+        // per-user read cursor — history, distinct from the live alerts
+        // above and from the audit log. See RestaurantActivityController.
+        Route::get('/restaurants/{restaurant}/activity', [RestaurantActivityController::class, 'index']);
+        Route::get('/restaurants/{restaurant}/activity/unread-count', [RestaurantActivityController::class, 'unreadCount']);
+        Route::post('/restaurants/{restaurant}/activity/read', [RestaurantActivityController::class, 'markRead']);
         // Analytics (Bloco 6): historical/period read model, distinct
         // from both /dashboard above and /operations/live — see
         // RestaurantAnalyticsController.

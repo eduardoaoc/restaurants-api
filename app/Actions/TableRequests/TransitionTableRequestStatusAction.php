@@ -7,6 +7,9 @@ use App\Exceptions\TableRequests\TableRequestStateConflictException;
 use App\Models\AuditLog;
 use App\Models\TableRequest;
 use App\Models\User;
+use App\Support\Activity\ActivityActor;
+use App\Support\Activity\RestaurantActivityRecorder;
+use App\Support\Activity\RestaurantActivityType;
 use App\Support\Audit\AuditLogger;
 use Illuminate\Support\Facades\DB;
 
@@ -38,7 +41,24 @@ class TransitionTableRequestStatusAction
         TableRequest::STATUS_CANCELLED => AuditLog::EVENT_TABLE_REQUEST_CANCELLED,
     ];
 
-    public function __construct(private readonly AuditLogger $auditLogger) {}
+    /**
+     * "type:status" => activity type. cancelled is deliberately absent:
+     * it is not part of the activity feed (see RestaurantActivityType) —
+     * including the automatic cancellation CloseTableAction performs.
+     *
+     * @var array<string, string>
+     */
+    private const ACTIVITY_TYPES = [
+        TableRequest::TYPE_CALL_WAITER.':'.TableRequest::STATUS_ACKNOWLEDGED => RestaurantActivityType::WAITER_REQUEST_ACKNOWLEDGED,
+        TableRequest::TYPE_CALL_WAITER.':'.TableRequest::STATUS_COMPLETED => RestaurantActivityType::WAITER_REQUEST_COMPLETED,
+        TableRequest::TYPE_REQUEST_BILL.':'.TableRequest::STATUS_ACKNOWLEDGED => RestaurantActivityType::BILL_REQUEST_ACKNOWLEDGED,
+        TableRequest::TYPE_REQUEST_BILL.':'.TableRequest::STATUS_COMPLETED => RestaurantActivityType::BILL_REQUEST_COMPLETED,
+    ];
+
+    public function __construct(
+        private readonly AuditLogger $auditLogger,
+        private readonly RestaurantActivityRecorder $activityRecorder,
+    ) {}
 
     public function acknowledge(TableRequest $request, User $actor): TableRequest
     {
@@ -93,6 +113,20 @@ class TransitionTableRequestStatusAction
                 resourceId: $fresh->id,
                 metadata: ['previous_status' => $previousStatus, 'new_status' => $to, 'type' => $fresh->type],
             );
+
+            $activityType = self::ACTIVITY_TYPES["{$fresh->type}:{$to}"] ?? null;
+
+            if ($activityType !== null) {
+                $this->activityRecorder->record(
+                    restaurantId: $fresh->restaurant_id,
+                    type: $activityType,
+                    actor: ActivityActor::staff($actor),
+                    table: $fresh->table,
+                    tableSessionId: $fresh->table_session_id,
+                    tableRequestId: $fresh->id,
+                    occurredAt: $fresh->{"{$auditFieldPrefix}_at"},
+                );
+            }
 
             // Only "acknowledged" is broadcast — the minimum realtime
             // contract for TableRequest (Bloco 7, item 26); completed/

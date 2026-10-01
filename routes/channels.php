@@ -36,13 +36,11 @@ use Illuminate\Support\Facades\Broadcast;
 | active_user) — see that file and docs/realtime.md for the full picture.
 */
 
-Broadcast::channel('restaurant.{restaurantId}', function (User $user, int $restaurantId) {
-    $restaurant = Restaurant::query()->find($restaurantId);
-
-    if (! $restaurant) {
-        return false;
-    }
-
+/**
+ * The restaurant.{id} reachability rule, shared with the activity channel
+ * below so the two can never drift apart.
+ */
+$canReachRestaurant = function (User $user, Restaurant $restaurant): bool {
     // Parity with ResolveTenant's own suspended-organization check: the
     // broadcasting auth route intentionally does not run the `tenant`
     // middleware (there is no single "active organization" for a
@@ -62,4 +60,25 @@ Broadcast::channel('restaurant.{restaurantId}', function (User $user, int $resta
         ->wherePivot('status', OrganizationUser::STATUS_ACTIVE)
         ->whereKey($restaurant->organization_id)->exists()
         && RestaurantScope::canAccessRestaurant($user, $restaurant);
+};
+
+Broadcast::channel('restaurant.{restaurantId}', function (User $user, int $restaurantId) use ($canReachRestaurant) {
+    $restaurant = Restaurant::query()->find($restaurantId);
+
+    return $restaurant !== null && $canReachRestaurant($user, $restaurant);
+});
+
+/*
+| The operational activity feed (CARTA 6.1A) — `restaurant.activity.created`
+| only. Same reachability as restaurant.{id} PLUS view_activity, exactly the
+| gate of GET /restaurants/{restaurant}/activity (RestaurantPolicy::
+| viewActivity): a member who cannot read the feed over REST cannot
+| receive it over the socket either.
+*/
+Broadcast::channel('restaurant.{restaurantId}.activity', function (User $user, int $restaurantId) use ($canReachRestaurant) {
+    $restaurant = Restaurant::query()->find($restaurantId);
+
+    return $restaurant !== null
+        && $canReachRestaurant($user, $restaurant)
+        && $user->hasPermission('view_activity', $restaurant->organization);
 });

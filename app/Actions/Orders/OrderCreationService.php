@@ -11,6 +11,9 @@ use App\Models\Order;
 use App\Models\Table;
 use App\Models\TableSession;
 use App\Models\User;
+use App\Support\Activity\ActivityActor;
+use App\Support\Activity\RestaurantActivityRecorder;
+use App\Support\Activity\RestaurantActivityType;
 use App\Support\Audit\AuditLogger;
 use App\Support\Money\Money;
 use Illuminate\Support\Facades\DB;
@@ -33,6 +36,7 @@ class OrderCreationService
     public function __construct(
         private readonly BuildOrderItemsAction $buildOrderItems,
         private readonly AuditLogger $auditLogger,
+        private readonly RestaurantActivityRecorder $activityRecorder,
     ) {}
 
     /**
@@ -135,6 +139,22 @@ class OrderCreationService
                 resourceType: AuditLog::RESOURCE_ORDER,
                 resourceId: $order->id,
                 metadata: ['origin' => $origin, 'initial_status' => $status],
+            );
+
+            $this->activityRecorder->record(
+                restaurantId: $table->restaurant_id,
+                type: RestaurantActivityType::ORDER_CREATED,
+                actor: $createdBy ? ActivityActor::staff($createdBy) : ActivityActor::customer(),
+                table: $table,
+                tableSessionId: $session->id,
+                order: $order,
+                metadata: [
+                    'origin' => $order->origin,
+                    'initial_status' => $status,
+                    'item_count' => array_sum(array_column($built['itemSpecs'], 'quantity')),
+                    'total' => $order->total,
+                ],
+                occurredAt: $order->created_at,
             );
 
             OrderCreated::dispatch($table->restaurant_id, $table->id, $session->id, $order->id, $order->origin, $order->status, $order->created_at);

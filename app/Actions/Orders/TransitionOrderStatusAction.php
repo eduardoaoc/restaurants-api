@@ -7,6 +7,9 @@ use App\Exceptions\Orders\OrderStateConflictException;
 use App\Models\AuditLog;
 use App\Models\Order;
 use App\Models\User;
+use App\Support\Activity\ActivityActor;
+use App\Support\Activity\RestaurantActivityRecorder;
+use App\Support\Activity\RestaurantActivityType;
 use App\Support\Audit\AuditLogger;
 use Illuminate\Support\Facades\DB;
 
@@ -41,7 +44,20 @@ class TransitionOrderStatusAction
         Order::STATUS_SERVED => AuditLog::EVENT_ORDER_SERVED,
     ];
 
-    public function __construct(private readonly AuditLogger $auditLogger) {}
+    /**
+     * @var array<string, string>
+     */
+    private const ACTIVITY_TYPES = [
+        Order::STATUS_ACCEPTED => RestaurantActivityType::ORDER_ACCEPTED,
+        Order::STATUS_PREPARING => RestaurantActivityType::ORDER_PREPARING,
+        Order::STATUS_READY => RestaurantActivityType::ORDER_READY,
+        Order::STATUS_SERVED => RestaurantActivityType::ORDER_SERVED,
+    ];
+
+    public function __construct(
+        private readonly AuditLogger $auditLogger,
+        private readonly RestaurantActivityRecorder $activityRecorder,
+    ) {}
 
     public function accept(Order $order, User $actor): Order
     {
@@ -89,6 +105,16 @@ class TransitionOrderStatusAction
                 resourceType: AuditLog::RESOURCE_ORDER,
                 resourceId: $fresh->id,
                 metadata: ['previous_status' => $expectedFrom, 'new_status' => $to],
+            );
+
+            $this->activityRecorder->record(
+                restaurantId: $fresh->restaurant_id,
+                type: self::ACTIVITY_TYPES[$to],
+                actor: ActivityActor::staff($actor),
+                table: $fresh->table,
+                tableSessionId: $fresh->table_session_id,
+                order: $fresh,
+                occurredAt: $fresh->{"{$auditFieldPrefix}_at"},
             );
 
             OrderStatusChanged::dispatch($fresh->restaurant_id, $fresh->table_id, $fresh->table_session_id, $fresh->id, $expectedFrom, $to, $fresh->{"{$auditFieldPrefix}_at"});

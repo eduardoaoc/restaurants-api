@@ -14,6 +14,9 @@ use App\Exceptions\TableRequests\TableRequestAlreadyOpenException;
 use App\Models\AuditLog;
 use App\Models\TableRequest;
 use App\Models\TableSession;
+use App\Support\Activity\ActivityActor;
+use App\Support\Activity\RestaurantActivityRecorder;
+use App\Support\Activity\RestaurantActivityType;
 use App\Support\Audit\AuditLogger;
 use App\Support\Billing\SessionBillCalculator;
 use Illuminate\Database\UniqueConstraintViolationException;
@@ -37,6 +40,7 @@ class CreatePublicTableRequestAction
     public function __construct(
         private readonly ResolvePublicTableAction $resolvePublicTable,
         private readonly AuditLogger $auditLogger,
+        private readonly RestaurantActivityRecorder $activityRecorder,
     ) {}
 
     public function execute(string $publicToken, string $type, ?string $note): TableRequest
@@ -132,6 +136,18 @@ class CreatePublicTableRequestAction
                     'status' => $tableRequest->status,
                     'table_session_id' => $tableRequest->table_session_id,
                 ],
+            );
+
+            $this->activityRecorder->record(
+                restaurantId: $table->restaurant_id,
+                type: $tableRequest->type === TableRequest::TYPE_CALL_WAITER
+                    ? RestaurantActivityType::WAITER_REQUEST_CREATED
+                    : RestaurantActivityType::BILL_REQUEST_CREATED,
+                actor: ActivityActor::customer(),
+                table: $table,
+                tableSessionId: $lockedSession->id,
+                tableRequestId: $tableRequest->id,
+                occurredAt: $tableRequest->created_at,
             );
 
             TableRequestCreated::dispatch($table->restaurant_id, $table->id, $lockedSession->id, $tableRequest->id, $tableRequest->type, $tableRequest->status);

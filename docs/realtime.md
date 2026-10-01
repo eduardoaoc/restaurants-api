@@ -87,6 +87,27 @@ on the PHP side.)
 No global operations channel, no cross-restaurant channel, no Platform
 Super Admin bypass (see Security below).
 
+### Activity channel (CARTA 6.1A)
+
+```
+private-restaurant.{restaurantId}.activity
+```
+
+Carries only `restaurant.activity.created`. Authorization = the
+`restaurant.{id}` rule below **plus** the `view_activity` permission —
+exactly the gate of `GET /restaurants/{restaurant}/activity`
+(`RestaurantPolicy::viewActivity`, owner/manager). It is a separate channel
+because `restaurant.{id}` is deliberately open to every restaurant member
+(waiter/kitchen/cashier), while the administrative timeline is not.
+
+The event is dispatched by `RestaurantActivityRecorder` right after the
+row is inserted, inside the mutation's transaction; being after-commit,
+it only goes out once that row is committed. Its `activity` payload is the
+REST resource itself (same `id`, `type`, `occurred_at`, ...), so a client
+does `GET /activity` once and then prepends realtime items, deduplicating
+by `activity.id`. The envelope's own `event_id`/`occurred_at` keep their
+usual meaning (the broadcast, not the activity).
+
 ### Authorization rule
 
 A user may subscribe to `restaurant.{id}` if and only if:
@@ -173,6 +194,7 @@ shared envelope and appends the event's own small, explicit payload
 | `waiter_call.acknowledged`     | `AcknowledgeWaiterCallAction`                                     | same fields                                                                               |
 | `payment.recorded`             | `RecordPaymentAction` (never on an idempotency replay)            | `table_session_id`, `table_id`, `payment_id`, `amount`, `payment_method`, `recorded_at`   |
 | `floor_plan.updated`           | `UpdateFloorPlanLayoutAction` (one event per bulk save)           | `tables_updated_count`, `table_ids`                                                      |
+| `restaurant.activity.created`  | `RestaurantActivityRecorder` (every activity-feed write, CARTA 6.1A) — on `private-restaurant.{id}.activity`, not `restaurant.{id}` | `activity` — exactly one item of `GET /restaurants/{id}/activity` |
 
 Deliberately **not** broadcast: `table_request.completed`/`.cancelled`
 (spec scoped this to created/acknowledged only — see item 26/80),

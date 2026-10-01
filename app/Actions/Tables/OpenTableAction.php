@@ -8,6 +8,9 @@ use App\Models\AuditLog;
 use App\Models\Table;
 use App\Models\TableSession;
 use App\Models\User;
+use App\Support\Activity\ActivityActor;
+use App\Support\Activity\RestaurantActivityRecorder;
+use App\Support\Activity\RestaurantActivityType;
 use App\Support\Audit\AuditLogger;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
@@ -20,7 +23,10 @@ use Illuminate\Support\Facades\DB;
  */
 class OpenTableAction
 {
-    public function __construct(private readonly AuditLogger $auditLogger) {}
+    public function __construct(
+        private readonly AuditLogger $auditLogger,
+        private readonly RestaurantActivityRecorder $activityRecorder,
+    ) {}
 
     public function execute(Table $table, User $openedBy, int $guestCount): TableSession
     {
@@ -59,6 +65,16 @@ class OpenTableAction
                 resourceType: AuditLog::RESOURCE_TABLE_SESSION,
                 resourceId: $session->id,
                 metadata: ['table_id' => $table->id, 'status' => $session->status],
+            );
+
+            $this->activityRecorder->record(
+                restaurantId: $table->restaurant_id,
+                type: RestaurantActivityType::TABLE_SESSION_OPENED,
+                actor: ActivityActor::staff($openedBy),
+                table: $table,
+                tableSessionId: $session->id,
+                metadata: ['guest_count' => $session->guest_count],
+                occurredAt: $session->opened_at,
             );
 
             TableSessionOpened::dispatch(

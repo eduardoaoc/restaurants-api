@@ -2223,4 +2223,98 @@ use OpenApi\Attributes as OA;
     ],
     type: 'object'
 )]
+#[OA\Schema(
+    schema: 'RestaurantActivityType',
+    description: 'Operational activity type (CARTA 6.1A). Only transitions that exist in the domain: order.rejected is the sole way an order becomes cancelled today, so there is no generic order.cancelled; product.* is about the on/off availability flag (RestaurantProduct.available), not stock. waiter_request.* / bill_request.* are the customer QR requests (TableRequest call_waiter / request_bill), not the internal WaiterCall escalation.',
+    type: 'string',
+    enum: [
+        'order.created', 'order.approved', 'order.rejected', 'order.accepted', 'order.preparing', 'order.ready', 'order.served',
+        'waiter_request.created', 'waiter_request.acknowledged', 'waiter_request.completed',
+        'bill_request.created', 'bill_request.acknowledged', 'bill_request.completed',
+        'payment.recorded',
+        'table_session.opened', 'table_session.closed',
+        'product.marked_unavailable', 'product.marked_available',
+    ],
+    example: 'order.ready'
+)]
+#[OA\Schema(
+    schema: 'RestaurantActivityTone',
+    description: 'Semantic presentation tone for the operational event. It does not indicate whether current action is required (that is GET /operations/live alerts) — e.g. order.ready is positive (progress completed) even while an alert may say the order is waiting to be picked up. The backend never returns colors; the client maps each tone to its own color/icon/surface/theme. Derived from the type: neutral → table_session.opened, order.created, order.approved, order.accepted, order.preparing, waiter_request.acknowledged, bill_request.acknowledged; positive → order.ready, order.served, payment.recorded, table_session.closed, waiter_request.completed, bill_request.completed, product.marked_available; warning → waiter_request.created, bill_request.created, product.marked_unavailable; critical → order.rejected.',
+    type: 'string',
+    enum: ['neutral', 'positive', 'warning', 'critical'],
+    example: 'positive'
+)]
+#[OA\Schema(
+    schema: 'RestaurantActivityEvent',
+    description: 'One immutable entry of a restaurant\'s operational activity feed — something that already happened. Rendered from snapshots taken when it happened (actor/table names, order reference), so later renames never rewrite history. This exact shape is also the `activity` payload of the `restaurant.activity.created` realtime event. It is history only: whether something requires action is answered by GET /operations/live alerts, never by this feed.',
+    required: ['id', 'type', 'category', 'tone', 'occurred_at', 'actor', 'table', 'table_session_id', 'order', 'table_request_id', 'metadata'],
+    properties: [
+        new OA\Property(property: 'id', type: 'integer', format: 'int64', example: 5120, description: 'Monotonic within the feed; the feed is ordered by it (newest first) and read cursors compare against it.'),
+        new OA\Property(property: 'type', ref: '#/components/schemas/RestaurantActivityType'),
+        new OA\Property(property: 'category', type: 'string', enum: ['orders', 'service', 'billing', 'tables', 'menu'], example: 'orders', description: 'UI grouping only — orders: order.*; service: waiter_request.*; billing: bill_request.*, payment.recorded; tables: table_session.*; menu: product.*.'),
+        new OA\Property(property: 'tone', ref: '#/components/schemas/RestaurantActivityTone'),
+        new OA\Property(property: 'occurred_at', type: 'string', format: 'date-time', description: 'When the domain transition happened (the domain\'s own timestamp — e.g. the order\'s ready_at — for order/request/payment/session events). ISO 8601 UTC.'),
+        new OA\Property(
+            property: 'actor',
+            required: ['type', 'id', 'name'],
+            properties: [
+                new OA\Property(property: 'type', type: 'string', enum: ['staff', 'customer'], example: 'staff', description: 'customer = anonymous QR guest: id and name are always null (no customer identity is ever stored or invented).'),
+                new OA\Property(property: 'id', type: 'integer', format: 'int64', example: 14, nullable: true),
+                new OA\Property(property: 'name', type: 'string', example: 'Carlos García', nullable: true, description: 'Snapshot of the staff member\'s name at that moment.'),
+            ],
+            type: 'object'
+        ),
+        new OA\Property(
+            property: 'table',
+            required: ['id', 'name'],
+            properties: [
+                new OA\Property(property: 'id', type: 'integer', format: 'int64', example: 12),
+                new OA\Property(property: 'name', type: 'string', example: 'Mesa 12', description: 'Snapshot of the table name at that moment.'),
+            ],
+            type: 'object',
+            nullable: true
+        ),
+        new OA\Property(property: 'table_session_id', type: 'integer', format: 'int64', example: 311, nullable: true),
+        new OA\Property(
+            property: 'order',
+            required: ['id', 'reference'],
+            properties: [
+                new OA\Property(property: 'id', type: 'integer', format: 'int64', example: 1842),
+                new OA\Property(property: 'reference', type: 'string', example: '#1842', description: 'Same value as Order.order_number.'),
+            ],
+            type: 'object',
+            nullable: true
+        ),
+        new OA\Property(property: 'table_request_id', type: 'integer', format: 'int64', example: 77, nullable: true, description: 'Set for waiter_request.* / bill_request.*.'),
+        new OA\Property(
+            property: 'metadata',
+            description: 'Fixed keys per type (null for every type not listed): order.created → origin (customer_qr|waiter), initial_status (waiting_approval|confirmed), item_count (sum of line quantities), total (decimal string); payment.recorded → payment_id, amount (decimal string), method (cash|card|other); table_session.opened → guest_count; table_session.closed → total (billable orders total, decimal string); product.marked_unavailable / product.marked_available → restaurant_product_id, product_name (the product\'s internal name). Never contains IPs, user agents, tokens, contact details, customer notes or payment credentials.',
+            type: 'object',
+            nullable: true,
+            example: ['origin' => 'customer_qr', 'initial_status' => 'waiting_approval', 'item_count' => 3, 'total' => '23.50']
+        ),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
+    schema: 'RestaurantActivityReadState',
+    required: ['last_read_event_id', 'unread_count'],
+    properties: [
+        new OA\Property(property: 'last_read_event_id', type: 'integer', format: 'int64', example: 5100, description: 'The requesting user\'s own cursor on this restaurant (0 = never marked).'),
+        new OA\Property(property: 'unread_count', type: 'integer', example: 3, description: 'Events of this restaurant with id > last_read_event_id.'),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
+    schema: 'RestaurantActivityMeta',
+    required: ['per_page', 'next_cursor', 'prev_cursor', 'last_read_event_id', 'unread_count'],
+    properties: [
+        new OA\Property(property: 'per_page', type: 'integer', example: 25),
+        new OA\Property(property: 'next_cursor', type: 'string', nullable: true, description: 'Pass as ?cursor= to load older events; null on the last page.'),
+        new OA\Property(property: 'prev_cursor', type: 'string', nullable: true, description: 'Pass as ?cursor= to go back towards newer events; null on the first page.'),
+        new OA\Property(property: 'last_read_event_id', type: 'integer', format: 'int64', example: 5100),
+        new OA\Property(property: 'unread_count', type: 'integer', example: 3, description: 'Unaffected by the category/type/period filters — always the whole restaurant feed.'),
+    ],
+    type: 'object'
+)]
 class ApiDocumentation {}

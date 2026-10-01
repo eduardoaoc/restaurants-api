@@ -24,6 +24,7 @@ class PermissionSeeder extends Seeder
         'manage_staff_shifts' => "Start or end another staff member's operational shift, and list shifts",
         'transfer_tables' => 'Transfer an active table session from one table to another',
         'view_operations' => "View the restaurant's live operations snapshot",
+        'view_activity' => "View the restaurant's operational activity feed (timeline) and its unread count",
         'approve_customer_orders' => 'Approve customer orders',
         'create_orders' => 'Create orders',
         'update_kitchen_status' => 'Update kitchen status',

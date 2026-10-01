@@ -12,6 +12,9 @@ use App\Models\AuditLog;
 use App\Models\PaymentRecord;
 use App\Models\TableSession;
 use App\Models\User;
+use App\Support\Activity\ActivityActor;
+use App\Support\Activity\RestaurantActivityRecorder;
+use App\Support\Activity\RestaurantActivityType;
 use App\Support\Audit\AuditLogger;
 use App\Support\Billing\SessionBillCalculator;
 use App\Support\Money\Money;
@@ -35,7 +38,10 @@ use Illuminate\Support\Facades\DB;
  */
 class RecordPaymentAction
 {
-    public function __construct(private readonly AuditLogger $auditLogger) {}
+    public function __construct(
+        private readonly AuditLogger $auditLogger,
+        private readonly RestaurantActivityRecorder $activityRecorder,
+    ) {}
 
     /**
      * @param  array{method: string, amount: string, reference?: ?string, note?: ?string, idempotency_key?: ?string}  $data
@@ -127,6 +133,22 @@ class RecordPaymentAction
                     'amount' => $payment->amount,
                     'currency' => $payment->currency,
                 ],
+            );
+
+            // Never reached on an idempotency replay (returned above) —
+            // one real payment, one activity event.
+            $this->activityRecorder->record(
+                restaurantId: $locked->restaurant_id,
+                type: RestaurantActivityType::PAYMENT_RECORDED,
+                actor: ActivityActor::staff($recordedBy),
+                table: $locked->table,
+                tableSessionId: $locked->id,
+                metadata: [
+                    'payment_id' => $payment->id,
+                    'amount' => $payment->amount,
+                    'method' => $payment->method,
+                ],
+                occurredAt: $payment->recorded_at,
             );
 
             PaymentRecorded::dispatch($locked->restaurant_id, $locked->id, $locked->table_id, $payment->id, $payment->amount, $payment->method, $payment->recorded_at);

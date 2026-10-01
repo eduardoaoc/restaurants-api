@@ -118,4 +118,19 @@ class RestaurantPolicy
             && $user->hasPermission('view_operations', $restaurant->organization)
             && RestaurantScope::canAccessRestaurant($user, $restaurant);
     }
+
+    /**
+     * Reading the operational activity feed (CARTA 6.1A) and managing
+     * one's own read cursor on it. Its own permission (view_activity —
+     * owner/manager), not view_operations: waiters hold view_operations
+     * for the live snapshot, but the full administrative timeline (who
+     * did what, payments, ...) is not granted to waiter/kitchen/cashier
+     * in this block.
+     */
+    public function viewActivity(User $user, Restaurant $restaurant): bool
+    {
+        return $user->organizations()->whereKey($restaurant->organization_id)->exists()
+            && $user->hasPermission('view_activity', $restaurant->organization)
+            && RestaurantScope::canAccessRestaurant($user, $restaurant);
+    }
 }

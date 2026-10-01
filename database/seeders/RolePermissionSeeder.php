@@ -40,6 +40,7 @@ class RolePermissionSeeder extends Seeder
             'transfer_tables',
             'view_operations',
             'view_customer_feedback',
+            'view_activity',
         ],
         'manager' => [
             'manage_restaurants',
@@ -63,6 +64,7 @@ class RolePermissionSeeder extends Seeder
             'transfer_tables',
             'view_operations',
             'view_customer_feedback',
+            'view_activity',
         ],
         'waiter' => [
             'create_orders',

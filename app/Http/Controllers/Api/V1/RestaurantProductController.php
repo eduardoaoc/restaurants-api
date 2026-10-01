@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Actions\Catalog\AttachProductToRestaurantAction;
+use App\Actions\Catalog\UpdateRestaurantProductAction;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\RestaurantProduct\AttachRestaurantProductRequest;
 use App\Http\Requests\Api\V1\RestaurantProduct\UpdateRestaurantProductRequest;
@@ -19,6 +20,7 @@ class RestaurantProductController extends Controller
     public function __construct(
         private readonly TenantContext $tenantContext,
         private readonly AttachProductToRestaurantAction $attachProductToRestaurantAction,
+        private readonly UpdateRestaurantProductAction $updateRestaurantProductAction,
     ) {}
 
     /**
@@ -198,7 +200,7 @@ class RestaurantProductController extends Controller
 
         $this->authorize('update', $restaurantProductModel);
 
-        $restaurantProductModel->update($request->validated());
+        $this->updateRestaurantProductAction->execute($restaurantProductModel, $request->user(), $request->validated());
 
         return response()->json([
             'message' => 'Restaurant product updated successfully.',
