@@ -267,6 +267,7 @@ Route::prefix('v1')->group(function () {
         Route::post('/orders/{order}/kitchen-ticket/print', [KitchenTicketController::class, 'print']);
 
         Route::get('/kitchen/orders', [KitchenController::class, 'orders']);
+        Route::get('/kitchen/dashboard', [KitchenController::class, 'dashboard']);
 
         Route::get('/table-requests', [TableRequestController::class, 'index']);
         Route::get('/table-requests/{tableRequest}', [TableRequestController::class, 'show']);

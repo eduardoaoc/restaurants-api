@@ -1812,6 +1812,60 @@
                 ]
             }
         },
+        "/api/v1/kitchen/dashboard": {
+            "get": {
+                "tags": [
+                    "Kitchen"
+                ],
+                "summary": "Get the Kitchen Dashboard read model for one restaurant",
+                "description": "Live kitchen queue summary + \"today\" (restaurant local day, up to now) timings, top products and the latest accepted/ready orders. The item-level queue stays GET /kitchen/orders. Read-only, a fixed number of queries.",
+                "operationId": "kitchenDashboard",
+                "parameters": [
+                    {
+                        "name": "restaurant_id",
+                        "in": "query",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The Kitchen Dashboard",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/KitchenDashboard"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "The user has no kitchen-relevant permission"
+                    },
+                    "404": {
+                        "description": "restaurant_id is outside the organization or the user's restaurant scope"
+                    },
+                    "422": {
+                        "description": "restaurant_id missing or invalid"
+                    }
+                },
+                "security": [
+                    {
+                        "sessionCookie": []
+                    }
+                ]
+            }
+        },
         "/api/v1/orders/{order}/kitchen-ticket": {
             "get": {
                 "tags": [
@@ -14777,6 +14831,323 @@
                         "description": "Unaffected by the category/type/period filters — always the whole restaurant feed.",
                         "type": "integer",
                         "example": 3
+                    }
+                },
+                "type": "object"
+            },
+            "KitchenDashboardRecentOrder": {
+                "description": "A short kitchen-facing order line — never prices, payments or customer data. recent_accepted items carry accepted_at/accepted_by; recent_ready items carry ready_at/ready_by plus served_at (null while still waiting for a waiter).",
+                "required": [
+                    "order",
+                    "table",
+                    "status",
+                    "items"
+                ],
+                "properties": {
+                    "order": {
+                        "required": [
+                            "id",
+                            "reference"
+                        ],
+                        "properties": {
+                            "id": {
+                                "type": "integer",
+                                "format": "int64",
+                                "example": 1842
+                            },
+                            "reference": {
+                                "type": "string",
+                                "example": "#1842"
+                            }
+                        },
+                        "type": "object"
+                    },
+                    "table": {
+                        "required": [
+                            "id",
+                            "name"
+                        ],
+                        "properties": {
+                            "id": {
+                                "type": "integer",
+                                "format": "int64",
+                                "example": 7
+                            },
+                            "name": {
+                                "type": "string",
+                                "example": "Mesa 07"
+                            }
+                        },
+                        "type": "object"
+                    },
+                    "status": {
+                        "description": "The order's CURRENT status.",
+                        "type": "string",
+                        "example": "ready"
+                    },
+                    "accepted_at": {
+                        "description": "recent_accepted only.",
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "accepted_by": {
+                        "description": "recent_accepted only. The user who performed that transition.",
+                        "properties": {
+                            "id": {
+                                "type": "integer",
+                                "format": "int64"
+                            },
+                            "name": {
+                                "type": "string",
+                                "example": "Pablo Torres"
+                            }
+                        },
+                        "type": "object",
+                        "nullable": true
+                    },
+                    "ready_at": {
+                        "description": "recent_ready only.",
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "ready_by": {
+                        "description": "recent_ready only.",
+                        "properties": {
+                            "id": {
+                                "type": "integer",
+                                "format": "int64"
+                            },
+                            "name": {
+                                "type": "string"
+                            }
+                        },
+                        "type": "object",
+                        "nullable": true
+                    },
+                    "served_at": {
+                        "description": "recent_ready only — null while the ready order still waits for a waiter.",
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true
+                    },
+                    "items": {
+                        "type": "array",
+                        "items": {
+                            "required": [
+                                "name",
+                                "quantity"
+                            ],
+                            "properties": {
+                                "name": {
+                                    "description": "Snapshot taken when ordered.",
+                                    "type": "string",
+                                    "example": "Croquetas caseras"
+                                },
+                                "quantity": {
+                                    "type": "integer",
+                                    "example": 2
+                                }
+                            },
+                            "type": "object"
+                        }
+                    }
+                },
+                "type": "object"
+            },
+            "KitchenDashboardTiming": {
+                "required": [
+                    "average_seconds",
+                    "orders"
+                ],
+                "properties": {
+                    "average_seconds": {
+                        "description": "Null when no order completed this transition in the period (never 0).",
+                        "type": "integer",
+                        "example": 720,
+                        "nullable": true
+                    },
+                    "orders": {
+                        "description": "Sample size: orders whose END timestamp falls in the period.",
+                        "type": "integer",
+                        "example": 14
+                    }
+                },
+                "type": "object"
+            },
+            "KitchenDashboard": {
+                "description": "Kitchen Dashboard read model (CARTA 7.1A). `queue` is live (now); everything else covers `period` = today in the restaurant's timezone, up to now. Kitchen staff cannot read /operations/live or /analytics, hence the own queue summary — restricted to kitchen statuses (confirmed/accepted/preparing/ready, same as GET /kitchen/orders; waiting_approval is not kitchen work). All durations use the lifecycle's exact timestamps, never updated_at.",
+                "required": [
+                    "restaurant",
+                    "generated_at",
+                    "period",
+                    "queue",
+                    "timings",
+                    "top_products",
+                    "recent_accepted",
+                    "recent_ready"
+                ],
+                "properties": {
+                    "restaurant": {
+                        "required": [
+                            "id",
+                            "name",
+                            "timezone"
+                        ],
+                        "properties": {
+                            "id": {
+                                "type": "integer",
+                                "format": "int64",
+                                "example": 1
+                            },
+                            "name": {
+                                "type": "string",
+                                "example": "AFORO Malvarrosa"
+                            },
+                            "timezone": {
+                                "type": "string",
+                                "example": "Europe/Madrid"
+                            }
+                        },
+                        "type": "object"
+                    },
+                    "generated_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "period": {
+                        "required": [
+                            "from",
+                            "to"
+                        ],
+                        "properties": {
+                            "from": {
+                                "description": "Start of today, restaurant local time, as UTC.",
+                                "type": "string",
+                                "format": "date-time"
+                            },
+                            "to": {
+                                "description": "Now.",
+                                "type": "string",
+                                "format": "date-time"
+                            }
+                        },
+                        "type": "object"
+                    },
+                    "queue": {
+                        "required": [
+                            "counts_by_status",
+                            "active_orders",
+                            "oldest_active_order_age_seconds",
+                            "longest_ready_wait_seconds"
+                        ],
+                        "properties": {
+                            "counts_by_status": {
+                                "required": [
+                                    "confirmed",
+                                    "accepted",
+                                    "preparing",
+                                    "ready"
+                                ],
+                                "properties": {
+                                    "confirmed": {
+                                        "description": "New for the kitchen (\"Pedidos nuevos\").",
+                                        "type": "integer",
+                                        "example": 3
+                                    },
+                                    "accepted": {
+                                        "type": "integer",
+                                        "example": 4
+                                    },
+                                    "preparing": {
+                                        "type": "integer",
+                                        "example": 6
+                                    },
+                                    "ready": {
+                                        "type": "integer",
+                                        "example": 2
+                                    }
+                                },
+                                "type": "object"
+                            },
+                            "active_orders": {
+                                "type": "integer",
+                                "example": 15
+                            },
+                            "oldest_active_order_age_seconds": {
+                                "description": "order_age: now − created_at of the oldest order in a kitchen status. Null when the queue is empty.",
+                                "type": "integer",
+                                "example": 840,
+                                "nullable": true
+                            },
+                            "longest_ready_wait_seconds": {
+                                "description": "ready_wait (live): now − ready_at of the oldest order still ready. Null when nothing is ready.",
+                                "type": "integer",
+                                "example": 190,
+                                "nullable": true
+                            }
+                        },
+                        "type": "object"
+                    },
+                    "timings": {
+                        "required": [
+                            "accept",
+                            "preparation",
+                            "ready_to_served"
+                        ],
+                        "properties": {
+                            "accept": {
+                                "$ref": "#/components/schemas/KitchenDashboardTiming"
+                            },
+                            "preparation": {
+                                "$ref": "#/components/schemas/KitchenDashboardTiming"
+                            },
+                            "ready_to_served": {
+                                "$ref": "#/components/schemas/KitchenDashboardTiming"
+                            }
+                        },
+                        "type": "object"
+                    },
+                    "top_products": {
+                        "description": "Up to 5, by quantity — same rule as Analytics top_by_quantity (item snapshots, billable statuses, Order.created_at in the period); no revenue here.",
+                        "type": "array",
+                        "items": {
+                            "required": [
+                                "product_id",
+                                "name",
+                                "quantity"
+                            ],
+                            "properties": {
+                                "product_id": {
+                                    "type": "integer",
+                                    "format": "int64",
+                                    "example": 12,
+                                    "nullable": true
+                                },
+                                "name": {
+                                    "type": "string",
+                                    "example": "Croquetas caseras"
+                                },
+                                "quantity": {
+                                    "type": "integer",
+                                    "example": 23
+                                }
+                            },
+                            "type": "object"
+                        }
+                    },
+                    "recent_accepted": {
+                        "description": "Up to 5 orders accepted today, newest first.",
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/KitchenDashboardRecentOrder"
+                        }
+                    },
+                    "recent_ready": {
+                        "description": "Up to 5 orders that became ready today, newest first.",
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/KitchenDashboardRecentOrder"
+                        }
                     }
                 },
                 "type": "object"

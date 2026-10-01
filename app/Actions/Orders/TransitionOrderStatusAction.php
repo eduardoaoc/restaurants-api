@@ -2,6 +2,7 @@
 
 namespace App\Actions\Orders;
 
+use App\Events\Realtime\OrderReadyForWaiter;
 use App\Events\Realtime\OrderStatusChanged;
 use App\Exceptions\Orders\OrderStateConflictException;
 use App\Models\AuditLog;
@@ -11,6 +12,7 @@ use App\Support\Activity\ActivityActor;
 use App\Support\Activity\RestaurantActivityRecorder;
 use App\Support\Activity\RestaurantActivityType;
 use App\Support\Audit\AuditLogger;
+use App\Support\Tables\ResponsibleWaiterResolver;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -118,6 +120,17 @@ class TransitionOrderStatusAction
             );
 
             OrderStatusChanged::dispatch($fresh->restaurant_id, $fresh->table_id, $fresh->table_session_id, $fresh->id, $expectedFrom, $to, $fresh->{"{$auditFieldPrefix}_at"});
+
+            // Directed "order ready" signal to the session's responsible
+            // waiter (CARTA 7.1A). No eligible waiter => no directed event;
+            // the restaurant-wide signals above still go out.
+            if ($to === Order::STATUS_READY) {
+                $waiter = ResponsibleWaiterResolver::recipientFor($fresh->tableSession);
+
+                if ($waiter !== null) {
+                    OrderReadyForWaiter::dispatch($fresh->restaurant_id, $waiter->id, $fresh->id, $fresh->table_id, $fresh->table->name, $fresh->table_session_id, $fresh->ready_at);
+                }
+            }
 
             return $fresh;
         });

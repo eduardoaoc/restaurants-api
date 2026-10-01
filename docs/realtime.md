@@ -87,6 +87,30 @@ on the PHP side.)
 No global operations channel, no cross-restaurant channel, no Platform
 Super Admin bypass (see Security below).
 
+### User channel (CARTA 7.1A)
+
+```
+private-user.{userId}
+```
+
+Directed, per-person operational signals. Only the authenticated user
+whose id is in the channel name may join (suspended users never reach the
+check — `active_user`). It is not restaurant-scoped, so tenant correctness
+is enforced when an event is **addressed**: `ResponsibleWaiterResolver`
+only returns the session's `assigned_waiter_user_id` if that user is not
+suspended, is an active member of the restaurant's organization and is a
+member of that restaurant.
+
+Today it carries only `order.ready.attention`: one per real
+`preparing → ready` transition, to the table session's responsible waiter
+(the assignment follows table transfers). It informs; the waiter resolves
+it with the existing `ready → served` — there is no separate
+acknowledgement. When the session has no eligible waiter, nothing is
+sent on any user channel (no waiter is ever guessed); the restaurant-wide
+`order.status_changed`, the Operations Live `order_ready` alert and the
+`order.ready` activity entry are unaffected either way. The backend never
+decides sound/toast — that is the client's call.
+
 ### Activity channel (CARTA 6.1A)
 
 ```
@@ -194,6 +218,7 @@ shared envelope and appends the event's own small, explicit payload
 | `waiter_call.acknowledged`     | `AcknowledgeWaiterCallAction`                                     | same fields                                                                               |
 | `payment.recorded`             | `RecordPaymentAction` (never on an idempotency replay)            | `table_session_id`, `table_id`, `payment_id`, `amount`, `payment_method`, `recorded_at`   |
 | `floor_plan.updated`           | `UpdateFloorPlanLayoutAction` (one event per bulk save)           | `tables_updated_count`, `table_ids`                                                      |
+| `order.ready.attention`        | `TransitionOrderStatusAction::markReady()` (CARTA 7.1A) — on `private-user.{waiterId}` only, to the session's responsible waiter; nothing when there is none | `order` {`id`, `reference`}, `table` {`id`, `name`}, `table_session_id`, `ready_at` |
 | `restaurant.activity.created`  | `RestaurantActivityRecorder` (every activity-feed write, CARTA 6.1A) — on `private-restaurant.{id}.activity`, not `restaurant.{id}` | `activity` — exactly one item of `GET /restaurants/{id}/activity` |
 
 Deliberately **not** broadcast: `table_request.completed`/`.cancelled`

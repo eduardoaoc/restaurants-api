@@ -2317,4 +2317,86 @@ use OpenApi\Attributes as OA;
     ],
     type: 'object'
 )]
+#[OA\Schema(
+    schema: 'KitchenDashboardRecentOrder',
+    description: 'A short kitchen-facing order line — never prices, payments or customer data. recent_accepted items carry accepted_at/accepted_by; recent_ready items carry ready_at/ready_by plus served_at (null while still waiting for a waiter).',
+    required: ['order', 'table', 'status', 'items'],
+    properties: [
+        new OA\Property(property: 'order', required: ['id', 'reference'], properties: [
+            new OA\Property(property: 'id', type: 'integer', format: 'int64', example: 1842),
+            new OA\Property(property: 'reference', type: 'string', example: '#1842'),
+        ], type: 'object'),
+        new OA\Property(property: 'table', required: ['id', 'name'], properties: [
+            new OA\Property(property: 'id', type: 'integer', format: 'int64', example: 7),
+            new OA\Property(property: 'name', type: 'string', example: 'Mesa 07'),
+        ], type: 'object'),
+        new OA\Property(property: 'status', type: 'string', example: 'ready', description: 'The order\'s CURRENT status.'),
+        new OA\Property(property: 'accepted_at', type: 'string', format: 'date-time', description: 'recent_accepted only.'),
+        new OA\Property(property: 'accepted_by', properties: [
+            new OA\Property(property: 'id', type: 'integer', format: 'int64'),
+            new OA\Property(property: 'name', type: 'string', example: 'Pablo Torres'),
+        ], type: 'object', nullable: true, description: 'recent_accepted only. The user who performed that transition.'),
+        new OA\Property(property: 'ready_at', type: 'string', format: 'date-time', description: 'recent_ready only.'),
+        new OA\Property(property: 'ready_by', properties: [
+            new OA\Property(property: 'id', type: 'integer', format: 'int64'),
+            new OA\Property(property: 'name', type: 'string'),
+        ], type: 'object', nullable: true, description: 'recent_ready only.'),
+        new OA\Property(property: 'served_at', type: 'string', format: 'date-time', nullable: true, description: 'recent_ready only — null while the ready order still waits for a waiter.'),
+        new OA\Property(property: 'items', type: 'array', items: new OA\Items(required: ['name', 'quantity'], properties: [
+            new OA\Property(property: 'name', type: 'string', example: 'Croquetas caseras', description: 'Snapshot taken when ordered.'),
+            new OA\Property(property: 'quantity', type: 'integer', example: 2),
+        ], type: 'object')),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
+    schema: 'KitchenDashboardTiming',
+    required: ['average_seconds', 'orders'],
+    properties: [
+        new OA\Property(property: 'average_seconds', type: 'integer', nullable: true, example: 720, description: 'Null when no order completed this transition in the period (never 0).'),
+        new OA\Property(property: 'orders', type: 'integer', example: 14, description: 'Sample size: orders whose END timestamp falls in the period.'),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
+    schema: 'KitchenDashboard',
+    description: 'Kitchen Dashboard read model (CARTA 7.1A). `queue` is live (now); everything else covers `period` = today in the restaurant\'s timezone, up to now. Kitchen staff cannot read /operations/live or /analytics, hence the own queue summary — restricted to kitchen statuses (confirmed/accepted/preparing/ready, same as GET /kitchen/orders; waiting_approval is not kitchen work). All durations use the lifecycle\'s exact timestamps, never updated_at.',
+    required: ['restaurant', 'generated_at', 'period', 'queue', 'timings', 'top_products', 'recent_accepted', 'recent_ready'],
+    properties: [
+        new OA\Property(property: 'restaurant', required: ['id', 'name', 'timezone'], properties: [
+            new OA\Property(property: 'id', type: 'integer', format: 'int64', example: 1),
+            new OA\Property(property: 'name', type: 'string', example: 'AFORO Malvarrosa'),
+            new OA\Property(property: 'timezone', type: 'string', example: 'Europe/Madrid'),
+        ], type: 'object'),
+        new OA\Property(property: 'generated_at', type: 'string', format: 'date-time'),
+        new OA\Property(property: 'period', required: ['from', 'to'], properties: [
+            new OA\Property(property: 'from', type: 'string', format: 'date-time', description: 'Start of today, restaurant local time, as UTC.'),
+            new OA\Property(property: 'to', type: 'string', format: 'date-time', description: 'Now.'),
+        ], type: 'object'),
+        new OA\Property(property: 'queue', required: ['counts_by_status', 'active_orders', 'oldest_active_order_age_seconds', 'longest_ready_wait_seconds'], properties: [
+            new OA\Property(property: 'counts_by_status', required: ['confirmed', 'accepted', 'preparing', 'ready'], properties: [
+                new OA\Property(property: 'confirmed', type: 'integer', example: 3, description: 'New for the kitchen ("Pedidos nuevos").'),
+                new OA\Property(property: 'accepted', type: 'integer', example: 4),
+                new OA\Property(property: 'preparing', type: 'integer', example: 6),
+                new OA\Property(property: 'ready', type: 'integer', example: 2),
+            ], type: 'object'),
+            new OA\Property(property: 'active_orders', type: 'integer', example: 15),
+            new OA\Property(property: 'oldest_active_order_age_seconds', type: 'integer', nullable: true, example: 840, description: 'order_age: now − created_at of the oldest order in a kitchen status. Null when the queue is empty.'),
+            new OA\Property(property: 'longest_ready_wait_seconds', type: 'integer', nullable: true, example: 190, description: 'ready_wait (live): now − ready_at of the oldest order still ready. Null when nothing is ready.'),
+        ], type: 'object'),
+        new OA\Property(property: 'timings', required: ['accept', 'preparation', 'ready_to_served'], properties: [
+            new OA\Property(property: 'accept', ref: '#/components/schemas/KitchenDashboardTiming', description: 'accepted_at − COALESCE(approved_at, created_at): confirmed → taken by the kitchen (excludes a customer order\'s approval wait), over orders accepted in the period.'),
+            new OA\Property(property: 'preparation', ref: '#/components/schemas/KitchenDashboardTiming', description: 'preparation_time: ready_at − preparing_at, over orders ready in the period (same definition as Analytics average_preparation_time_seconds).'),
+            new OA\Property(property: 'ready_to_served', ref: '#/components/schemas/KitchenDashboardTiming', description: 'ready_wait_time: served_at − ready_at — how long a ready order waited for a waiter — over orders served in the period.'),
+        ], type: 'object'),
+        new OA\Property(property: 'top_products', type: 'array', description: 'Up to 5, by quantity — same rule as Analytics top_by_quantity (item snapshots, billable statuses, Order.created_at in the period); no revenue here.', items: new OA\Items(required: ['product_id', 'name', 'quantity'], properties: [
+            new OA\Property(property: 'product_id', type: 'integer', format: 'int64', nullable: true, example: 12),
+            new OA\Property(property: 'name', type: 'string', example: 'Croquetas caseras'),
+            new OA\Property(property: 'quantity', type: 'integer', example: 23),
+        ], type: 'object')),
+        new OA\Property(property: 'recent_accepted', type: 'array', description: 'Up to 5 orders accepted today, newest first.', items: new OA\Items(ref: '#/components/schemas/KitchenDashboardRecentOrder')),
+        new OA\Property(property: 'recent_ready', type: 'array', description: 'Up to 5 orders that became ready today, newest first.', items: new OA\Items(ref: '#/components/schemas/KitchenDashboardRecentOrder')),
+    ],
+    type: 'object'
+)]
 class ApiDocumentation {}

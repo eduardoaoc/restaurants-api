@@ -17,10 +17,13 @@ use Carbon\CarbonImmutable;
  * (ready_at - preparing_at) is therefore a real, reliable measurement,
  * not a guess derived from a borrowed timestamp like updated_at.
  *
- * There is no confirmed_at column (a staff order is created already
- * confirmed; a customer order's equivalent moment is approved_at) and no
- * "average time to accept/serve" is computed here — only the one
- * transition (preparing -> ready) this domain can measure precisely.
+ * There is no confirmed_at column, but the confirmation moment is still
+ * exact: a customer order that needed approval is confirmed at
+ * approved_at (approve is the only way out of waiting_approval), and
+ * every other order (staff, or auto-confirmed customer) is created
+ * already confirmed, at created_at. Likewise served requires ready, so
+ * served_at - ready_at is exact. timings() (CARTA 7.1A) exposes those
+ * three transitions; nothing here ever reads updated_at.
  */
 class KitchenAnalytics
 {
@@ -49,22 +52,61 @@ class KitchenAnalytics
             ->where('cancelled_at', '<', $toExclusive)
             ->count();
 
-        $preparation = Order::query()
-            ->where('restaurant_id', $restaurant->id)
-            ->whereNotNull('preparing_at')
-            ->whereNotNull('ready_at')
-            ->where('ready_at', '>=', $from)
-            ->where('ready_at', '<', $toExclusive)
-            ->selectRaw('AVG(EXTRACT(EPOCH FROM (ready_at - preparing_at))) as avg_seconds')
-            ->first();
-
         return [
             'orders_created' => $ordersCreated,
             'orders_ready' => $ordersReady,
             'orders_cancelled' => $ordersCancelled,
-            'average_preparation_time_seconds' => $preparation->avg_seconds !== null
-                ? (int) round((float) $preparation->avg_seconds)
-                : null,
+            'average_preparation_time_seconds' => self::timings($restaurant, $from, $toExclusive)['preparation']['average_seconds'],
+        ];
+    }
+
+    /**
+     * The three measurable kitchen transitions, each averaged over the
+     * orders whose END timestamp falls in [$from, $toExclusive), with its
+     * sample size (0 => average null, never 0 seconds):
+     *
+     *   accept          accepted_at - COALESCE(approved_at, created_at)
+     *                   (confirmed -> taken by the kitchen; the approval
+     *                   wait of a customer order is NOT kitchen time)
+     *   preparation     ready_at - preparing_at
+     *   ready_to_served served_at - ready_at (how long a ready order
+     *                   waited for a waiter to pick it up)
+     *
+     * One aggregate query (FILTER clauses), restaurant-scoped.
+     *
+     * @return array{accept: array{average_seconds: ?int, orders: int}, preparation: array{average_seconds: ?int, orders: int}, ready_to_served: array{average_seconds: ?int, orders: int}}
+     */
+    public static function timings(Restaurant $restaurant, CarbonImmutable $from, CarbonImmutable $toExclusive): array
+    {
+        $in = fn (string $column) => "{$column} >= ? AND {$column} < ?";
+        $bindings = [$from, $toExclusive];
+
+        $row = Order::query()
+            ->where('restaurant_id', $restaurant->id)
+            ->where(fn ($query) => $query
+                ->whereBetween('accepted_at', [$from, $toExclusive])
+                ->orWhereBetween('ready_at', [$from, $toExclusive])
+                ->orWhereBetween('served_at', [$from, $toExclusive]))
+            ->selectRaw(
+                'AVG(EXTRACT(EPOCH FROM (accepted_at - COALESCE(approved_at, created_at)))) FILTER (WHERE '.$in('accepted_at').') AS accept_avg, '.
+                'COUNT(*) FILTER (WHERE '.$in('accepted_at').') AS accept_n, '.
+                'AVG(EXTRACT(EPOCH FROM (ready_at - preparing_at))) FILTER (WHERE preparing_at IS NOT NULL AND '.$in('ready_at').') AS preparation_avg, '.
+                'COUNT(*) FILTER (WHERE preparing_at IS NOT NULL AND '.$in('ready_at').') AS preparation_n, '.
+                'AVG(EXTRACT(EPOCH FROM (served_at - ready_at))) FILTER (WHERE ready_at IS NOT NULL AND '.$in('served_at').') AS ready_to_served_avg, '.
+                'COUNT(*) FILTER (WHERE ready_at IS NOT NULL AND '.$in('served_at').') AS ready_to_served_n',
+                [...$bindings, ...$bindings, ...$bindings, ...$bindings, ...$bindings, ...$bindings],
+            )
+            ->first();
+
+        $timing = fn (string $key) => [
+            'average_seconds' => $row->{"{$key}_avg"} !== null ? (int) round((float) $row->{"{$key}_avg"}) : null,
+            'orders' => (int) $row->{"{$key}_n"},
+        ];
+
+        return [
+            'accept' => $timing('accept'),
+            'preparation' => $timing('preparation'),
+            'ready_to_served' => $timing('ready_to_served'),
         ];
     }
 }

@@ -82,3 +82,15 @@ Broadcast::channel('restaurant.{restaurantId}.activity', function (User $user, i
         && $canReachRestaurant($user, $restaurant)
         && $user->hasPermission('view_activity', $restaurant->organization);
 });
+
+/*
+| A user's own private channel (CARTA 7.1A) — directed operational
+| signals for exactly one person (`order.ready.attention` to the session's
+| responsible waiter). Only that authenticated user may join it; suspended
+| users never get here (active_user on /broadcasting/auth). Tenant
+| correctness is enforced when the event is ADDRESSED
+| (ResponsibleWaiterResolver: active membership in the restaurant's
+| organization + restaurant member), since this channel itself is not
+| restaurant-scoped.
+*/
+Broadcast::channel('user.{userId}', fn (User $user, int $userId) => $user->id === $userId);

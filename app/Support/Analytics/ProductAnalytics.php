@@ -7,6 +7,7 @@ use App\Models\OrderItem;
 use App\Models\Restaurant;
 use App\Support\Money\Money;
 use Carbon\CarbonImmutable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 
 /**
@@ -37,7 +38,42 @@ class ProductAnalytics
      */
     public static function topProducts(Restaurant $restaurant, CarbonImmutable $from, CarbonImmutable $toExclusive): array
     {
-        $baseQuery = fn () => OrderItem::query()
+        $baseQuery = fn () => self::groupedItemsQuery($restaurant, $from, $toExclusive);
+
+        $byQuantity = $baseQuery()->orderByDesc('total_quantity')->limit(self::LIMIT)->get();
+        $byRevenue = $baseQuery()->orderByDesc('total_revenue')->limit(self::LIMIT)->get();
+
+        return [
+            'top_by_quantity' => self::mapRows($byQuantity),
+            'top_by_revenue' => self::mapRows($byRevenue),
+        ];
+    }
+
+    /**
+     * Quantity-only ranking under exactly the same rule as topProducts()
+     * (snapshots, billable statuses, Order.created_at) — for surfaces
+     * that must not expose revenue, e.g. the Kitchen Dashboard (CARTA
+     * 7.1A). One aggregate query.
+     *
+     * @return array<int, array{product_id: ?int, name: string, quantity: int}>
+     */
+    public static function topByQuantity(Restaurant $restaurant, CarbonImmutable $from, CarbonImmutable $toExclusive, int $limit): array
+    {
+        return self::groupedItemsQuery($restaurant, $from, $toExclusive)
+            ->orderByDesc('total_quantity')
+            ->orderBy('order_items.product_name_snapshot')
+            ->limit($limit)
+            ->get()
+            ->map(fn ($row) => [
+                'product_id' => $row->product_id !== null ? (int) $row->product_id : null,
+                'name' => $row->product_name,
+                'quantity' => (int) $row->total_quantity,
+            ])->values()->all();
+    }
+
+    private static function groupedItemsQuery(Restaurant $restaurant, CarbonImmutable $from, CarbonImmutable $toExclusive): Builder
+    {
+        return OrderItem::query()
             ->join('orders', 'orders.id', '=', 'order_items.order_id')
             ->where('orders.restaurant_id', $restaurant->id)
             ->where('orders.created_at', '>=', $from)
@@ -48,14 +84,6 @@ class ProductAnalytics
                 'order_items.product_id as product_id, order_items.product_name_snapshot as product_name, '.
                 'SUM(order_items.quantity) as total_quantity, SUM(order_items.line_total_snapshot) as total_revenue'
             );
-
-        $byQuantity = $baseQuery()->orderByDesc('total_quantity')->limit(self::LIMIT)->get();
-        $byRevenue = $baseQuery()->orderByDesc('total_revenue')->limit(self::LIMIT)->get();
-
-        return [
-            'top_by_quantity' => self::mapRows($byQuantity),
-            'top_by_revenue' => self::mapRows($byRevenue),
-        ];
     }
 
     /**
