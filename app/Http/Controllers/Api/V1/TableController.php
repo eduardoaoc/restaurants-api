@@ -223,6 +223,89 @@ class TableController extends Controller
     }
 
     /**
+     * Staff-side QR resolution (CARTA 8.1A): the SAME physical QR a
+     * customer scans, resolved for an authenticated staff member into the
+     * operational table context (ids only) — the frontend then loads the
+     * session/orders/requests/bill through the existing endpoints.
+     *
+     * The public_token is only a lookup key here, never a credential:
+     * access comes entirely from the authenticated user's active
+     * membership + RestaurantScope (tableQuery(), so a token of another
+     * organization/restaurant is a 404 indistinguishable from an
+     * unknown token) + TablePolicy::view (same permission as viewing the
+     * table by id — no new capability). Pure read: no session opened, no
+     * waiter assigned, no audit/activity entry.
+     */
+    #[OA\Get(
+        path: '/api/v1/tables/resolve/{publicToken}',
+        operationId: 'tablesResolvePublicToken',
+        summary: 'Resolve a table QR public token into the staff operational table context',
+        description: 'Authenticated counterpart of GET /api/v1/public/tables/{publicToken}. Returns only ids/name; never opens a session, assigns a waiter or writes an audit log. Tokens of tables outside the user\'s organization/restaurant scope return 404, exactly like unknown tokens.',
+        security: [['sessionCookie' => []]],
+        tags: ['Tables'],
+        parameters: [
+            new OA\Parameter(name: 'publicToken', in: 'path', required: true, schema: new OA\Schema(type: 'string')),
+        ],
+        responses: [
+            new OA\Response(
+                response: 200,
+                description: 'The resolved operational table context',
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(
+                            property: 'data',
+                            properties: [
+                                new OA\Property(
+                                    property: 'restaurant',
+                                    properties: [
+                                        new OA\Property(property: 'id', type: 'integer', example: 1),
+                                    ],
+                                    type: 'object'
+                                ),
+                                new OA\Property(
+                                    property: 'table',
+                                    properties: [
+                                        new OA\Property(property: 'id', type: 'integer', example: 12),
+                                        new OA\Property(property: 'name', type: 'string', example: 'Mesa 12'),
+                                        new OA\Property(property: 'number', type: 'integer', example: 12, nullable: true),
+                                    ],
+                                    type: 'object'
+                                ),
+                            ],
+                            type: 'object'
+                        ),
+                    ]
+                )
+            ),
+            new OA\Response(response: 401, description: 'Unauthenticated'),
+            new OA\Response(response: 403, description: 'The user is not allowed to view tables (requires manage_tables or close_bill)'),
+            new OA\Response(response: 404, description: 'Unknown token, or a table outside the user\'s organization/restaurant scope'),
+        ]
+    )]
+    public function resolve(Request $request, string $publicToken): JsonResponse
+    {
+        $organization = $this->activeOrganization();
+        $tableModel = $this->tableQuery($organization, $request->user())
+            ->where('public_token', $publicToken)
+            ->firstOrFail();
+
+        $this->authorize('view', $tableModel);
+
+        return response()->json([
+            'data' => [
+                'restaurant' => [
+                    'id' => $tableModel->restaurant_id,
+                ],
+                'table' => [
+                    'id' => $tableModel->id,
+                    'name' => $tableModel->name,
+                    'number' => $tableModel->number,
+                ],
+            ],
+        ]);
+    }
+
+    /**
      * Update a table belonging to the active organization.
      */
     #[OA\Patch(

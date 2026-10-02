@@ -192,6 +192,11 @@ Route::prefix('v1')->group(function () {
 
         Route::get('/restaurants/{restaurant}/tables', [TableController::class, 'index']);
         Route::post('/restaurants/{restaurant}/tables', [TableController::class, 'store']);
+        // Staff QR resolution (CARTA 8.1A): same physical QR as the public
+        // surface above, resolved through the authenticated user's own
+        // membership/scope/permission — the token is a lookup key, never
+        // a credential. See TableController::resolve().
+        Route::get('/tables/resolve/{publicToken}', [TableController::class, 'resolve']);
         Route::get('/tables/{table}', [TableController::class, 'show']);
         Route::patch('/tables/{table}', [TableController::class, 'update']);
         Route::post('/tables/{table}/open', [TableSessionController::class, 'open']);
