@@ -29,17 +29,26 @@ class TableController extends Controller
         'zone_id', 'layout_x', 'layout_y', 'layout_rotation', 'layout_shape', 'layout_width', 'layout_height',
     ];
 
+    /**
+     * Table STRUCTURE fields (CARTA 8.2A) — gated by
+     * TablePolicy::updateStructure (RestaurantSettings::
+     * waiter_table_management_enabled for users without manage_floor_plan).
+     * `status` is deliberately NOT here: blocking/unblocking a table is an
+     * operational action of the floor and stays under plain update().
+     */
+    private const STRUCTURAL_FIELDS = ['name', 'number', 'capacity', ...self::LAYOUT_FIELDS];
+
     public function __construct(private readonly TenantContext $tenantContext) {}
 
     /**
-     * True when the validated payload touches at least one floor-plan
-     * layout field, requiring the extra manage_floor_plan check.
+     * True when the validated payload touches at least one of $fields.
      *
      * @param  array<string, mixed>  $data
+     * @param  array<int, string>  $fields
      */
-    private function touchesLayoutFields(array $data): bool
+    private function touchesFields(array $data, array $fields): bool
     {
-        return collect($data)->keys()->intersect(self::LAYOUT_FIELDS)->isNotEmpty();
+        return collect($data)->keys()->intersect($fields)->isNotEmpty();
     }
 
     /**
@@ -143,7 +152,7 @@ class TableController extends Controller
                 )
             ),
             new OA\Response(response: 401, description: 'Unauthenticated'),
-            new OA\Response(response: 403, description: 'The user is not allowed to create tables, or is missing manage_floor_plan for the layout fields sent'),
+            new OA\Response(response: 403, description: 'The user is not allowed to create tables (including: a user without manage_floor_plan while RestaurantSettings.waiter_table_management_enabled is false), or is missing manage_floor_plan for the layout fields sent'),
             new OA\Response(response: 404, description: 'Restaurant not found'),
             new OA\Response(response: 422, description: 'Validation error'),
         ]
@@ -157,7 +166,7 @@ class TableController extends Controller
 
         $data = $request->validated();
 
-        if ($this->touchesLayoutFields($data)) {
+        if ($this->touchesFields($data, self::LAYOUT_FIELDS)) {
             $this->authorize('manageFloorPlan', $restaurantModel);
         }
 
@@ -353,7 +362,7 @@ class TableController extends Controller
                 )
             ),
             new OA\Response(response: 401, description: 'Unauthenticated'),
-            new OA\Response(response: 403, description: 'The user is not allowed to update this table, or is missing manage_floor_plan for the layout fields sent'),
+            new OA\Response(response: 403, description: 'The user is not allowed to update this table; or sent a structural field (name/number/capacity/zone/layout) without manage_floor_plan while RestaurantSettings.waiter_table_management_enabled is false; or is missing manage_floor_plan for the layout fields sent. status alone is never gated by the setting.'),
             new OA\Response(response: 404, description: 'Table not found'),
             new OA\Response(response: 422, description: 'Validation error'),
         ]
@@ -367,7 +376,11 @@ class TableController extends Controller
 
         $data = $request->validated();
 
-        if ($this->touchesLayoutFields($data)) {
+        if ($this->touchesFields($data, self::STRUCTURAL_FIELDS)) {
+            $this->authorize('updateStructure', $tableModel);
+        }
+
+        if ($this->touchesFields($data, self::LAYOUT_FIELDS)) {
             $this->authorize('manageFloorPlan', $tableModel->restaurant);
         }
 

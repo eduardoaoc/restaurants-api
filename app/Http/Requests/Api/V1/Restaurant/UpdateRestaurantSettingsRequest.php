@@ -53,6 +53,7 @@ class UpdateRestaurantSettingsRequest extends FormRequest
             'kitchen_ticket_printing_enabled' => ['sometimes', 'boolean'],
             'bill_receipt_printing_enabled' => ['sometimes', 'boolean'],
             'google_review_url' => ['sometimes', 'nullable', 'string', 'max:'.GoogleReviewUrlPolicy::MAX_LENGTH, new GoogleReviewUrl],
+            'waiter_table_management_enabled' => ['sometimes', 'boolean'],
         ];
     }
 

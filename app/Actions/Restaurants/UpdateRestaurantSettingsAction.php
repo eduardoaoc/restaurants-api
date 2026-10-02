@@ -28,7 +28,7 @@ class UpdateRestaurantSettingsAction
         'customer_ordering_enabled', 'customer_order_requires_approval',
         'waiter_call_enabled', 'bill_request_enabled',
         'kitchen_ticket_printing_enabled', 'bill_receipt_printing_enabled',
-        'google_review_url',
+        'google_review_url', 'waiter_table_management_enabled',
     ];
 
     public function __construct(private readonly AuditLogger $auditLogger) {}

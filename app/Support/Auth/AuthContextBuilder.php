@@ -6,11 +6,13 @@ use App\Models\Organization;
 use App\Models\OrganizationUser;
 use App\Models\PlatformRoleAssignment;
 use App\Models\Restaurant;
+use App\Models\Table;
 use App\Models\User;
 use App\Models\UserRole;
 use App\Support\Restaurants\RestaurantScope;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Gate;
 
 /**
  * Builds the full authorization context for an authenticated user: every
@@ -149,7 +151,7 @@ class AuthContextBuilder
 
         $restaurants = $this->restaurantsQuery($organization, $accessibleRestaurantIds)
             ->get()
-            ->map(fn (Restaurant $restaurant) => $this->buildRestaurant($restaurant, $organizationUserRoles))
+            ->map(fn (Restaurant $restaurant) => $this->buildRestaurant($user, $restaurant, $organizationUserRoles))
             ->values()
             ->all();
 
@@ -168,7 +170,7 @@ class AuthContextBuilder
      * @param  Collection<int, UserRole>  $organizationUserRoles
      * @return array<string, mixed>
      */
-    private function buildRestaurant(Restaurant $restaurant, Collection $organizationUserRoles): array
+    private function buildRestaurant(User $user, Restaurant $restaurant, Collection $organizationUserRoles): array
     {
         $applicable = $organizationUserRoles->filter(
             fn (UserRole $userRole) => $userRole->restaurant_id === null || $userRole->restaurant_id === $restaurant->id
@@ -181,6 +183,7 @@ class AuthContextBuilder
             'status' => $restaurant->status,
             'roles' => $this->roleSlugsFor($applicable),
             'permissions' => $this->permissionSlugsFor($applicable),
+            'can_manage_table_structure' => Gate::forUser($user)->allows('manageStructure', [Table::class, $restaurant]),
         ];
     }
 
@@ -220,6 +223,7 @@ class AuthContextBuilder
     private function restaurantsQuery(Organization $organization, ?array $accessibleRestaurantIds): Builder
     {
         $query = Restaurant::query()
+            ->with(['organization', 'settings'])
             ->where('organization_id', $organization->id)
             ->orderBy('name');
 

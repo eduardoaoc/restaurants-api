@@ -60,7 +60,7 @@ use OpenApi\Attributes as OA;
 #[OA\Schema(
     schema: 'AuthContextRestaurant',
     description: 'One restaurant reachable by the user within an organization. permissions is scoped to THIS restaurant only — an organization-wide role contributes to every restaurant, a restaurant-scoped role contributes only here (see AuthContextBuilder).',
-    required: ['id', 'name', 'slug', 'status', 'roles', 'permissions'],
+    required: ['id', 'name', 'slug', 'status', 'roles', 'permissions', 'can_manage_table_structure'],
     properties: [
         new OA\Property(property: 'id', type: 'integer', format: 'int64', example: 10),
         new OA\Property(property: 'name', type: 'string', example: 'Downtown Branch'),
@@ -68,6 +68,7 @@ use OpenApi\Attributes as OA;
         new OA\Property(property: 'status', type: 'string', example: 'active'),
         new OA\Property(property: 'roles', type: 'array', items: new OA\Items(type: 'string'), example: ['manager']),
         new OA\Property(property: 'permissions', type: 'array', items: new OA\Items(type: 'string'), example: ['manage_menu', 'manage_tables', 'view_operations']),
+        new OA\Property(property: 'can_manage_table_structure', type: 'boolean', example: true, description: 'Derived capability (CARTA 8.2A), computed by TablePolicy::manageStructure for THIS restaurant: true with manage_floor_plan; otherwise manage_tables AND RestaurantSettings.waiter_table_management_enabled. Governs creating tables and changing name/number/capacity/zone/layout. UX projection only — the API still answers 403 if it changed since this context was fetched; refetch /auth/context to refresh it. Not a persisted permission.'),
     ],
     type: 'object'
 )]
@@ -1844,7 +1845,7 @@ use OpenApi\Attributes as OA;
         'customer_ordering_enabled', 'customer_order_requires_approval',
         'waiter_call_enabled', 'bill_request_enabled',
         'kitchen_ticket_printing_enabled', 'bill_receipt_printing_enabled',
-        'google_review_url',
+        'google_review_url', 'waiter_table_management_enabled',
     ],
     properties: [
         new OA\Property(property: 'default_locale', type: 'string', example: 'es-ES', description: 'One of es-ES / ca-ES-valencia / en-GB. Always a member of enabled_locales.'),
@@ -1858,6 +1859,7 @@ use OpenApi\Attributes as OA;
         new OA\Property(property: 'kitchen_ticket_printing_enabled', type: 'boolean', example: true, description: 'Gates POST .../kitchen-ticket/print only — the GET preview is always available.'),
         new OA\Property(property: 'bill_receipt_printing_enabled', type: 'boolean', example: true, description: 'Gates POST .../receipt/print only — the GET preview is always available.'),
         new OA\Property(property: 'google_review_url', type: 'string', format: 'uri', maxLength: 2048, example: 'https://g.page/r/CabcdEFGhij123/review', nullable: true, description: 'HTTPS Google review/share link for this restaurant; null = Google Review disabled (there is no separate enabled flag). Must match one of the Google review/share URL formats currently supported by AFORO — not a normative list published by Google: g.page, maps.app.goo.gl, search.google.com (/local/writereview, /local/reviews), www.google.com / google.com (/maps...), maps.google.com (root or /maps...). Maps links are accepted as Google/Maps links and are not guaranteed to open the review form directly; the recommended link is the one from Business Profile → Read reviews → Get more reviews → Copy. The scheme is matched case-insensitively and stored lowercase; the rest of the URL is stored verbatim. Validated structurally only — never fetched or redirect-resolved server-side.'),
+        new OA\Property(property: 'waiter_table_management_enabled', type: 'boolean', default: true, example: true, description: 'Whether staff holding manage_tables but NOT manage_floor_plan (waiters) may change the table structure: POST /restaurants/{restaurant}/tables and PATCH /tables/{table} name/number/capacity. false = 403 for them; users holding manage_floor_plan (owner/manager) are never affected. Viewing, QR resolution, status, sessions, orders, bills and requests are never gated by it. Defaults to true (pre-existing behavior).'),
         new OA\Property(property: 'updated_at', type: 'string', format: 'date-time'),
     ],
     type: 'object'
@@ -1877,6 +1879,7 @@ use OpenApi\Attributes as OA;
         new OA\Property(property: 'kitchen_ticket_printing_enabled', type: 'boolean', example: true),
         new OA\Property(property: 'bill_receipt_printing_enabled', type: 'boolean', example: true),
         new OA\Property(property: 'google_review_url', type: 'string', format: 'uri', maxLength: 2048, example: 'https://g.page/r/CabcdEFGhij123/review', nullable: true, description: 'Trimmed; an empty/blank string or null clears it. Must be an HTTPS Google review/share link in a format currently supported by AFORO (see RestaurantSettings.google_review_url) — anything else is 422. The scheme is case-insensitive (HTTPS:// is accepted and stored as https://).'),
+        new OA\Property(property: 'waiter_table_management_enabled', type: 'boolean', example: false, description: 'See RestaurantSettings.waiter_table_management_enabled. Like every field here, only changeable by users authorized to manage the restaurant settings (manage_restaurants).'),
     ],
     type: 'object'
 )]

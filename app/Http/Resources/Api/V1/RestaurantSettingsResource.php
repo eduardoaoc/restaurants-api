@@ -28,6 +28,7 @@ class RestaurantSettingsResource extends JsonResource
             'kitchen_ticket_printing_enabled' => $this->kitchen_ticket_printing_enabled,
             'bill_receipt_printing_enabled' => $this->bill_receipt_printing_enabled,
             'google_review_url' => $this->google_review_url,
+            'waiter_table_management_enabled' => $this->waiter_table_management_enabled,
             'updated_at' => $this->updated_at,
         ];
     }

@@ -20,6 +20,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
     'waiter_call_enabled', 'bill_request_enabled',
     'kitchen_ticket_printing_enabled', 'bill_receipt_printing_enabled',
     'google_review_url',
+    'waiter_table_management_enabled',
 ])]
 class RestaurantSettings extends Model
 {
@@ -60,6 +61,13 @@ class RestaurantSettings extends Model
     public const DEFAULT_TIMEZONE = 'Europe/Madrid';
 
     /**
+     * CARTA 8.2A: true preserves the pre-existing behavior (a waiter with
+     * manage_tables may create/rename tables). Same value as the column's
+     * DB default — see TablePolicy::canManageStructure().
+     */
+    public const DEFAULT_WAITER_TABLE_MANAGEMENT_ENABLED = true;
+
+    /**
      * @return array<string, string>
      */
     protected function casts(): array
@@ -72,6 +80,7 @@ class RestaurantSettings extends Model
             'bill_request_enabled' => 'boolean',
             'kitchen_ticket_printing_enabled' => 'boolean',
             'bill_receipt_printing_enabled' => 'boolean',
+            'waiter_table_management_enabled' => 'boolean',
         ];
     }
 
@@ -112,6 +121,7 @@ class RestaurantSettings extends Model
             'bill_request_enabled' => true,
             'kitchen_ticket_printing_enabled' => true,
             'bill_receipt_printing_enabled' => true,
+            'waiter_table_management_enabled' => self::DEFAULT_WAITER_TABLE_MANAGEMENT_ENABLED,
         ]);
     }
 }
