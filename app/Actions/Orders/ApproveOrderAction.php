@@ -11,6 +11,7 @@ use App\Support\Activity\ActivityActor;
 use App\Support\Activity\RestaurantActivityRecorder;
 use App\Support\Activity\RestaurantActivityType;
 use App\Support\Audit\AuditLogger;
+use App\Support\Restaurants\RestaurantOperationalLock;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -30,6 +31,8 @@ class ApproveOrderAction
     public function execute(Order $order, User $approvedBy): Order
     {
         return DB::transaction(function () use ($order, $approvedBy) {
+            RestaurantOperationalLock::shared($order->restaurant_id);
+
             $locked = Order::query()->whereKey($order->id)->lockForUpdate()->first();
 
             if (! $locked || ! $locked->isActionableCustomerOrder()) {

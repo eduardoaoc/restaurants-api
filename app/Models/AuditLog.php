@@ -146,6 +146,18 @@ class AuditLog extends Model
 
     public const EVENT_CUSTOMER_FEEDBACK_CREATED = 'customer_feedback.created';
 
+    /** CARTA 9.1A: an empty session ended without service (VoidEmptyTableSessionAction). */
+    public const EVENT_TABLE_SESSION_VOIDED = 'table_session.voided';
+
+    /** CARTA 9.1A: a cash drawer pay-in/pay-out (RecordCashMovementAction). */
+    public const EVENT_CASH_MOVEMENT_RECORDED = 'cash_movement.recorded';
+
+    /** CARTA 9.1A: a Cierre Diario was completed (CloseRestaurantDayAction). */
+    public const EVENT_DAY_CLOSE_COMPLETED = 'day_close.completed';
+
+    /** CARTA 9.1A: a post-close note was added to a Cierre Diario. */
+    public const EVENT_DAY_CLOSE_ANNOTATION_ADDED = 'day_close.annotation_added';
+
     /**
      * @var array<int, string>
      */
@@ -192,6 +204,10 @@ class AuditLog extends Model
         self::EVENT_TABLE_SESSION_RESPONSIBLE_WAITER_CALLED,
         self::EVENT_TABLE_SESSION_RESPONSIBLE_WAITER_CALL_ACKNOWLEDGED,
         self::EVENT_CUSTOMER_FEEDBACK_CREATED,
+        self::EVENT_TABLE_SESSION_VOIDED,
+        self::EVENT_CASH_MOVEMENT_RECORDED,
+        self::EVENT_DAY_CLOSE_COMPLETED,
+        self::EVENT_DAY_CLOSE_ANNOTATION_ADDED,
     ];
 
     public const RESOURCE_STAFF = 'staff';
@@ -224,6 +240,10 @@ class AuditLog extends Model
 
     public const RESOURCE_CUSTOMER_FEEDBACK = 'customer_feedback';
 
+    public const RESOURCE_CASH_MOVEMENT = 'cash_movement';
+
+    public const RESOURCE_DAY_CLOSE = 'day_close';
+
     /**
      * @var array<int, string>
      */
@@ -243,6 +263,8 @@ class AuditLog extends Model
         self::RESOURCE_STAFF_SHIFT,
         self::RESOURCE_WAITER_CALL,
         self::RESOURCE_CUSTOMER_FEEDBACK,
+        self::RESOURCE_CASH_MOVEMENT,
+        self::RESOURCE_DAY_CLOSE,
     ];
 
     /**

@@ -3,10 +3,12 @@
 use App\Http\Controllers\Api\V1\AuditLogController;
 use App\Http\Controllers\Api\V1\Auth\AuthController;
 use App\Http\Controllers\Api\V1\BillReceiptController;
+use App\Http\Controllers\Api\V1\CashMovementController;
 use App\Http\Controllers\Api\V1\CategoryController;
 use App\Http\Controllers\Api\V1\CategoryProductController;
 use App\Http\Controllers\Api\V1\CustomerFeedbackController;
 use App\Http\Controllers\Api\V1\CustomerFeedbackSummaryController;
+use App\Http\Controllers\Api\V1\DayCloseController;
 use App\Http\Controllers\Api\V1\FloorController;
 use App\Http\Controllers\Api\V1\FloorPlanController;
 use App\Http\Controllers\Api\V1\HealthController;
@@ -45,6 +47,7 @@ use App\Http\Controllers\Api\V1\TableRequestController;
 use App\Http\Controllers\Api\V1\TableSessionBillController;
 use App\Http\Controllers\Api\V1\TableSessionController;
 use App\Http\Controllers\Api\V1\TableSessionTransferController;
+use App\Http\Controllers\Api\V1\TableSessionVoidController;
 use App\Http\Controllers\Api\V1\TableSessionWaiterController;
 use App\Http\Controllers\Api\V1\WaiterCallController;
 use App\Http\Controllers\Api\V1\ZoneController;
@@ -218,6 +221,17 @@ Route::prefix('v1')->group(function () {
         Route::patch('/zones/{zone}', [ZoneController::class, 'update']);
         Route::delete('/zones/{zone}', [ZoneController::class, 'destroy']);
 
+        // Cierre Diario (CARTA 9.1A): preview/close/cash movements need
+        // close_daily_operation; history/detail/annotations need
+        // view_daily_closes. See DayCloseController.
+        Route::get('/restaurants/{restaurant}/day-close/preview', [DayCloseController::class, 'preview']);
+        Route::get('/restaurants/{restaurant}/day-closes', [DayCloseController::class, 'index']);
+        Route::post('/restaurants/{restaurant}/day-closes', [DayCloseController::class, 'store']);
+        Route::get('/day-closes/{dayClose}', [DayCloseController::class, 'show']);
+        Route::post('/day-closes/{dayClose}/annotations', [DayCloseController::class, 'storeAnnotation']);
+        Route::get('/restaurants/{restaurant}/cash-movements', [CashMovementController::class, 'index']);
+        Route::post('/restaurants/{restaurant}/cash-movements', [CashMovementController::class, 'store']);
+
         Route::get('/restaurants/{restaurant}/floor-plan', [FloorPlanController::class, 'show']);
         Route::patch('/restaurants/{restaurant}/floor-plan/layout', [FloorPlanController::class, 'updateLayout']);
 
@@ -299,6 +313,8 @@ Route::prefix('v1')->group(function () {
         // Table Operational Actions (Bloco 4): transfer belongs to the
         // TableSession, not the Table — see TableSessionTransferController.
         Route::post('/table-sessions/{tableSession}/transfer', [TableSessionTransferController::class, 'transfer']);
+        // Voiding an EMPTY session (CARTA 9.1A) — see VoidEmptyTableSessionAction.
+        Route::post('/table-sessions/{tableSession}/void', [TableSessionVoidController::class, 'void']);
 
         // "Call responsible waiter" — internal escalation, its own minimal
         // resource (WaiterCall), not a TableRequest — see WaiterCallController.

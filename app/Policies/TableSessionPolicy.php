@@ -43,6 +43,15 @@ class TableSessionPolicy
         return $this->hasAnyPermissionInRestaurantScope($user, $session, ['manage_tables', 'close_bill']);
     }
 
+    /**
+     * Voiding an EMPTY session (CARTA 9.1A) is the empty-session
+     * counterpart of close(): same staff, same permissions.
+     */
+    public function void(User $user, TableSession $session): bool
+    {
+        return $this->close($user, $session);
+    }
+
     public function viewBill(User $user, TableSession $session): bool
     {
         return $this->hasAnyPermissionInRestaurantScope($user, $session, ['manage_tables', 'close_bill', 'record_payments']);

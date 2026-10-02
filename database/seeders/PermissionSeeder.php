@@ -36,6 +36,8 @@ class PermissionSeeder extends Seeder
         'view_audit' => 'View audit log',
         'manage_staff_reviews' => 'Manage staff reviews',
         'view_customer_feedback' => "View customers' post-visit feedback in detail",
+        'close_daily_operation' => 'Run the Cierre Diario (preview, cash movements, close the business day)',
+        'view_daily_closes' => 'View past Cierres Diarios (history, detail) and add post-close annotations',
     ];
 
     /**

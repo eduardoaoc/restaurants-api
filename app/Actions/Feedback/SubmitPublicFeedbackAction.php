@@ -9,6 +9,7 @@ use App\Models\AuditLog;
 use App\Models\CustomerFeedback;
 use App\Models\TableSession;
 use App\Support\Audit\AuditLogger;
+use App\Support\Restaurants\RestaurantOperationalLock;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 
@@ -38,6 +39,16 @@ class SubmitPublicFeedbackAction
     public function execute(string $feedbackToken, array $data): array
     {
         return DB::transaction(function () use ($feedbackToken, $data) {
+            // Operational lock BEFORE the session row lock (see
+            // RestaurantOperationalLock's ordering rule): an unlocked read
+            // resolves the restaurant first — a session's restaurant_id
+            // never changes, so this read can't go stale.
+            $restaurantId = TableSession::query()->where('feedback_token', $feedbackToken)->value('restaurant_id');
+
+            if ($restaurantId !== null) {
+                RestaurantOperationalLock::shared($restaurantId);
+            }
+
             $session = TableSession::query()->where('feedback_token', $feedbackToken)->lockForUpdate()->first();
 
             if (! $session) {

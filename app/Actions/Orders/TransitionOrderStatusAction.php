@@ -12,6 +12,7 @@ use App\Support\Activity\ActivityActor;
 use App\Support\Activity\RestaurantActivityRecorder;
 use App\Support\Activity\RestaurantActivityType;
 use App\Support\Audit\AuditLogger;
+use App\Support\Restaurants\RestaurantOperationalLock;
 use App\Support\Tables\ResponsibleWaiterResolver;
 use Illuminate\Support\Facades\DB;
 
@@ -84,6 +85,8 @@ class TransitionOrderStatusAction
     private function transition(Order $order, string $expectedFrom, string $to, string $auditFieldPrefix, User $actor): Order
     {
         return DB::transaction(function () use ($order, $expectedFrom, $to, $auditFieldPrefix, $actor) {
+            RestaurantOperationalLock::shared($order->restaurant_id);
+
             $locked = Order::query()->whereKey($order->id)->lockForUpdate()->first();
 
             if (! $locked || $locked->status !== $expectedFrom) {

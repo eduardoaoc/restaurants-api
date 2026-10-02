@@ -449,6 +449,190 @@
                 ]
             }
         },
+        "/api/v1/restaurants/{restaurant}/cash-movements": {
+            "get": {
+                "tags": [
+                    "Cierre Diario"
+                ],
+                "summary": "List the cash movements of the current (not yet closed) Cierre Diario period",
+                "description": "Returns every pay-in/pay-out with recorded_at >= the current period start (the previous close's period_ended_at, or the cutoff of today's business date on the first close), oldest first, plus their totals.",
+                "operationId": "cashMovementsIndex",
+                "parameters": [
+                    {
+                        "name": "restaurant",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Cash movements of the current period",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "properties": {
+                                                "period_started_at": {
+                                                    "type": "string",
+                                                    "format": "date-time"
+                                                },
+                                                "pay_ins_total": {
+                                                    "type": "string",
+                                                    "example": "20.00"
+                                                },
+                                                "pay_outs_total": {
+                                                    "type": "string",
+                                                    "example": "35.50"
+                                                },
+                                                "movements": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "$ref": "#/components/schemas/CashMovement"
+                                                    }
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "Requires close_daily_operation"
+                    },
+                    "404": {
+                        "description": "Restaurant not found in the user's scope"
+                    }
+                },
+                "security": [
+                    {
+                        "sessionCookie": []
+                    }
+                ]
+            },
+            "post": {
+                "tags": [
+                    "Cierre Diario"
+                ],
+                "summary": "Record a cash pay-in or pay-out (append-only)",
+                "description": "A correction is an opposite movement — movements are never edited or deleted. Idempotent by Idempotency-Key: same key + same payload replays the original (200); same key + different payload is 409 IDEMPOTENCY_KEY_REUSED.",
+                "operationId": "cashMovementsStore",
+                "parameters": [
+                    {
+                        "name": "restaurant",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "Idempotency-Key",
+                        "in": "header",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "maxLength": 100
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "type",
+                                    "amount",
+                                    "reason"
+                                ],
+                                "properties": {
+                                    "type": {
+                                        "type": "string",
+                                        "enum": [
+                                            "pay_in",
+                                            "pay_out"
+                                        ]
+                                    },
+                                    "amount": {
+                                        "description": "Decimal string, > 0, max 2 decimals.",
+                                        "type": "string",
+                                        "example": "20.00"
+                                    },
+                                    "reason": {
+                                        "type": "string",
+                                        "example": "Compra de hielo",
+                                        "maxLength": 255
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Movement recorded",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/CashMovement"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "200": {
+                        "description": "Idempotent replay of the original movement",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/CashMovement"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "Requires close_daily_operation"
+                    },
+                    "404": {
+                        "description": "Restaurant not found in the user's scope"
+                    },
+                    "409": {
+                        "description": "IDEMPOTENCY_KEY_REUSED"
+                    },
+                    "422": {
+                        "description": "Validation error (including a missing Idempotency-Key header)"
+                    }
+                },
+                "security": [
+                    {
+                        "sessionCookie": []
+                    }
+                ]
+            }
+        },
         "/api/v1/restaurants/{restaurant}/categories": {
             "get": {
                 "tags": [
@@ -1260,6 +1444,454 @@
                     },
                     "404": {
                         "description": "Restaurant not found, outside scope, or the staff member has no link to it"
+                    }
+                },
+                "security": [
+                    {
+                        "sessionCookie": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/restaurants/{restaurant}/day-close/preview": {
+            "get": {
+                "tags": [
+                    "Cierre Diario"
+                ],
+                "summary": "Live preview of the Cierre Diario that a close right now would produce",
+                "description": "Computed live, nothing persisted. Lists blockers (every active table session, each with diagnostics and can_be_voided; business_date_already_closed; expected_cash_negative) and non-blocking warnings. period.first_close = true means activity before period.period_started_at is outside the closing system. Send period.period_started_at and cash.expected_cash back on POST /day-closes.",
+                "operationId": "dayClosePreview",
+                "parameters": [
+                    {
+                        "name": "restaurant",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "opening_float",
+                        "in": "query",
+                        "description": "Only used when cash.opening_float_source is \"required\", to preview cash.expected_cash.",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "example": "150.00"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The live preview",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/DayClosePreview"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "Requires close_daily_operation"
+                    },
+                    "404": {
+                        "description": "Restaurant not found in the user's scope"
+                    },
+                    "422": {
+                        "description": "Validation error"
+                    }
+                },
+                "security": [
+                    {
+                        "sessionCookie": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/restaurants/{restaurant}/day-closes": {
+            "get": {
+                "tags": [
+                    "Cierre Diario"
+                ],
+                "summary": "Cierre Diario history (summaries, never the full report)",
+                "description": "Newest business_date first. Cursor-paginated: pass meta.next_cursor back as ?cursor=.",
+                "operationId": "dayClosesIndex",
+                "parameters": [
+                    {
+                        "name": "restaurant",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "from",
+                        "in": "query",
+                        "description": "business_date >= from",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "format": "date"
+                        }
+                    },
+                    {
+                        "name": "to",
+                        "in": "query",
+                        "description": "business_date <= to",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "format": "date"
+                        }
+                    },
+                    {
+                        "name": "closed_by",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "has_incidents",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "boolean"
+                        }
+                    },
+                    {
+                        "name": "per_page",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "default": 20,
+                            "maximum": 100
+                        }
+                    },
+                    {
+                        "name": "cursor",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "History page",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "properties": {
+                                                "day_closes": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "$ref": "#/components/schemas/DayCloseSummary"
+                                                    }
+                                                }
+                                            },
+                                            "type": "object"
+                                        },
+                                        "meta": {
+                                            "properties": {
+                                                "next_cursor": {
+                                                    "type": "string",
+                                                    "nullable": true
+                                                },
+                                                "prev_cursor": {
+                                                    "type": "string",
+                                                    "nullable": true
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "Requires view_daily_closes"
+                    },
+                    "404": {
+                        "description": "Restaurant not found in the user's scope"
+                    },
+                    "422": {
+                        "description": "Validation error"
+                    }
+                },
+                "security": [
+                    {
+                        "sessionCookie": []
+                    }
+                ]
+            },
+            "post": {
+                "tags": [
+                    "Cierre Diario"
+                ],
+                "summary": "Close the business day (Cierre Diario) — immutable snapshot",
+                "description": "Recomputes everything under an exclusive per-restaurant lock (never trusts the preview). The server computes expected cash and the difference. A cash_difference_note is required when |difference| > RestaurantSettings.cash_difference_note_threshold (strictly greater). opening_float is required only when the preview said opening_float_source = \"required\"; otherwise it may be omitted, and if sent must equal the suggested value. Idempotent by Idempotency-Key.",
+                "operationId": "dayClosesStore",
+                "parameters": [
+                    {
+                        "name": "restaurant",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "Idempotency-Key",
+                        "in": "header",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "maxLength": 100
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "period_started_at",
+                                    "expected_cash_seen",
+                                    "counted_cash"
+                                ],
+                                "properties": {
+                                    "period_started_at": {
+                                        "description": "preview.period.period_started_at",
+                                        "type": "string",
+                                        "format": "date-time"
+                                    },
+                                    "expected_cash_seen": {
+                                        "description": "preview.cash.expected_cash the user counted against",
+                                        "type": "string",
+                                        "example": "762.00"
+                                    },
+                                    "opening_float": {
+                                        "type": "string",
+                                        "example": "150.00",
+                                        "nullable": true
+                                    },
+                                    "counted_cash": {
+                                        "type": "string",
+                                        "example": "758.80"
+                                    },
+                                    "cash_left_for_next_day": {
+                                        "description": "Becomes the next close's opening float.",
+                                        "type": "string",
+                                        "example": "150.00",
+                                        "nullable": true
+                                    },
+                                    "cash_difference_note": {
+                                        "type": "string",
+                                        "nullable": true,
+                                        "maxLength": 500
+                                    },
+                                    "notes": {
+                                        "description": "Plain text (never HTML).",
+                                        "type": "string",
+                                        "nullable": true,
+                                        "maxLength": 2000
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Day closed",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/DayClose"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "200": {
+                        "description": "Idempotent replay of the same close",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/DayClose"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "Requires close_daily_operation"
+                    },
+                    "404": {
+                        "description": "Restaurant not found in the user's scope"
+                    },
+                    "409": {
+                        "description": "PERIOD_CHANGED (current_period_started_at), CASH_EXPECTATION_CHANGED (current_expected_cash), BUSINESS_DATE_ALREADY_CLOSED, PERIOD_EMPTY (only a zero-length period, T <= period_started_at — never a day with no activity: a day without payments/orders closes normally with zeros) or IDEMPOTENCY_KEY_REUSED"
+                    },
+                    "422": {
+                        "description": "CLOSE_BLOCKED (blockers[]) — any active table session, for every user: there is no force close, EXPECTED_CASH_NEGATIVE, OPENING_FLOAT_MISMATCH, or validation (opening_float required, cash_difference_note required, missing Idempotency-Key)"
+                    }
+                },
+                "security": [
+                    {
+                        "sessionCookie": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/day-closes/{dayClose}": {
+            "get": {
+                "tags": [
+                    "Cierre Diario"
+                ],
+                "summary": "A persisted Cierre Diario — the immutable snapshot, never recomputed",
+                "operationId": "dayClosesShow",
+                "parameters": [
+                    {
+                        "name": "dayClose",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The close",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/DayClose"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "Requires view_daily_closes"
+                    },
+                    "404": {
+                        "description": "Not found in the user's organization/restaurant scope"
+                    }
+                },
+                "security": [
+                    {
+                        "sessionCookie": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/day-closes/{dayClose}/annotations": {
+            "post": {
+                "tags": [
+                    "Cierre Diario"
+                ],
+                "summary": "Add a post-close note (append-only; never changes the report, hash or totals)",
+                "operationId": "dayClosesAnnotationsStore",
+                "parameters": [
+                    {
+                        "name": "dayClose",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "body"
+                                ],
+                                "properties": {
+                                    "body": {
+                                        "type": "string",
+                                        "example": "El terminal de tarjeta duplicó un cobro de 12,00 €; devuelto el 03/10.",
+                                        "maxLength": 2000
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Annotation added",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/DayCloseAnnotation"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "Requires view_daily_closes"
+                    },
+                    "404": {
+                        "description": "Not found in the user's organization/restaurant scope"
+                    },
+                    "422": {
+                        "description": "Validation error"
                     }
                 },
                 "security": [
@@ -7451,7 +8083,7 @@
                         "description": "Unauthenticated"
                     },
                     "403": {
-                        "description": "The user is not allowed to create tables, or is missing manage_floor_plan for the layout fields sent"
+                        "description": "The user is not allowed to create tables (including: a user without manage_floor_plan while RestaurantSettings.waiter_table_management_enabled is false), or is missing manage_floor_plan for the layout fields sent"
                     },
                     "404": {
                         "description": "Restaurant not found"
@@ -7639,13 +8271,93 @@
                         "description": "Unauthenticated"
                     },
                     "403": {
-                        "description": "The user is not allowed to update this table, or is missing manage_floor_plan for the layout fields sent"
+                        "description": "The user is not allowed to update this table; or sent a structural field (name/number/capacity/zone/layout) without manage_floor_plan while RestaurantSettings.waiter_table_management_enabled is false; or is missing manage_floor_plan for the layout fields sent. status alone is never gated by the setting."
                     },
                     "404": {
                         "description": "Table not found"
                     },
                     "422": {
                         "description": "Validation error"
+                    }
+                },
+                "security": [
+                    {
+                        "sessionCookie": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/tables/resolve/{publicToken}": {
+            "get": {
+                "tags": [
+                    "Tables"
+                ],
+                "summary": "Resolve a table QR public token into the staff operational table context",
+                "description": "Authenticated counterpart of GET /api/v1/public/tables/{publicToken}. Returns only ids/name; never opens a session, assigns a waiter or writes an audit log. Tokens of tables outside the user's organization/restaurant scope return 404, exactly like unknown tokens.",
+                "operationId": "tablesResolvePublicToken",
+                "parameters": [
+                    {
+                        "name": "publicToken",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The resolved operational table context",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "properties": {
+                                                "restaurant": {
+                                                    "properties": {
+                                                        "id": {
+                                                            "type": "integer",
+                                                            "example": 1
+                                                        }
+                                                    },
+                                                    "type": "object"
+                                                },
+                                                "table": {
+                                                    "properties": {
+                                                        "id": {
+                                                            "type": "integer",
+                                                            "example": 12
+                                                        },
+                                                        "name": {
+                                                            "type": "string",
+                                                            "example": "Mesa 12"
+                                                        },
+                                                        "number": {
+                                                            "type": "integer",
+                                                            "example": 12,
+                                                            "nullable": true
+                                                        }
+                                                    },
+                                                    "type": "object"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "The user is not allowed to view tables (requires manage_tables or close_bill)"
+                    },
+                    "404": {
+                        "description": "Unknown token, or a table outside the user's organization/restaurant scope"
                     }
                 },
                 "security": [
@@ -7689,6 +8401,15 @@
                             "type": "string",
                             "example": "call_waiter"
                         }
+                    },
+                    {
+                        "name": "table_id",
+                        "in": "query",
+                        "description": "Only requests of this table (CARTA 8.2A). Must be a table of a restaurant the user can access — and of restaurant_id when both are sent — otherwise 422 (same response for unknown and out-of-scope tables).",
+                        "required": false,
+                        "schema": {
+                            "type": "integer"
+                        }
                     }
                 ],
                 "responses": {
@@ -7722,7 +8443,7 @@
                         "description": "The user is not allowed to view table requests"
                     },
                     "422": {
-                        "description": "Invalid status/type filter"
+                        "description": "Invalid status/type filter, or a table_id outside the user's scope / not of restaurant_id"
                     }
                 },
                 "security": [
@@ -8336,6 +9057,90 @@
                     },
                     "409": {
                         "description": "The session is closed, the target is the same table, or the target already has an active session"
+                    },
+                    "422": {
+                        "description": "Validation error"
+                    }
+                },
+                "security": [
+                    {
+                        "sessionCookie": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/table-sessions/{tableSession}/void": {
+            "post": {
+                "tags": [
+                    "Table Sessions"
+                ],
+                "summary": "Void an empty active table session (no payments, no billable orders, no order in progress)",
+                "description": "Ends a session opened by mistake or abandoned before ordering. The session is kept (status closed, voided_at set) but never counts as an attended session, a closed session, guests served or turnover. Still-open table requests are cancelled. Rejected orders are allowed.",
+                "operationId": "tableSessionsVoid",
+                "parameters": [
+                    {
+                        "name": "tableSession",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": false,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "properties": {
+                                    "reason": {
+                                        "type": "string",
+                                        "example": "Mesa abierta por error",
+                                        "nullable": true,
+                                        "maxLength": 255
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Session voided",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Table session voided successfully."
+                                        },
+                                        "data": {
+                                            "properties": {
+                                                "session": {
+                                                    "$ref": "#/components/schemas/TableSession"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "Requires manage_tables or close_bill"
+                    },
+                    "404": {
+                        "description": "Table session not found in the user's organization/restaurant scope"
+                    },
+                    "409": {
+                        "description": "TABLE_SESSION_CLOSED, or TABLE_SESSION_NOT_EMPTY with reason has_payments | has_billable_orders | has_open_orders"
                     },
                     "422": {
                         "description": "Validation error"
@@ -9066,7 +9871,8 @@
                     "slug",
                     "status",
                     "roles",
-                    "permissions"
+                    "permissions",
+                    "can_manage_table_structure"
                 ],
                 "properties": {
                     "id": {
@@ -9105,6 +9911,11 @@
                             "manage_tables",
                             "view_operations"
                         ]
+                    },
+                    "can_manage_table_structure": {
+                        "description": "Derived capability (CARTA 8.2A), computed by TablePolicy::manageStructure for THIS restaurant: true with manage_floor_plan; otherwise manage_tables AND RestaurantSettings.waiter_table_management_enabled. Governs creating tables and changing name/number/capacity/zone/layout. UX projection only — the API still answers 403 if it changed since this context was fetched; refetch /auth/context to refresh it. Not a persisted permission.",
+                        "type": "boolean",
+                        "example": true
                     }
                 },
                 "type": "object"
@@ -9626,6 +10437,21 @@
                         "type": "integer",
                         "format": "int64",
                         "example": 5,
+                        "nullable": true
+                    },
+                    "voided_at": {
+                        "description": "CARTA 9.1A: set when an EMPTY session was voided (POST /table-sessions/{id}/void) instead of served and closed. A voided session has status closed and closed_at = voided_at, but never counts as attended/closed in any metric.",
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true
+                    },
+                    "voided_by_user_id": {
+                        "type": "integer",
+                        "format": "int64",
+                        "nullable": true
+                    },
+                    "void_reason": {
+                        "type": "string",
                         "nullable": true
                     },
                     "assigned_waiter": {
@@ -13544,7 +14370,14 @@
                     "bill_request_enabled",
                     "kitchen_ticket_printing_enabled",
                     "bill_receipt_printing_enabled",
-                    "google_review_url"
+                    "google_review_url",
+                    "waiter_table_management_enabled",
+                    "business_day_cutoff_time",
+                    "default_opening_float",
+                    "cash_difference_note_threshold",
+                    "accept_delay_threshold_minutes",
+                    "preparation_delay_threshold_minutes",
+                    "ready_pickup_delay_threshold_minutes"
                 ],
                 "properties": {
                     "default_locale": {
@@ -13607,12 +14440,907 @@
                         "nullable": true,
                         "maxLength": 2048
                     },
+                    "waiter_table_management_enabled": {
+                        "description": "Whether staff holding manage_tables but NOT manage_floor_plan (waiters) may change the table structure: POST /restaurants/{restaurant}/tables and PATCH /tables/{table} name/number/capacity. false = 403 for them; users holding manage_floor_plan (owner/manager) are never affected. Viewing, QR resolution, status, sessions, orders, bills and requests are never gated by it. Defaults to true (pre-existing behavior).",
+                        "type": "boolean",
+                        "example": true,
+                        "default": true
+                    },
+                    "business_day_cutoff_time": {
+                        "description": "CARTA 9.1A — local HH:MM. A Cierre Diario whose local time is before it belongs to the previous business date.",
+                        "type": "string",
+                        "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$",
+                        "example": "06:00",
+                        "default": "06:00"
+                    },
+                    "default_opening_float": {
+                        "description": "Opening float used when the previous close left no cash_left_for_next_day (e.g. the first close). null = the closer must state it.",
+                        "type": "string",
+                        "example": "150.00",
+                        "nullable": true
+                    },
+                    "cash_difference_note_threshold": {
+                        "description": "A cash_difference_note is required when |cash difference| is strictly greater than this.",
+                        "type": "string",
+                        "example": "5.00",
+                        "default": "5.00"
+                    },
+                    "accept_delay_threshold_minutes": {
+                        "type": "integer",
+                        "default": 10,
+                        "maximum": 240,
+                        "minimum": 1
+                    },
+                    "preparation_delay_threshold_minutes": {
+                        "type": "integer",
+                        "default": 30,
+                        "maximum": 240,
+                        "minimum": 1
+                    },
+                    "ready_pickup_delay_threshold_minutes": {
+                        "type": "integer",
+                        "default": 10,
+                        "maximum": 240,
+                        "minimum": 1
+                    },
                     "updated_at": {
                         "type": "string",
                         "format": "date-time"
                     }
                 },
                 "type": "object"
+            },
+            "CashMovement": {
+                "description": "A cash drawer pay-in/pay-out (CARTA 9.1A). Append-only.",
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    "restaurant_id": {
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    "type": {
+                        "type": "string",
+                        "enum": [
+                            "pay_in",
+                            "pay_out"
+                        ]
+                    },
+                    "amount": {
+                        "type": "string",
+                        "example": "20.00"
+                    },
+                    "reason": {
+                        "type": "string"
+                    },
+                    "recorded_by": {
+                        "properties": {
+                            "id": {
+                                "type": "integer",
+                                "nullable": true
+                            },
+                            "name": {
+                                "type": "string"
+                            }
+                        },
+                        "type": "object"
+                    },
+                    "recorded_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                },
+                "type": "object"
+            },
+            "DayCloseAnnotation": {
+                "description": "A post-close note on a Cierre Diario. Never part of the report/hash.",
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    "body": {
+                        "description": "Plain text.",
+                        "type": "string"
+                    },
+                    "created_by": {
+                        "properties": {
+                            "id": {
+                                "type": "integer",
+                                "nullable": true
+                            },
+                            "name": {
+                                "type": "string"
+                            }
+                        },
+                        "type": "object"
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                },
+                "type": "object"
+            },
+            "DayClosePeriod": {
+                "properties": {
+                    "business_date": {
+                        "type": "string",
+                        "format": "date",
+                        "example": "2026-10-02"
+                    },
+                    "business_date_from": {
+                        "description": "Earlier than business_date when the period covers days nobody closed.",
+                        "type": "string",
+                        "format": "date"
+                    },
+                    "period_started_at": {
+                        "description": "Previous close period_ended_at; on the first close, the cutoff of business_date.",
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "period_ended_at": {
+                        "description": "Exclusive end (T).",
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "timezone": {
+                        "type": "string",
+                        "example": "Europe/Madrid"
+                    },
+                    "first_close": {
+                        "description": "true: no previous close — activity before period_started_at is outside the closing system.",
+                        "type": "boolean"
+                    },
+                    "covers_multiple_business_days": {
+                        "type": "boolean"
+                    }
+                },
+                "type": "object"
+            },
+            "DayCloseSections": {
+                "description": "Shared live/snapshot sections of a Cierre Diario over [period_started_at, period_ended_at). Money = decimal strings; instants = UTC ISO-8601.",
+                "properties": {
+                    "financial": {
+                        "description": "Money actually received (PaymentRecord.recorded_at in the period), never Order totals.",
+                        "properties": {
+                            "currency": {
+                                "type": "string",
+                                "example": "EUR"
+                            },
+                            "total_received": {
+                                "type": "string",
+                                "example": "1842.50"
+                            },
+                            "by_method": {
+                                "properties": {
+                                    "cash": {
+                                        "type": "string"
+                                    },
+                                    "card": {
+                                        "type": "string"
+                                    },
+                                    "other": {
+                                        "type": "string"
+                                    }
+                                },
+                                "type": "object"
+                            },
+                            "payments_count": {
+                                "type": "integer"
+                            },
+                            "sessions_with_payments": {
+                                "type": "integer"
+                            },
+                            "average_ticket": {
+                                "description": "total_received / sessions_with_payments.",
+                                "type": "string"
+                            }
+                        },
+                        "type": "object"
+                    },
+                    "operations": {
+                        "properties": {
+                            "orders": {
+                                "properties": {
+                                    "registered": {
+                                        "description": "created in the period, any status",
+                                        "type": "integer"
+                                    },
+                                    "valid": {
+                                        "description": "created in the period and billable (excludes waiting_approval and rejected)",
+                                        "type": "integer"
+                                    },
+                                    "served": {
+                                        "description": "served_at in the period",
+                                        "type": "integer"
+                                    },
+                                    "rejected": {
+                                        "description": "rejected (cancelled_at) in the period",
+                                        "type": "integer"
+                                    }
+                                },
+                                "type": "object"
+                            },
+                            "sessions": {
+                                "properties": {
+                                    "opened": {
+                                        "description": "excludes voided",
+                                        "type": "integer"
+                                    },
+                                    "closed": {
+                                        "description": "real closes only, excludes voided",
+                                        "type": "integer"
+                                    },
+                                    "voided": {
+                                        "type": "integer"
+                                    }
+                                },
+                                "type": "object"
+                            },
+                            "guests": {
+                                "description": "SUM(guest_count) of sessions really closed in the period",
+                                "type": "integer"
+                            },
+                            "peak_hour": {
+                                "properties": {
+                                    "local_hour": {
+                                        "description": "Local calendar hour (date + hour).",
+                                        "type": "string",
+                                        "example": "2026-10-02T21:00"
+                                    },
+                                    "sessions_started": {
+                                        "type": "integer"
+                                    }
+                                },
+                                "type": "object",
+                                "nullable": true
+                            }
+                        },
+                        "type": "object"
+                    },
+                    "products": {
+                        "properties": {
+                            "top": {
+                                "description": "Top 5 by quantity, billable orders, OrderItem name snapshot.",
+                                "type": "array",
+                                "items": {
+                                    "properties": {
+                                        "product_id": {
+                                            "type": "integer",
+                                            "nullable": true
+                                        },
+                                        "name": {
+                                            "type": "string"
+                                        },
+                                        "quantity": {
+                                            "type": "integer"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        },
+                        "type": "object"
+                    },
+                    "product_availability": {
+                        "description": "\"Producto marcado como no disponible\" (not stock).",
+                        "properties": {
+                            "count": {
+                                "description": "distinct products",
+                                "type": "integer"
+                            },
+                            "items": {
+                                "type": "array",
+                                "items": {
+                                    "properties": {
+                                        "restaurant_product_id": {
+                                            "type": "integer"
+                                        },
+                                        "product_name_snapshot": {
+                                            "type": "string",
+                                            "nullable": true
+                                        },
+                                        "unavailable_since_known": {
+                                            "description": "false = \"inicio desconocido\" (no recorded event).",
+                                            "type": "boolean"
+                                        },
+                                        "unavailable_at": {
+                                            "type": "string",
+                                            "format": "date-time",
+                                            "nullable": true
+                                        },
+                                        "unavailable_by_name": {
+                                            "type": "string",
+                                            "nullable": true
+                                        },
+                                        "available_again_at": {
+                                            "type": "string",
+                                            "format": "date-time",
+                                            "nullable": true
+                                        },
+                                        "available_again_by_name": {
+                                            "type": "string",
+                                            "nullable": true
+                                        },
+                                        "duration_seconds": {
+                                            "type": "integer",
+                                            "nullable": true
+                                        },
+                                        "state_at_close": {
+                                            "type": "string",
+                                            "enum": [
+                                                "available",
+                                                "unavailable"
+                                            ]
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        },
+                        "type": "object"
+                    },
+                    "feedback": {
+                        "description": "By submitted_at in the period. No customer PII (no names, no contact).",
+                        "properties": {
+                            "count": {
+                                "type": "integer"
+                            },
+                            "avg_overall": {
+                                "type": "string",
+                                "example": "4.33",
+                                "nullable": true
+                            },
+                            "critical_count": {
+                                "description": "overall_rating < 3",
+                                "type": "integer"
+                            },
+                            "low_dimension_count": {
+                                "description": "overall >= 3 with food/service/wait_time <= 2 (\"atención\") — not critical",
+                                "type": "integer"
+                            },
+                            "critical": {
+                                "type": "array",
+                                "items": {
+                                    "$ref": "#/components/schemas/DayCloseFeedbackItem"
+                                }
+                            },
+                            "attention": {
+                                "description": "Up to 20.",
+                                "type": "array",
+                                "items": {
+                                    "$ref": "#/components/schemas/DayCloseFeedbackItem"
+                                }
+                            }
+                        },
+                        "type": "object"
+                    },
+                    "delays": {
+                        "description": "Stage duration strictly above its threshold, attributed by the stage end instant. The associated user is the one who performed the closing action of the stage — never \"the one responsible\".",
+                        "properties": {
+                            "thresholds_seconds": {
+                                "properties": {
+                                    "accept": {
+                                        "type": "integer"
+                                    },
+                                    "preparation": {
+                                        "type": "integer"
+                                    },
+                                    "ready_pickup": {
+                                        "type": "integer"
+                                    }
+                                },
+                                "type": "object"
+                            },
+                            "total_count": {
+                                "type": "integer"
+                            },
+                            "items": {
+                                "description": "The 20 worst by excess.",
+                                "type": "array",
+                                "items": {
+                                    "properties": {
+                                        "order_id": {
+                                            "type": "integer"
+                                        },
+                                        "order_reference": {
+                                            "type": "string",
+                                            "example": "#1234"
+                                        },
+                                        "table": {
+                                            "type": "object",
+                                            "nullable": true
+                                        },
+                                        "stage": {
+                                            "type": "string",
+                                            "enum": [
+                                                "accept",
+                                                "preparation",
+                                                "ready_pickup"
+                                            ]
+                                        },
+                                        "duration_seconds": {
+                                            "type": "integer"
+                                        },
+                                        "threshold_seconds": {
+                                            "type": "integer"
+                                        },
+                                        "excess_seconds": {
+                                            "type": "integer"
+                                        },
+                                        "associated_action_user": {
+                                            "type": "object",
+                                            "nullable": true
+                                        },
+                                        "associated_action_label": {
+                                            "type": "string",
+                                            "nullable": true,
+                                            "enum": [
+                                                "marked_ready_by",
+                                                "served_by"
+                                            ]
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        },
+                        "type": "object"
+                    }
+                },
+                "type": "object"
+            },
+            "DayCloseFeedbackItem": {
+                "properties": {
+                    "feedback_id": {
+                        "type": "integer"
+                    },
+                    "submitted_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "table": {
+                        "type": "object",
+                        "nullable": true
+                    },
+                    "table_session_id": {
+                        "type": "integer"
+                    },
+                    "ratings": {
+                        "properties": {
+                            "overall": {
+                                "type": "integer"
+                            },
+                            "food": {
+                                "type": "integer"
+                            },
+                            "service": {
+                                "type": "integer"
+                            },
+                            "wait_time": {
+                                "type": "integer"
+                            }
+                        },
+                        "type": "object"
+                    },
+                    "experience_comment": {
+                        "description": "User-generated; may itself contain PII.",
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "improvement_comment": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "waiter_name": {
+                        "type": "string",
+                        "nullable": true
+                    }
+                },
+                "type": "object"
+            },
+            "DayCloseCash": {
+                "properties": {
+                    "opening_float": {
+                        "type": "string"
+                    },
+                    "opening_float_source": {
+                        "type": "string",
+                        "enum": [
+                            "previous_close",
+                            "restaurant_default",
+                            "required"
+                        ]
+                    },
+                    "cash_received": {
+                        "type": "string"
+                    },
+                    "cash_pay_ins": {
+                        "type": "string"
+                    },
+                    "cash_pay_outs": {
+                        "type": "string"
+                    },
+                    "expected_cash": {
+                        "description": "opening_float + cash_received + cash_pay_ins - cash_pay_outs",
+                        "type": "string"
+                    },
+                    "counted_cash": {
+                        "type": "string"
+                    },
+                    "cash_difference": {
+                        "description": "counted - expected (positive = sobrante, negative = faltante), computed by the server",
+                        "type": "string"
+                    },
+                    "cash_difference_note": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "cash_difference_note_threshold": {
+                        "type": "string"
+                    },
+                    "cash_left_for_next_day": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "movements": {
+                        "type": "array",
+                        "items": {
+                            "type": "object"
+                        }
+                    }
+                },
+                "type": "object"
+            },
+            "DayCloseReport": {
+                "description": "The immutable snapshot (schema_version 1). report_sha256 = sha256 of its canonical JSON (keys sorted recursively, lists in order, unescaped unicode/slashes). Contains only strings/ints/bools/nulls.",
+                "type": "object",
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/DayCloseSections"
+                    },
+                    {
+                        "properties": {
+                            "schema_version": {
+                                "type": "integer",
+                                "example": 1
+                            },
+                            "summary": {
+                                "description": "Period fields + restaurant {id,name}, currency, total_received, orders_valid, guests, average_ticket, cash_difference, top_product, critical_feedback_count, delays_count, unavailable_products_count, has_incidents.",
+                                "type": "object"
+                            },
+                            "cash": {
+                                "$ref": "#/components/schemas/DayCloseCash"
+                            },
+                            "warnings": {
+                                "type": "array",
+                                "items": {
+                                    "properties": {
+                                        "type": {
+                                            "type": "string",
+                                            "enum": [
+                                                "open_table_requests_without_active_session",
+                                                "active_staff_shifts",
+                                                "products_still_unavailable",
+                                                "critical_feedback",
+                                                "severe_delays",
+                                                "cash_difference"
+                                            ]
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            },
+                            "closing": {
+                                "properties": {
+                                    "public_id": {
+                                        "type": "string",
+                                        "format": "uuid"
+                                    },
+                                    "closed_by": {
+                                        "type": "object"
+                                    },
+                                    "closed_at": {
+                                        "type": "string",
+                                        "format": "date-time"
+                                    },
+                                    "notes": {
+                                        "type": "string",
+                                        "nullable": true
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        },
+                        "type": "object"
+                    }
+                ]
+            },
+            "DayClosePreview": {
+                "type": "object",
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/DayCloseSections"
+                    },
+                    {
+                        "properties": {
+                            "period": {
+                                "$ref": "#/components/schemas/DayClosePeriod"
+                            },
+                            "can_close": {
+                                "type": "boolean"
+                            },
+                            "blockers": {
+                                "type": "array",
+                                "items": {
+                                    "properties": {
+                                        "type": {
+                                            "type": "string",
+                                            "enum": [
+                                                "active_session",
+                                                "business_date_already_closed",
+                                                "expected_cash_negative"
+                                            ]
+                                        },
+                                        "table_session_id": {
+                                            "type": "integer"
+                                        },
+                                        "table": {
+                                            "type": "object"
+                                        },
+                                        "opened_at": {
+                                            "type": "string",
+                                            "format": "date-time"
+                                        },
+                                        "payment_status": {
+                                            "type": "string"
+                                        },
+                                        "balance": {
+                                            "type": "string"
+                                        },
+                                        "open_orders_count": {
+                                            "type": "integer"
+                                        },
+                                        "can_be_voided": {
+                                            "description": "Empty session: POST /table-sessions/{id}/void resolves it.",
+                                            "type": "boolean"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            },
+                            "warnings": {
+                                "type": "array",
+                                "items": {
+                                    "type": "object"
+                                }
+                            },
+                            "cash": {
+                                "properties": {
+                                    "suggested_opening_float": {
+                                        "type": "string",
+                                        "nullable": true
+                                    },
+                                    "opening_float_source": {
+                                        "type": "string",
+                                        "enum": [
+                                            "previous_close",
+                                            "restaurant_default",
+                                            "required"
+                                        ]
+                                    },
+                                    "cash_received": {
+                                        "type": "string"
+                                    },
+                                    "cash_pay_ins": {
+                                        "type": "string"
+                                    },
+                                    "cash_pay_outs": {
+                                        "type": "string"
+                                    },
+                                    "expected_cash": {
+                                        "description": "null while the opening float is required and not given via ?opening_float=",
+                                        "type": "string",
+                                        "nullable": true
+                                    },
+                                    "expected_cash_excluding_opening_float": {
+                                        "type": "string"
+                                    },
+                                    "cash_difference_note_threshold": {
+                                        "type": "string"
+                                    },
+                                    "movements": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "object"
+                                        }
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        },
+                        "type": "object"
+                    }
+                ]
+            },
+            "DayCloseSummary": {
+                "description": "History row — persisted columns, never recomputed.",
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    "public_id": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "restaurant_id": {
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    "business_date": {
+                        "type": "string",
+                        "format": "date"
+                    },
+                    "business_date_from": {
+                        "type": "string",
+                        "format": "date"
+                    },
+                    "period_started_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "period_ended_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "timezone": {
+                        "type": "string"
+                    },
+                    "currency": {
+                        "type": "string"
+                    },
+                    "total_received": {
+                        "type": "string"
+                    },
+                    "orders_valid": {
+                        "type": "integer"
+                    },
+                    "guests": {
+                        "type": "integer"
+                    },
+                    "cash_difference": {
+                        "type": "string"
+                    },
+                    "critical_feedback_count": {
+                        "type": "integer"
+                    },
+                    "delays_count": {
+                        "type": "integer"
+                    },
+                    "unavailable_products_count": {
+                        "type": "integer"
+                    },
+                    "has_incidents": {
+                        "description": "cash difference != 0, critical feedback, severe delay, product marked unavailable, or closing notes",
+                        "type": "boolean"
+                    },
+                    "closed_by": {
+                        "type": "object"
+                    },
+                    "closed_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                },
+                "type": "object"
+            },
+            "DayClose": {
+                "description": "A persisted Cierre Diario: DayCloseSummary fields plus every persisted column, the immutable report and its hash, and annotations (separate).",
+                "type": "object",
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/DayCloseSummary"
+                    },
+                    {
+                        "properties": {
+                            "cash_received": {
+                                "type": "string"
+                            },
+                            "card_received": {
+                                "type": "string"
+                            },
+                            "other_received": {
+                                "type": "string"
+                            },
+                            "payments_count": {
+                                "type": "integer"
+                            },
+                            "sessions_with_payments": {
+                                "type": "integer"
+                            },
+                            "average_ticket": {
+                                "type": "string"
+                            },
+                            "opening_float": {
+                                "type": "string"
+                            },
+                            "cash_pay_ins": {
+                                "type": "string"
+                            },
+                            "cash_pay_outs": {
+                                "type": "string"
+                            },
+                            "expected_cash": {
+                                "type": "string"
+                            },
+                            "counted_cash": {
+                                "type": "string"
+                            },
+                            "cash_left_for_next_day": {
+                                "type": "string",
+                                "nullable": true
+                            },
+                            "cash_difference_note": {
+                                "type": "string",
+                                "nullable": true
+                            },
+                            "orders_registered": {
+                                "type": "integer"
+                            },
+                            "orders_served": {
+                                "type": "integer"
+                            },
+                            "orders_rejected": {
+                                "type": "integer"
+                            },
+                            "sessions_opened": {
+                                "type": "integer"
+                            },
+                            "sessions_closed": {
+                                "type": "integer"
+                            },
+                            "feedback_count": {
+                                "type": "integer"
+                            },
+                            "feedback_avg_overall": {
+                                "type": "string",
+                                "nullable": true
+                            },
+                            "low_dimension_feedback_count": {
+                                "type": "integer"
+                            },
+                            "notes": {
+                                "type": "string",
+                                "nullable": true
+                            },
+                            "report_schema_version": {
+                                "type": "integer",
+                                "example": 1
+                            },
+                            "report_sha256": {
+                                "type": "string"
+                            },
+                            "report": {
+                                "$ref": "#/components/schemas/DayCloseReport"
+                            },
+                            "annotations": {
+                                "type": "array",
+                                "items": {
+                                    "$ref": "#/components/schemas/DayCloseAnnotation"
+                                }
+                            },
+                            "created_at": {
+                                "type": "string",
+                                "format": "date-time"
+                            }
+                        },
+                        "type": "object"
+                    }
+                ]
             },
             "UpdateRestaurantSettingsRequest": {
                 "description": "Every field is optional (PATCH semantics). organization_id/restaurant_id are never accepted.",
@@ -13670,6 +15398,43 @@
                         "example": "https://g.page/r/CabcdEFGhij123/review",
                         "nullable": true,
                         "maxLength": 2048
+                    },
+                    "waiter_table_management_enabled": {
+                        "description": "See RestaurantSettings.waiter_table_management_enabled. Like every field here, only changeable by users authorized to manage the restaurant settings (manage_restaurants).",
+                        "type": "boolean",
+                        "example": false
+                    },
+                    "business_day_cutoff_time": {
+                        "description": "CARTA 9.1A — local HH:MM. A Cierre Diario whose local time is before it belongs to the previous business date.",
+                        "type": "string",
+                        "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$",
+                        "example": "06:00"
+                    },
+                    "default_opening_float": {
+                        "description": "Opening float used when the previous close left no cash_left_for_next_day (e.g. the first close). null = the closer must state it.",
+                        "type": "string",
+                        "example": "150.00",
+                        "nullable": true
+                    },
+                    "cash_difference_note_threshold": {
+                        "description": "A cash_difference_note is required when |cash difference| is strictly greater than this.",
+                        "type": "string",
+                        "example": "5.00"
+                    },
+                    "accept_delay_threshold_minutes": {
+                        "type": "integer",
+                        "maximum": 240,
+                        "minimum": 1
+                    },
+                    "preparation_delay_threshold_minutes": {
+                        "type": "integer",
+                        "maximum": 240,
+                        "minimum": 1
+                    },
+                    "ready_pickup_delay_threshold_minutes": {
+                        "type": "integer",
+                        "maximum": 240,
+                        "minimum": 1
                     }
                 },
                 "type": "object"
@@ -15174,6 +16939,10 @@
         {
             "name": "Printing",
             "description": "Printing"
+        },
+        {
+            "name": "Cierre Diario",
+            "description": "Cierre Diario"
         },
         {
             "name": "Categories",

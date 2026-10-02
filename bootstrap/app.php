@@ -9,6 +9,7 @@ use App\Exceptions\Billing\TableSessionClosedException;
 use App\Exceptions\Billing\TableSessionHasNoBillableOrdersException;
 use App\Exceptions\Billing\TableSessionHasOpenOrdersException;
 use App\Exceptions\Billing\TableSessionNotPaidException;
+use App\Exceptions\DayClose\DayCloseException;
 use App\Exceptions\FloorPlan\FloorHasZonesException;
 use App\Exceptions\FloorPlan\ZoneHasTablesException;
 use App\Exceptions\Orders\IdempotencyKeyReusedException;
@@ -40,6 +41,7 @@ use App\Exceptions\Staff\StaffShiftIneligibleException;
 use App\Exceptions\TableRequests\TableRequestAlreadyOpenException;
 use App\Exceptions\TableRequests\TableRequestStateConflictException;
 use App\Exceptions\Tables\TableSessionHasNoAssignedWaiterException;
+use App\Exceptions\Tables\TableSessionNotEmptyException;
 use App\Exceptions\Tables\WaiterAssignmentIneligibleException;
 use App\Exceptions\Tables\WaiterCallConflictException;
 use App\Exceptions\TableSessionConflictException;
@@ -282,6 +284,14 @@ return Application::configure(basePath: dirname(__DIR__))
             return response()->json([
                 'error' => ['code' => 'ZONE_HAS_TABLES', 'message' => 'This zone still has tables assigned to it.'],
             ], 409);
+        });
+        $exceptions->render(function (TableSessionNotEmptyException $e, Request $request) {
+            return response()->json([
+                'error' => ['code' => 'TABLE_SESSION_NOT_EMPTY', 'message' => $e->getMessage(), 'reason' => $e->reason],
+            ], 409);
+        });
+        $exceptions->render(function (DayCloseException $e, Request $request) {
+            return response()->json(['error' => $e->toResponseError()], $e->status);
         });
         $exceptions->render(function (ThrottleRequestsException $e, Request $request) {
             if (! $request->is('api/v1/public/*')) {

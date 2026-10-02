@@ -107,6 +107,7 @@ class BuildRestaurantAnalyticsAction
         return (int) TableSession::query()
             ->where('restaurant_id', $restaurant->id)
             ->where('status', 'closed')
+            ->notVoided()
             ->where('closed_at', '>=', $fromUtc)
             ->where('closed_at', '<', $toExclusiveUtc)
             ->sum('guest_count');

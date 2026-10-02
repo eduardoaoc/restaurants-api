@@ -16,6 +16,7 @@ use App\Support\Activity\RestaurantActivityRecorder;
 use App\Support\Activity\RestaurantActivityType;
 use App\Support\Audit\AuditLogger;
 use App\Support\Money\Money;
+use App\Support\Restaurants\RestaurantOperationalLock;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -69,6 +70,8 @@ class OrderCreationService
             $customerName, $customerNote, $idempotencyKey, $idempotencyPayloadHash,
             $requiresApproval, $blockIfBillRequested,
         ) {
+            RestaurantOperationalLock::shared($table->restaurant_id);
+
             $session = TableSession::query()->whereKey($tableSessionId)->lockForUpdate()->first();
 
             if (! $session || ! $session->isActive()) {

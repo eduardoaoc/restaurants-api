@@ -28,6 +28,9 @@ class TableSessionResource extends JsonResource
             'paid_at' => $this->paid_at,
             'opened_by_user_id' => $this->opened_by_user_id,
             'closed_by_user_id' => $this->closed_by_user_id,
+            'voided_at' => $this->voided_at,
+            'voided_by_user_id' => $this->voided_by_user_id,
+            'void_reason' => $this->void_reason,
             'assigned_waiter' => $this->assignedWaiter ? [
                 'id' => $this->assignedWaiter->id,
                 'name' => $this->assignedWaiter->name,

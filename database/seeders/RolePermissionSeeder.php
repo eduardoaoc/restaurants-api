@@ -41,6 +41,8 @@ class RolePermissionSeeder extends Seeder
             'view_operations',
             'view_customer_feedback',
             'view_activity',
+            'close_daily_operation',
+            'view_daily_closes',
         ],
         'manager' => [
             'manage_restaurants',
@@ -65,6 +67,8 @@ class RolePermissionSeeder extends Seeder
             'view_operations',
             'view_customer_feedback',
             'view_activity',
+            'close_daily_operation',
+            'view_daily_closes',
         ],
         'waiter' => [
             'create_orders',
@@ -80,6 +84,10 @@ class RolePermissionSeeder extends Seeder
             // (a single GET, no mutating side effect) and the Passo 3.2 fix
             // report for the audit that confirmed this.
             'view_operations',
+            // CARTA 9.1A: the last staff member on the floor may run the
+            // Cierre Diario — but NOT view_daily_closes (past closes'
+            // history stays owner/manager).
+            'close_daily_operation',
         ],
         'kitchen' => [
             'update_kitchen_status',
@@ -88,6 +96,7 @@ class RolePermissionSeeder extends Seeder
             'handle_table_requests',
             'record_payments',
             'close_bill',
+            'close_daily_operation',
         ],
     ];
 

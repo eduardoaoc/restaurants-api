@@ -17,6 +17,7 @@ use App\Support\Activity\RestaurantActivityType;
 use App\Support\Audit\AuditLogger;
 use App\Support\Billing\SessionBillCalculator;
 use App\Support\Money\Money;
+use App\Support\Restaurants\RestaurantOperationalLock;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -46,6 +47,8 @@ class CloseTableAction
     public function execute(TableSession $session, User $closedBy): TableSession
     {
         return DB::transaction(function () use ($session, $closedBy) {
+            RestaurantOperationalLock::shared($session->restaurant_id);
+
             $locked = TableSession::query()->whereKey($session->id)->lockForUpdate()->first();
 
             if (! $locked || ! $locked->isActive()) {

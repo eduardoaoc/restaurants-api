@@ -21,6 +21,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
     'kitchen_ticket_printing_enabled', 'bill_receipt_printing_enabled',
     'google_review_url',
     'waiter_table_management_enabled',
+    'business_day_cutoff_time', 'default_opening_float', 'cash_difference_note_threshold',
+    'accept_delay_threshold_minutes', 'preparation_delay_threshold_minutes', 'ready_pickup_delay_threshold_minutes',
 ])]
 class RestaurantSettings extends Model
 {
@@ -68,6 +70,21 @@ class RestaurantSettings extends Model
     public const DEFAULT_WAITER_TABLE_MANAGEMENT_ENABLED = true;
 
     /**
+     * Cierre Diario defaults (CARTA 9.1A) — same values as the columns'
+     * DB defaults. business_day_cutoff_time is local "HH:MM": a close whose
+     * local time is before it belongs to the previous business date.
+     */
+    public const DEFAULT_BUSINESS_DAY_CUTOFF_TIME = '06:00';
+
+    public const DEFAULT_CASH_DIFFERENCE_NOTE_THRESHOLD = '5.00';
+
+    public const DEFAULT_ACCEPT_DELAY_THRESHOLD_MINUTES = 10;
+
+    public const DEFAULT_PREPARATION_DELAY_THRESHOLD_MINUTES = 30;
+
+    public const DEFAULT_READY_PICKUP_DELAY_THRESHOLD_MINUTES = 10;
+
+    /**
      * @return array<string, string>
      */
     protected function casts(): array
@@ -81,6 +98,11 @@ class RestaurantSettings extends Model
             'kitchen_ticket_printing_enabled' => 'boolean',
             'bill_receipt_printing_enabled' => 'boolean',
             'waiter_table_management_enabled' => 'boolean',
+            'default_opening_float' => 'decimal:2',
+            'cash_difference_note_threshold' => 'decimal:2',
+            'accept_delay_threshold_minutes' => 'integer',
+            'preparation_delay_threshold_minutes' => 'integer',
+            'ready_pickup_delay_threshold_minutes' => 'integer',
         ];
     }
 
@@ -122,6 +144,11 @@ class RestaurantSettings extends Model
             'kitchen_ticket_printing_enabled' => true,
             'bill_receipt_printing_enabled' => true,
             'waiter_table_management_enabled' => self::DEFAULT_WAITER_TABLE_MANAGEMENT_ENABLED,
+            'business_day_cutoff_time' => self::DEFAULT_BUSINESS_DAY_CUTOFF_TIME,
+            'cash_difference_note_threshold' => self::DEFAULT_CASH_DIFFERENCE_NOTE_THRESHOLD,
+            'accept_delay_threshold_minutes' => self::DEFAULT_ACCEPT_DELAY_THRESHOLD_MINUTES,
+            'preparation_delay_threshold_minutes' => self::DEFAULT_PREPARATION_DELAY_THRESHOLD_MINUTES,
+            'ready_pickup_delay_threshold_minutes' => self::DEFAULT_READY_PICKUP_DELAY_THRESHOLD_MINUTES,
         ]);
     }
 }

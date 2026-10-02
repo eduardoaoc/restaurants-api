@@ -78,6 +78,7 @@ class StaffPerformanceService
             'sessions_closed' => TableSession::query()
                 ->whereIn('restaurant_id', $restaurantIds)
                 ->where('closed_by_user_id', $staffUserId)
+                ->notVoided()
                 ->where('closed_at', '>=', $from)
                 ->where('closed_at', '<', $toExclusive)
                 ->count(),
@@ -201,6 +202,7 @@ class StaffPerformanceService
         $sessionsClosed = TableSession::query()
             ->whereIn('restaurant_id', $restaurantIds)
             ->whereIn('closed_by_user_id', $staffUserIds)
+            ->notVoided()
             ->where('closed_at', '>=', $from)
             ->where('closed_at', '<', $toExclusive)
             ->select('closed_by_user_id')

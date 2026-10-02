@@ -31,6 +31,7 @@ class RestaurantActivityToneTest extends TestCase
     {
         return [
             'table_session.opened' => ['table_session.opened', 'neutral'],
+            'table_session.voided' => ['table_session.voided', 'neutral'],
             'order.created' => ['order.created', 'neutral'],
             'order.approved' => ['order.approved', 'neutral'],
             'order.accepted' => ['order.accepted', 'neutral'],
@@ -41,6 +42,7 @@ class RestaurantActivityToneTest extends TestCase
             'order.served' => ['order.served', 'positive'],
             'payment.recorded' => ['payment.recorded', 'positive'],
             'table_session.closed' => ['table_session.closed', 'positive'],
+            'day_close.completed' => ['day_close.completed', 'positive'],
             'waiter_request.completed' => ['waiter_request.completed', 'positive'],
             'bill_request.completed' => ['bill_request.completed', 'positive'],
             'product.marked_available' => ['product.marked_available', 'positive'],

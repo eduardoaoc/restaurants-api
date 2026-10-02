@@ -54,6 +54,12 @@ class UpdateRestaurantSettingsRequest extends FormRequest
             'bill_receipt_printing_enabled' => ['sometimes', 'boolean'],
             'google_review_url' => ['sometimes', 'nullable', 'string', 'max:'.GoogleReviewUrlPolicy::MAX_LENGTH, new GoogleReviewUrl],
             'waiter_table_management_enabled' => ['sometimes', 'boolean'],
+            'business_day_cutoff_time' => ['sometimes', 'string', 'regex:/^([01]\d|2[0-3]):[0-5]\d$/'],
+            'default_opening_float' => ['sometimes', 'nullable', 'string', 'regex:/^\d{1,8}(\.\d{1,2})?$/'],
+            'cash_difference_note_threshold' => ['sometimes', 'string', 'regex:/^\d{1,8}(\.\d{1,2})?$/'],
+            'accept_delay_threshold_minutes' => ['sometimes', 'integer', 'between:1,240'],
+            'preparation_delay_threshold_minutes' => ['sometimes', 'integer', 'between:1,240'],
+            'ready_pickup_delay_threshold_minutes' => ['sometimes', 'integer', 'between:1,240'],
         ];
     }
 

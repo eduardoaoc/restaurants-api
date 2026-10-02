@@ -7,6 +7,7 @@ use App\Models\User;
 use App\Support\Activity\ActivityActor;
 use App\Support\Activity\RestaurantActivityRecorder;
 use App\Support\Activity\RestaurantActivityType;
+use App\Support\Restaurants\RestaurantOperationalLock;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -27,6 +28,8 @@ class UpdateRestaurantProductAction
     public function execute(RestaurantProduct $restaurantProduct, User $actor, array $data): RestaurantProduct
     {
         return DB::transaction(function () use ($restaurantProduct, $actor, $data) {
+            RestaurantOperationalLock::shared($restaurantProduct->restaurant_id);
+
             $restaurantProduct->update($data);
 
             if ($restaurantProduct->wasChanged('available')) {

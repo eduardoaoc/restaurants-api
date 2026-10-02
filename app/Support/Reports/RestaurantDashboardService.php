@@ -140,12 +140,14 @@ class RestaurantDashboardService
     {
         $opened = TableSession::query()
             ->where('restaurant_id', $restaurant->id)
+            ->notVoided()
             ->where('opened_at', '>=', $from)
             ->where('opened_at', '<', $toExclusive)
             ->count();
 
         $closed = TableSession::query()
             ->where('restaurant_id', $restaurant->id)
+            ->notVoided()
             ->where('closed_at', '>=', $from)
             ->where('closed_at', '<', $toExclusive)
             ->count();

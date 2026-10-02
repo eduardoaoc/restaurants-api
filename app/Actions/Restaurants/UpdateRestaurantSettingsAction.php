@@ -29,6 +29,8 @@ class UpdateRestaurantSettingsAction
         'waiter_call_enabled', 'bill_request_enabled',
         'kitchen_ticket_printing_enabled', 'bill_receipt_printing_enabled',
         'google_review_url', 'waiter_table_management_enabled',
+        'business_day_cutoff_time', 'default_opening_float', 'cash_difference_note_threshold',
+        'accept_delay_threshold_minutes', 'preparation_delay_threshold_minutes', 'ready_pickup_delay_threshold_minutes',
     ];
 
     public function __construct(private readonly AuditLogger $auditLogger) {}

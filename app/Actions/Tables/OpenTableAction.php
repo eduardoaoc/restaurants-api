@@ -12,6 +12,7 @@ use App\Support\Activity\ActivityActor;
 use App\Support\Activity\RestaurantActivityRecorder;
 use App\Support\Activity\RestaurantActivityType;
 use App\Support\Audit\AuditLogger;
+use App\Support\Restaurants\RestaurantOperationalLock;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 
@@ -31,6 +32,8 @@ class OpenTableAction
     public function execute(Table $table, User $openedBy, int $guestCount): TableSession
     {
         return DB::transaction(function () use ($table, $openedBy, $guestCount) {
+            RestaurantOperationalLock::shared($table->restaurant_id);
+
             if ($table->activeSession()->exists()) {
                 throw new TableSessionConflictException('This table already has an active session.');
             }

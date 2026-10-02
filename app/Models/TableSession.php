@@ -3,6 +3,8 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Attributes\Scope;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -13,7 +15,7 @@ use InvalidArgumentException;
 #[Fillable([
     'restaurant_id', 'table_id', 'opened_by_user_id', 'closed_by_user_id', 'guest_count',
     'status', 'opened_at', 'closed_at', 'payment_status', 'paid_at', 'assigned_waiter_user_id',
-    'feedback_token',
+    'feedback_token', 'voided_at', 'voided_by_user_id', 'void_reason',
 ])]
 class TableSession extends Model
 {
@@ -30,6 +32,7 @@ class TableSession extends Model
             'opened_at' => 'datetime',
             'closed_at' => 'datetime',
             'paid_at' => 'datetime',
+            'voided_at' => 'datetime',
         ];
     }
 
@@ -71,6 +74,14 @@ class TableSession extends Model
      *
      * @return BelongsTo<User, $this>
      */
+    public function voidedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'voided_by_user_id');
+    }
+
+    /**
+     * @return BelongsTo<User, $this>
+     */
     public function assignedWaiter(): BelongsTo
     {
         return $this->belongsTo(User::class, 'assigned_waiter_user_id');
@@ -79,6 +90,30 @@ class TableSession extends Model
     public function isActive(): bool
     {
         return $this->status !== 'closed';
+    }
+
+    /**
+     * A voided session (CARTA 9.1A — VoidEmptyTableSessionAction) was an
+     * empty session ended without service: status 'closed' (so it is not
+     * active and the table is free), closed_at = voided_at, but it never
+     * counts as an attended/served session anywhere — see notVoided().
+     */
+    public function isVoided(): bool
+    {
+        return $this->voided_at !== null;
+    }
+
+    /**
+     * Sessions that represent real service — every "sessions closed/
+     * opened", guests, turnover and staff "closed" metric goes through
+     * this.
+     *
+     * @param  Builder<TableSession>  $query
+     */
+    #[Scope]
+    protected function notVoided(Builder $query): void
+    {
+        $query->whereNull('voided_at');
     }
 
     public function isPaid(): bool

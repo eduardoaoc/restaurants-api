@@ -42,6 +42,7 @@ class OccupancyAnalytics
 
         $overlappingSessions = TableSession::query()
             ->where('restaurant_id', $restaurant->id)
+            ->notVoided()
             ->where('opened_at', '<', $toExclusive)
             ->where(function ($query) use ($from) {
                 $query->whereNull('closed_at')->orWhere('closed_at', '>', $from);
@@ -66,6 +67,7 @@ class OccupancyAnalytics
         $closedInPeriod = TableSession::query()
             ->where('restaurant_id', $restaurant->id)
             ->where('status', 'closed')
+            ->notVoided()
             ->where('closed_at', '>=', $from)
             ->where('closed_at', '<', $toExclusive)
             ->selectRaw('COUNT(*) as closed_count, AVG(EXTRACT(EPOCH FROM (closed_at - opened_at))) as avg_duration')

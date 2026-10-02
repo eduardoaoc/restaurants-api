@@ -18,6 +18,7 @@ use App\Support\Activity\RestaurantActivityType;
 use App\Support\Audit\AuditLogger;
 use App\Support\Billing\SessionBillCalculator;
 use App\Support\Money\Money;
+use App\Support\Restaurants\RestaurantOperationalLock;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 
@@ -50,6 +51,8 @@ class RecordPaymentAction
     public function execute(TableSession $session, User $recordedBy, array $data): array
     {
         return DB::transaction(function () use ($session, $recordedBy, $data) {
+            RestaurantOperationalLock::shared($session->restaurant_id);
+
             $locked = TableSession::query()->whereKey($session->id)->lockForUpdate()->first();
 
             if (! $locked || ! $locked->isActive()) {

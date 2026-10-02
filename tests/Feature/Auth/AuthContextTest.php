@@ -155,7 +155,7 @@ class AuthContextTest extends TestCase
         $permissions = $response->json('data.organizations.0.restaurants.0.permissions');
 
         sort($permissions);
-        $this->assertSame(['close_bill', 'handle_table_requests', 'record_payments'], $permissions);
+        $this->assertSame(['close_bill', 'close_daily_operation', 'handle_table_requests', 'record_payments'], $permissions);
     }
 
     public function test_user_does_not_receive_another_tenants_organization(): void

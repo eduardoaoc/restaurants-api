@@ -133,4 +133,30 @@ class RestaurantPolicy
             && $user->hasPermission('view_activity', $restaurant->organization)
             && RestaurantScope::canAccessRestaurant($user, $restaurant);
     }
+
+    /**
+     * Running the Cierre Diario (CARTA 9.1A): its live preview, the cash
+     * drawer movements and the close itself. close_daily_operation is held
+     * by owner/manager/cashier/waiter by default — the last person on the
+     * floor must be able to close — but never by kitchen.
+     */
+    public function closeDay(User $user, Restaurant $restaurant): bool
+    {
+        return $user->organizations()->whereKey($restaurant->organization_id)->exists()
+            && $user->hasPermission('close_daily_operation', $restaurant->organization)
+            && RestaurantScope::canAccessRestaurant($user, $restaurant);
+    }
+
+    /**
+     * Reading past Cierres Diarios (history, detail) and adding post-close
+     * annotations — its own permission (view_daily_closes, owner/manager):
+     * whoever can close today does not automatically see every past day's
+     * financial history.
+     */
+    public function viewDayCloses(User $user, Restaurant $restaurant): bool
+    {
+        return $user->organizations()->whereKey($restaurant->organization_id)->exists()
+            && $user->hasPermission('view_daily_closes', $restaurant->organization)
+            && RestaurantScope::canAccessRestaurant($user, $restaurant);
+    }
 }

@@ -29,6 +29,12 @@ class RestaurantSettingsResource extends JsonResource
             'bill_receipt_printing_enabled' => $this->bill_receipt_printing_enabled,
             'google_review_url' => $this->google_review_url,
             'waiter_table_management_enabled' => $this->waiter_table_management_enabled,
+            'business_day_cutoff_time' => $this->business_day_cutoff_time,
+            'default_opening_float' => $this->default_opening_float,
+            'cash_difference_note_threshold' => $this->cash_difference_note_threshold,
+            'accept_delay_threshold_minutes' => $this->accept_delay_threshold_minutes,
+            'preparation_delay_threshold_minutes' => $this->preparation_delay_threshold_minutes,
+            'ready_pickup_delay_threshold_minutes' => $this->ready_pickup_delay_threshold_minutes,
             'updated_at' => $this->updated_at,
         ];
     }

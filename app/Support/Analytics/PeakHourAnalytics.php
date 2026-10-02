@@ -21,6 +21,7 @@ class PeakHourAnalytics
     {
         $rows = TableSession::query()
             ->where('restaurant_id', $restaurant->id)
+            ->notVoided()
             ->where('opened_at', '>=', $from)
             ->where('opened_at', '<', $toExclusive)
             ->selectRaw(

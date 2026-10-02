@@ -272,6 +272,9 @@ use OpenApi\Attributes as OA;
         new OA\Property(property: 'paid_at', type: 'string', format: 'date-time', nullable: true),
         new OA\Property(property: 'opened_by_user_id', type: 'integer', format: 'int64', example: 5),
         new OA\Property(property: 'closed_by_user_id', type: 'integer', format: 'int64', example: 5, nullable: true),
+        new OA\Property(property: 'voided_at', type: 'string', format: 'date-time', nullable: true, description: 'CARTA 9.1A: set when an EMPTY session was voided (POST /table-sessions/{id}/void) instead of served and closed. A voided session has status closed and closed_at = voided_at, but never counts as attended/closed in any metric.'),
+        new OA\Property(property: 'voided_by_user_id', type: 'integer', format: 'int64', nullable: true),
+        new OA\Property(property: 'void_reason', type: 'string', nullable: true),
         new OA\Property(
             property: 'assigned_waiter',
             properties: [
@@ -1846,6 +1849,8 @@ use OpenApi\Attributes as OA;
         'waiter_call_enabled', 'bill_request_enabled',
         'kitchen_ticket_printing_enabled', 'bill_receipt_printing_enabled',
         'google_review_url', 'waiter_table_management_enabled',
+        'business_day_cutoff_time', 'default_opening_float', 'cash_difference_note_threshold',
+        'accept_delay_threshold_minutes', 'preparation_delay_threshold_minutes', 'ready_pickup_delay_threshold_minutes',
     ],
     properties: [
         new OA\Property(property: 'default_locale', type: 'string', example: 'es-ES', description: 'One of es-ES / ca-ES-valencia / en-GB. Always a member of enabled_locales.'),
@@ -1860,7 +1865,275 @@ use OpenApi\Attributes as OA;
         new OA\Property(property: 'bill_receipt_printing_enabled', type: 'boolean', example: true, description: 'Gates POST .../receipt/print only — the GET preview is always available.'),
         new OA\Property(property: 'google_review_url', type: 'string', format: 'uri', maxLength: 2048, example: 'https://g.page/r/CabcdEFGhij123/review', nullable: true, description: 'HTTPS Google review/share link for this restaurant; null = Google Review disabled (there is no separate enabled flag). Must match one of the Google review/share URL formats currently supported by AFORO — not a normative list published by Google: g.page, maps.app.goo.gl, search.google.com (/local/writereview, /local/reviews), www.google.com / google.com (/maps...), maps.google.com (root or /maps...). Maps links are accepted as Google/Maps links and are not guaranteed to open the review form directly; the recommended link is the one from Business Profile → Read reviews → Get more reviews → Copy. The scheme is matched case-insensitively and stored lowercase; the rest of the URL is stored verbatim. Validated structurally only — never fetched or redirect-resolved server-side.'),
         new OA\Property(property: 'waiter_table_management_enabled', type: 'boolean', default: true, example: true, description: 'Whether staff holding manage_tables but NOT manage_floor_plan (waiters) may change the table structure: POST /restaurants/{restaurant}/tables and PATCH /tables/{table} name/number/capacity. false = 403 for them; users holding manage_floor_plan (owner/manager) are never affected. Viewing, QR resolution, status, sessions, orders, bills and requests are never gated by it. Defaults to true (pre-existing behavior).'),
+        new OA\Property(property: 'business_day_cutoff_time', type: 'string', pattern: '^([01]\\d|2[0-3]):[0-5]\\d$', default: '06:00', example: '06:00', description: 'CARTA 9.1A — local HH:MM. A Cierre Diario whose local time is before it belongs to the previous business date.'),
+        new OA\Property(property: 'default_opening_float', type: 'string', nullable: true, example: '150.00', description: 'Opening float used when the previous close left no cash_left_for_next_day (e.g. the first close). null = the closer must state it.'),
+        new OA\Property(property: 'cash_difference_note_threshold', type: 'string', default: '5.00', example: '5.00', description: 'A cash_difference_note is required when |cash difference| is strictly greater than this.'),
+        new OA\Property(property: 'accept_delay_threshold_minutes', type: 'integer', default: 10, minimum: 1, maximum: 240),
+        new OA\Property(property: 'preparation_delay_threshold_minutes', type: 'integer', default: 30, minimum: 1, maximum: 240),
+        new OA\Property(property: 'ready_pickup_delay_threshold_minutes', type: 'integer', default: 10, minimum: 1, maximum: 240),
         new OA\Property(property: 'updated_at', type: 'string', format: 'date-time'),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
+    schema: 'CashMovement',
+    description: 'A cash drawer pay-in/pay-out (CARTA 9.1A). Append-only.',
+    properties: [
+        new OA\Property(property: 'id', type: 'integer', format: 'int64'),
+        new OA\Property(property: 'restaurant_id', type: 'integer', format: 'int64'),
+        new OA\Property(property: 'type', type: 'string', enum: ['pay_in', 'pay_out']),
+        new OA\Property(property: 'amount', type: 'string', example: '20.00'),
+        new OA\Property(property: 'reason', type: 'string'),
+        new OA\Property(property: 'recorded_by', properties: [new OA\Property(property: 'id', type: 'integer', nullable: true), new OA\Property(property: 'name', type: 'string')], type: 'object'),
+        new OA\Property(property: 'recorded_at', type: 'string', format: 'date-time'),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
+    schema: 'DayCloseAnnotation',
+    description: 'A post-close note on a Cierre Diario. Never part of the report/hash.',
+    properties: [
+        new OA\Property(property: 'id', type: 'integer', format: 'int64'),
+        new OA\Property(property: 'body', type: 'string', description: 'Plain text.'),
+        new OA\Property(property: 'created_by', properties: [new OA\Property(property: 'id', type: 'integer', nullable: true), new OA\Property(property: 'name', type: 'string')], type: 'object'),
+        new OA\Property(property: 'created_at', type: 'string', format: 'date-time'),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
+    schema: 'DayClosePeriod',
+    properties: [
+        new OA\Property(property: 'business_date', type: 'string', format: 'date', example: '2026-10-02'),
+        new OA\Property(property: 'business_date_from', type: 'string', format: 'date', description: 'Earlier than business_date when the period covers days nobody closed.'),
+        new OA\Property(property: 'period_started_at', type: 'string', format: 'date-time', description: 'Previous close period_ended_at; on the first close, the cutoff of business_date.'),
+        new OA\Property(property: 'period_ended_at', type: 'string', format: 'date-time', description: 'Exclusive end (T).'),
+        new OA\Property(property: 'timezone', type: 'string', example: 'Europe/Madrid'),
+        new OA\Property(property: 'first_close', type: 'boolean', description: 'true: no previous close — activity before period_started_at is outside the closing system.'),
+        new OA\Property(property: 'covers_multiple_business_days', type: 'boolean'),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
+    schema: 'DayCloseSections',
+    description: 'Shared live/snapshot sections of a Cierre Diario over [period_started_at, period_ended_at). Money = decimal strings; instants = UTC ISO-8601.',
+    properties: [
+        new OA\Property(property: 'financial', description: 'Money actually received (PaymentRecord.recorded_at in the period), never Order totals.', properties: [
+            new OA\Property(property: 'currency', type: 'string', example: 'EUR'),
+            new OA\Property(property: 'total_received', type: 'string', example: '1842.50'),
+            new OA\Property(property: 'by_method', properties: [
+                new OA\Property(property: 'cash', type: 'string'), new OA\Property(property: 'card', type: 'string'), new OA\Property(property: 'other', type: 'string'),
+            ], type: 'object'),
+            new OA\Property(property: 'payments_count', type: 'integer'),
+            new OA\Property(property: 'sessions_with_payments', type: 'integer'),
+            new OA\Property(property: 'average_ticket', type: 'string', description: 'total_received / sessions_with_payments.'),
+        ], type: 'object'),
+        new OA\Property(property: 'operations', properties: [
+            new OA\Property(property: 'orders', properties: [
+                new OA\Property(property: 'registered', type: 'integer', description: 'created in the period, any status'),
+                new OA\Property(property: 'valid', type: 'integer', description: 'created in the period and billable (excludes waiting_approval and rejected)'),
+                new OA\Property(property: 'served', type: 'integer', description: 'served_at in the period'),
+                new OA\Property(property: 'rejected', type: 'integer', description: 'rejected (cancelled_at) in the period'),
+            ], type: 'object'),
+            new OA\Property(property: 'sessions', properties: [
+                new OA\Property(property: 'opened', type: 'integer', description: 'excludes voided'),
+                new OA\Property(property: 'closed', type: 'integer', description: 'real closes only, excludes voided'),
+                new OA\Property(property: 'voided', type: 'integer'),
+            ], type: 'object'),
+            new OA\Property(property: 'guests', type: 'integer', description: 'SUM(guest_count) of sessions really closed in the period'),
+            new OA\Property(property: 'peak_hour', nullable: true, properties: [
+                new OA\Property(property: 'local_hour', type: 'string', example: '2026-10-02T21:00', description: 'Local calendar hour (date + hour).'),
+                new OA\Property(property: 'sessions_started', type: 'integer'),
+            ], type: 'object'),
+        ], type: 'object'),
+        new OA\Property(property: 'products', properties: [
+            new OA\Property(property: 'top', type: 'array', description: 'Top 5 by quantity, billable orders, OrderItem name snapshot.', items: new OA\Items(properties: [
+                new OA\Property(property: 'product_id', type: 'integer', nullable: true), new OA\Property(property: 'name', type: 'string'), new OA\Property(property: 'quantity', type: 'integer'),
+            ], type: 'object')),
+        ], type: 'object'),
+        new OA\Property(property: 'product_availability', description: '"Producto marcado como no disponible" (not stock).', properties: [
+            new OA\Property(property: 'count', type: 'integer', description: 'distinct products'),
+            new OA\Property(property: 'items', type: 'array', items: new OA\Items(properties: [
+                new OA\Property(property: 'restaurant_product_id', type: 'integer'),
+                new OA\Property(property: 'product_name_snapshot', type: 'string', nullable: true),
+                new OA\Property(property: 'unavailable_since_known', type: 'boolean', description: 'false = "inicio desconocido" (no recorded event).'),
+                new OA\Property(property: 'unavailable_at', type: 'string', format: 'date-time', nullable: true),
+                new OA\Property(property: 'unavailable_by_name', type: 'string', nullable: true),
+                new OA\Property(property: 'available_again_at', type: 'string', format: 'date-time', nullable: true),
+                new OA\Property(property: 'available_again_by_name', type: 'string', nullable: true),
+                new OA\Property(property: 'duration_seconds', type: 'integer', nullable: true),
+                new OA\Property(property: 'state_at_close', type: 'string', enum: ['available', 'unavailable']),
+            ], type: 'object')),
+        ], type: 'object'),
+        new OA\Property(property: 'feedback', description: 'By submitted_at in the period. No customer PII (no names, no contact).', properties: [
+            new OA\Property(property: 'count', type: 'integer'),
+            new OA\Property(property: 'avg_overall', type: 'string', nullable: true, example: '4.33'),
+            new OA\Property(property: 'critical_count', type: 'integer', description: 'overall_rating < 3'),
+            new OA\Property(property: 'low_dimension_count', type: 'integer', description: 'overall >= 3 with food/service/wait_time <= 2 ("atención") — not critical'),
+            new OA\Property(property: 'critical', type: 'array', items: new OA\Items(ref: '#/components/schemas/DayCloseFeedbackItem')),
+            new OA\Property(property: 'attention', type: 'array', description: 'Up to 20.', items: new OA\Items(ref: '#/components/schemas/DayCloseFeedbackItem')),
+        ], type: 'object'),
+        new OA\Property(property: 'delays', description: 'Stage duration strictly above its threshold, attributed by the stage end instant. The associated user is the one who performed the closing action of the stage — never "the one responsible".', properties: [
+            new OA\Property(property: 'thresholds_seconds', properties: [
+                new OA\Property(property: 'accept', type: 'integer'), new OA\Property(property: 'preparation', type: 'integer'), new OA\Property(property: 'ready_pickup', type: 'integer'),
+            ], type: 'object'),
+            new OA\Property(property: 'total_count', type: 'integer'),
+            new OA\Property(property: 'items', type: 'array', description: 'The 20 worst by excess.', items: new OA\Items(properties: [
+                new OA\Property(property: 'order_id', type: 'integer'),
+                new OA\Property(property: 'order_reference', type: 'string', example: '#1234'),
+                new OA\Property(property: 'table', type: 'object', nullable: true),
+                new OA\Property(property: 'stage', type: 'string', enum: ['accept', 'preparation', 'ready_pickup']),
+                new OA\Property(property: 'duration_seconds', type: 'integer'),
+                new OA\Property(property: 'threshold_seconds', type: 'integer'),
+                new OA\Property(property: 'excess_seconds', type: 'integer'),
+                new OA\Property(property: 'associated_action_user', type: 'object', nullable: true),
+                new OA\Property(property: 'associated_action_label', type: 'string', enum: ['marked_ready_by', 'served_by'], nullable: true),
+            ], type: 'object')),
+        ], type: 'object'),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
+    schema: 'DayCloseFeedbackItem',
+    properties: [
+        new OA\Property(property: 'feedback_id', type: 'integer'),
+        new OA\Property(property: 'submitted_at', type: 'string', format: 'date-time'),
+        new OA\Property(property: 'table', type: 'object', nullable: true),
+        new OA\Property(property: 'table_session_id', type: 'integer'),
+        new OA\Property(property: 'ratings', properties: [
+            new OA\Property(property: 'overall', type: 'integer'), new OA\Property(property: 'food', type: 'integer'),
+            new OA\Property(property: 'service', type: 'integer'), new OA\Property(property: 'wait_time', type: 'integer'),
+        ], type: 'object'),
+        new OA\Property(property: 'experience_comment', type: 'string', nullable: true, description: 'User-generated; may itself contain PII.'),
+        new OA\Property(property: 'improvement_comment', type: 'string', nullable: true),
+        new OA\Property(property: 'waiter_name', type: 'string', nullable: true),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
+    schema: 'DayCloseCash',
+    properties: [
+        new OA\Property(property: 'opening_float', type: 'string'),
+        new OA\Property(property: 'opening_float_source', type: 'string', enum: ['previous_close', 'restaurant_default', 'required']),
+        new OA\Property(property: 'cash_received', type: 'string'),
+        new OA\Property(property: 'cash_pay_ins', type: 'string'),
+        new OA\Property(property: 'cash_pay_outs', type: 'string'),
+        new OA\Property(property: 'expected_cash', type: 'string', description: 'opening_float + cash_received + cash_pay_ins - cash_pay_outs'),
+        new OA\Property(property: 'counted_cash', type: 'string'),
+        new OA\Property(property: 'cash_difference', type: 'string', description: 'counted - expected (positive = sobrante, negative = faltante), computed by the server'),
+        new OA\Property(property: 'cash_difference_note', type: 'string', nullable: true),
+        new OA\Property(property: 'cash_difference_note_threshold', type: 'string'),
+        new OA\Property(property: 'cash_left_for_next_day', type: 'string', nullable: true),
+        new OA\Property(property: 'movements', type: 'array', items: new OA\Items(type: 'object')),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
+    schema: 'DayCloseReport',
+    description: 'The immutable snapshot (schema_version 1). report_sha256 = sha256 of its canonical JSON (keys sorted recursively, lists in order, unescaped unicode/slashes). Contains only strings/ints/bools/nulls.',
+    allOf: [new OA\Schema(ref: '#/components/schemas/DayCloseSections')],
+    properties: [
+        new OA\Property(property: 'schema_version', type: 'integer', example: 1),
+        new OA\Property(property: 'summary', type: 'object', description: 'Period fields + restaurant {id,name}, currency, total_received, orders_valid, guests, average_ticket, cash_difference, top_product, critical_feedback_count, delays_count, unavailable_products_count, has_incidents.'),
+        new OA\Property(property: 'cash', ref: '#/components/schemas/DayCloseCash'),
+        new OA\Property(property: 'warnings', type: 'array', items: new OA\Items(properties: [new OA\Property(property: 'type', type: 'string', enum: ['open_table_requests_without_active_session', 'active_staff_shifts', 'products_still_unavailable', 'critical_feedback', 'severe_delays', 'cash_difference'])], type: 'object')),
+        new OA\Property(property: 'closing', properties: [
+            new OA\Property(property: 'public_id', type: 'string', format: 'uuid'),
+            new OA\Property(property: 'closed_by', type: 'object'),
+            new OA\Property(property: 'closed_at', type: 'string', format: 'date-time'),
+            new OA\Property(property: 'notes', type: 'string', nullable: true),
+        ], type: 'object'),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
+    schema: 'DayClosePreview',
+    allOf: [new OA\Schema(ref: '#/components/schemas/DayCloseSections')],
+    properties: [
+        new OA\Property(property: 'period', ref: '#/components/schemas/DayClosePeriod'),
+        new OA\Property(property: 'can_close', type: 'boolean'),
+        new OA\Property(property: 'blockers', type: 'array', items: new OA\Items(properties: [
+            new OA\Property(property: 'type', type: 'string', enum: ['active_session', 'business_date_already_closed', 'expected_cash_negative']),
+            new OA\Property(property: 'table_session_id', type: 'integer'),
+            new OA\Property(property: 'table', type: 'object'),
+            new OA\Property(property: 'opened_at', type: 'string', format: 'date-time'),
+            new OA\Property(property: 'payment_status', type: 'string'),
+            new OA\Property(property: 'balance', type: 'string'),
+            new OA\Property(property: 'open_orders_count', type: 'integer'),
+            new OA\Property(property: 'can_be_voided', type: 'boolean', description: 'Empty session: POST /table-sessions/{id}/void resolves it.'),
+        ], type: 'object')),
+        new OA\Property(property: 'warnings', type: 'array', items: new OA\Items(type: 'object')),
+        new OA\Property(property: 'cash', properties: [
+            new OA\Property(property: 'suggested_opening_float', type: 'string', nullable: true),
+            new OA\Property(property: 'opening_float_source', type: 'string', enum: ['previous_close', 'restaurant_default', 'required']),
+            new OA\Property(property: 'cash_received', type: 'string'),
+            new OA\Property(property: 'cash_pay_ins', type: 'string'),
+            new OA\Property(property: 'cash_pay_outs', type: 'string'),
+            new OA\Property(property: 'expected_cash', type: 'string', nullable: true, description: 'null while the opening float is required and not given via ?opening_float='),
+            new OA\Property(property: 'expected_cash_excluding_opening_float', type: 'string'),
+            new OA\Property(property: 'cash_difference_note_threshold', type: 'string'),
+            new OA\Property(property: 'movements', type: 'array', items: new OA\Items(type: 'object')),
+        ], type: 'object'),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
+    schema: 'DayCloseSummary',
+    description: 'History row — persisted columns, never recomputed.',
+    properties: [
+        new OA\Property(property: 'id', type: 'integer', format: 'int64'),
+        new OA\Property(property: 'public_id', type: 'string', format: 'uuid'),
+        new OA\Property(property: 'restaurant_id', type: 'integer', format: 'int64'),
+        new OA\Property(property: 'business_date', type: 'string', format: 'date'),
+        new OA\Property(property: 'business_date_from', type: 'string', format: 'date'),
+        new OA\Property(property: 'period_started_at', type: 'string', format: 'date-time'),
+        new OA\Property(property: 'period_ended_at', type: 'string', format: 'date-time'),
+        new OA\Property(property: 'timezone', type: 'string'),
+        new OA\Property(property: 'currency', type: 'string'),
+        new OA\Property(property: 'total_received', type: 'string'),
+        new OA\Property(property: 'orders_valid', type: 'integer'),
+        new OA\Property(property: 'guests', type: 'integer'),
+        new OA\Property(property: 'cash_difference', type: 'string'),
+        new OA\Property(property: 'critical_feedback_count', type: 'integer'),
+        new OA\Property(property: 'delays_count', type: 'integer'),
+        new OA\Property(property: 'unavailable_products_count', type: 'integer'),
+        new OA\Property(property: 'has_incidents', type: 'boolean', description: 'cash difference != 0, critical feedback, severe delay, product marked unavailable, or closing notes'),
+        new OA\Property(property: 'closed_by', type: 'object'),
+        new OA\Property(property: 'closed_at', type: 'string', format: 'date-time'),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
+    schema: 'DayClose',
+    description: 'A persisted Cierre Diario: DayCloseSummary fields plus every persisted column, the immutable report and its hash, and annotations (separate).',
+    allOf: [new OA\Schema(ref: '#/components/schemas/DayCloseSummary')],
+    properties: [
+        new OA\Property(property: 'cash_received', type: 'string'),
+        new OA\Property(property: 'card_received', type: 'string'),
+        new OA\Property(property: 'other_received', type: 'string'),
+        new OA\Property(property: 'payments_count', type: 'integer'),
+        new OA\Property(property: 'sessions_with_payments', type: 'integer'),
+        new OA\Property(property: 'average_ticket', type: 'string'),
+        new OA\Property(property: 'opening_float', type: 'string'),
+        new OA\Property(property: 'cash_pay_ins', type: 'string'),
+        new OA\Property(property: 'cash_pay_outs', type: 'string'),
+        new OA\Property(property: 'expected_cash', type: 'string'),
+        new OA\Property(property: 'counted_cash', type: 'string'),
+        new OA\Property(property: 'cash_left_for_next_day', type: 'string', nullable: true),
+        new OA\Property(property: 'cash_difference_note', type: 'string', nullable: true),
+        new OA\Property(property: 'orders_registered', type: 'integer'),
+        new OA\Property(property: 'orders_served', type: 'integer'),
+        new OA\Property(property: 'orders_rejected', type: 'integer'),
+        new OA\Property(property: 'sessions_opened', type: 'integer'),
+        new OA\Property(property: 'sessions_closed', type: 'integer'),
+        new OA\Property(property: 'feedback_count', type: 'integer'),
+        new OA\Property(property: 'feedback_avg_overall', type: 'string', nullable: true),
+        new OA\Property(property: 'low_dimension_feedback_count', type: 'integer'),
+        new OA\Property(property: 'notes', type: 'string', nullable: true),
+        new OA\Property(property: 'report_schema_version', type: 'integer', example: 1),
+        new OA\Property(property: 'report_sha256', type: 'string'),
+        new OA\Property(property: 'report', ref: '#/components/schemas/DayCloseReport'),
+        new OA\Property(property: 'annotations', type: 'array', items: new OA\Items(ref: '#/components/schemas/DayCloseAnnotation')),
+        new OA\Property(property: 'created_at', type: 'string', format: 'date-time'),
     ],
     type: 'object'
 )]
@@ -1880,6 +2153,12 @@ use OpenApi\Attributes as OA;
         new OA\Property(property: 'bill_receipt_printing_enabled', type: 'boolean', example: true),
         new OA\Property(property: 'google_review_url', type: 'string', format: 'uri', maxLength: 2048, example: 'https://g.page/r/CabcdEFGhij123/review', nullable: true, description: 'Trimmed; an empty/blank string or null clears it. Must be an HTTPS Google review/share link in a format currently supported by AFORO (see RestaurantSettings.google_review_url) — anything else is 422. The scheme is case-insensitive (HTTPS:// is accepted and stored as https://).'),
         new OA\Property(property: 'waiter_table_management_enabled', type: 'boolean', example: false, description: 'See RestaurantSettings.waiter_table_management_enabled. Like every field here, only changeable by users authorized to manage the restaurant settings (manage_restaurants).'),
+        new OA\Property(property: 'business_day_cutoff_time', type: 'string', pattern: '^([01]\\d|2[0-3]):[0-5]\\d$', example: '06:00', description: 'CARTA 9.1A — local HH:MM. A Cierre Diario whose local time is before it belongs to the previous business date.'),
+        new OA\Property(property: 'default_opening_float', type: 'string', nullable: true, example: '150.00', description: 'Opening float used when the previous close left no cash_left_for_next_day (e.g. the first close). null = the closer must state it.'),
+        new OA\Property(property: 'cash_difference_note_threshold', type: 'string', example: '5.00', description: 'A cash_difference_note is required when |cash difference| is strictly greater than this.'),
+        new OA\Property(property: 'accept_delay_threshold_minutes', type: 'integer', minimum: 1, maximum: 240),
+        new OA\Property(property: 'preparation_delay_threshold_minutes', type: 'integer', minimum: 1, maximum: 240),
+        new OA\Property(property: 'ready_pickup_delay_threshold_minutes', type: 'integer', minimum: 1, maximum: 240),
     ],
     type: 'object'
 )]

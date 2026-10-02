@@ -104,6 +104,12 @@ final class RestaurantActivityType
 
     public const PRODUCT_MARKED_AVAILABLE = 'product.marked_available';
 
+    /** CARTA 9.1A: an empty session ended without service — the table is free again. */
+    public const TABLE_SESSION_VOIDED = 'table_session.voided';
+
+    /** CARTA 9.1A: the Cierre Diario of the business day was completed. */
+    public const DAY_CLOSE_COMPLETED = 'day_close.completed';
+
     /**
      * type => category.
      *
@@ -128,6 +134,8 @@ final class RestaurantActivityType
         self::TABLE_SESSION_CLOSED => self::CATEGORY_TABLES,
         self::PRODUCT_MARKED_UNAVAILABLE => self::CATEGORY_MENU,
         self::PRODUCT_MARKED_AVAILABLE => self::CATEGORY_MENU,
+        self::TABLE_SESSION_VOIDED => self::CATEGORY_TABLES,
+        self::DAY_CLOSE_COMPLETED => self::CATEGORY_BILLING,
     ];
 
     /**
@@ -148,6 +156,8 @@ final class RestaurantActivityType
         self::ORDER_SERVED => self::TONE_POSITIVE,
         self::PAYMENT_RECORDED => self::TONE_POSITIVE,
         self::TABLE_SESSION_CLOSED => self::TONE_POSITIVE,
+        self::DAY_CLOSE_COMPLETED => self::TONE_POSITIVE,
+        self::TABLE_SESSION_VOIDED => self::TONE_NEUTRAL,
         self::WAITER_REQUEST_COMPLETED => self::TONE_POSITIVE,
         self::BILL_REQUEST_COMPLETED => self::TONE_POSITIVE,
         self::PRODUCT_MARKED_AVAILABLE => self::TONE_POSITIVE,
@@ -170,6 +180,10 @@ final class RestaurantActivityType
      *   table_session.closed total (billable orders total, decimal string)
      *   product.*           restaurant_product_id, product_name (the
      *                       product's staff-facing internal_name)
+     *   table_session.voided void_reason (string or null)
+     *   day_close.completed day_close_public_id, business_date (Y-m-d),
+     *                       total_received, cash_difference (decimal
+     *                       strings), has_incidents (bool)
      *
      * @var array<string, array<int, string>>
      */
@@ -180,6 +194,8 @@ final class RestaurantActivityType
         self::TABLE_SESSION_CLOSED => ['total'],
         self::PRODUCT_MARKED_UNAVAILABLE => ['restaurant_product_id', 'product_name'],
         self::PRODUCT_MARKED_AVAILABLE => ['restaurant_product_id', 'product_name'],
+        self::TABLE_SESSION_VOIDED => ['void_reason'],
+        self::DAY_CLOSE_COMPLETED => ['day_close_public_id', 'business_date', 'total_received', 'cash_difference', 'has_incidents'],
     ];
 
     /**

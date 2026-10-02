@@ -62,6 +62,7 @@ class ProductAnalytics
         return self::groupedItemsQuery($restaurant, $from, $toExclusive)
             ->orderByDesc('total_quantity')
             ->orderBy('order_items.product_name_snapshot')
+            ->orderBy('order_items.product_id')
             ->limit($limit)
             ->get()
             ->map(fn ($row) => [
