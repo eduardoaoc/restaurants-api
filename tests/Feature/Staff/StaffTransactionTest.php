@@ -5,6 +5,7 @@ namespace Tests\Feature\Staff;
 use App\Actions\Staff\CreateStaffAction;
 use App\Models\Organization;
 use App\Models\Restaurant;
+use App\Models\User;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\Concerns\InteractsWithTenants;
@@ -42,13 +43,14 @@ class StaffTransactionTest extends TestCase
                 'name' => 'Broken Staff',
                 'email' => 'broken-staff@example.com',
                 'password' => 'password123',
+                'role' => 'waiter',
                 // Belongs to a different organization: the scoped lookup
                 // inside the action will fail after the User row has
                 // already been inserted and attached to organization_users.
-                'restaurant_id' => $restaurantFromOtherOrganization->id,
-                'role' => 'waiter',
-                'sub_id' => 'W-1',
-            ]);
+                'restaurant_assignments' => [
+                    ['restaurant_id' => $restaurantFromOtherOrganization->id, 'sub_id' => 'W-1'],
+                ],
+            ], User::factory()->create());
 
             $this->fail('Expected the action to throw because the restaurant does not belong to the organization.');
         } catch (ModelNotFoundException) {

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\V1\Public;
 
 use App\Actions\Public\BuildPublicMenuAction;
 use App\Actions\Public\ResolvePublicTableAction;
+use App\Exceptions\Public\InvalidPublicLocaleException;
 use App\Exceptions\Public\PublicMenuNotAvailableException;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\Public\PublicMenuRequest;
@@ -62,6 +63,18 @@ class PublicMenuController extends Controller
     public function show(PublicMenuRequest $request, string $publicToken): JsonResponse
     {
         $table = $this->resolvePublicTable->execute($publicToken);
+
+        // The allowlist only governs an EXPLICITLY requested locale (the
+        // language switcher) — omitting ?locale= (Accept-Language or the
+        // hardcoded default) is never blocked by it, so pre-Bloco-18
+        // requests keep working unchanged. See report.
+        if ($request->validated('locale') !== null) {
+            $requested = LocaleResolver::normalize($request->validated('locale'));
+
+            if (! in_array($requested, $table->restaurant->settings->enabled_locales, true)) {
+                throw new InvalidPublicLocaleException;
+            }
+        }
 
         $locale = LocaleResolver::resolve($request->validated('locale'), $request->header('Accept-Language'));
 

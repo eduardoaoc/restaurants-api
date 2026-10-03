@@ -24,6 +24,7 @@ class RolePermissionSeeder extends Seeder
             'manage_menu',
             'manage_products',
             'manage_tables',
+            'manage_floor_plan',
             'approve_customer_orders',
             'create_orders',
             'update_kitchen_status',
@@ -34,6 +35,14 @@ class RolePermissionSeeder extends Seeder
             'view_reports',
             'view_audit',
             'manage_staff_reviews',
+            'assign_waiters',
+            'manage_staff_shifts',
+            'transfer_tables',
+            'view_operations',
+            'view_customer_feedback',
+            'view_activity',
+            'close_daily_operation',
+            'view_daily_closes',
         ],
         'manager' => [
             'manage_restaurants',
@@ -41,6 +50,7 @@ class RolePermissionSeeder extends Seeder
             'manage_menu',
             'manage_products',
             'manage_tables',
+            'manage_floor_plan',
             'approve_customer_orders',
             'create_orders',
             'update_kitchen_status',
@@ -51,6 +61,14 @@ class RolePermissionSeeder extends Seeder
             'view_reports',
             'view_audit',
             'manage_staff_reviews',
+            'assign_waiters',
+            'manage_staff_shifts',
+            'transfer_tables',
+            'view_operations',
+            'view_customer_feedback',
+            'view_activity',
+            'close_daily_operation',
+            'view_daily_closes',
         ],
         'waiter' => [
             'create_orders',
@@ -60,6 +78,16 @@ class RolePermissionSeeder extends Seeder
             'record_payments',
             'manage_tables',
             'close_bill',
+            // Read-only: the live operations snapshot a waiter needs to see
+            // tables/sessions/orders in real time while working the floor.
+            // Never grants any write — see RestaurantOperationsController
+            // (a single GET, no mutating side effect) and the Passo 3.2 fix
+            // report for the audit that confirmed this.
+            'view_operations',
+            // CARTA 9.1A: the last staff member on the floor may run the
+            // Cierre Diario — but NOT view_daily_closes (past closes'
+            // history stays owner/manager).
+            'close_daily_operation',
         ],
         'kitchen' => [
             'update_kitchen_status',
@@ -68,6 +96,7 @@ class RolePermissionSeeder extends Seeder
             'handle_table_requests',
             'record_payments',
             'close_bill',
+            'close_daily_operation',
         ],
     ];
 

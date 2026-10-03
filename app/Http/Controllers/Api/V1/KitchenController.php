@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Actions\Kitchen\BuildKitchenDashboardAction;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Api\V1\Kitchen\KitchenDashboardRequest;
 use App\Http\Requests\Api\V1\Kitchen\KitchenOrdersRequest;
 use App\Http\Resources\Api\V1\Kitchen\KitchenOrderResource;
 use App\Models\Order;
@@ -21,7 +23,10 @@ class KitchenController extends Controller
      */
     private const ORDER_LIMIT = 100;
 
-    public function __construct(private readonly TenantContext $tenantContext) {}
+    public function __construct(
+        private readonly TenantContext $tenantContext,
+        private readonly BuildKitchenDashboardAction $buildDashboard,
+    ) {}
 
     /**
      * The Kitchen Display queue: confirmed/accepted/preparing/ready orders
@@ -98,6 +103,49 @@ class KitchenController extends Controller
 
         return response()->json([
             'data' => ['orders' => KitchenOrderResource::collection($orders)],
+        ]);
+    }
+
+    /**
+     * The Kitchen Dashboard read model (CARTA 7.1A) for one restaurant —
+     * see BuildKitchenDashboardAction. Same gate as the queue above
+     * (viewKitchen: update_kitchen_status / serve_orders /
+     * approve_customer_orders) plus RestaurantScope; never exposes
+     * revenue or payments.
+     */
+    #[OA\Get(
+        path: '/api/v1/kitchen/dashboard',
+        operationId: 'kitchenDashboard',
+        summary: 'Get the Kitchen Dashboard read model for one restaurant',
+        description: 'Live kitchen queue summary + "today" (restaurant local day, up to now) timings, top products and the latest accepted/ready orders. The item-level queue stays GET /kitchen/orders. Read-only, a fixed number of queries.',
+        security: [['sessionCookie' => []]],
+        tags: ['Kitchen'],
+        parameters: [
+            new OA\Parameter(name: 'restaurant_id', in: 'query', required: true, schema: new OA\Schema(type: 'integer')),
+        ],
+        responses: [
+            new OA\Response(
+                response: 200,
+                description: 'The Kitchen Dashboard',
+                content: new OA\JsonContent(properties: [new OA\Property(property: 'data', ref: '#/components/schemas/KitchenDashboard')])
+            ),
+            new OA\Response(response: 401, description: 'Unauthenticated'),
+            new OA\Response(response: 403, description: 'The user has no kitchen-relevant permission'),
+            new OA\Response(response: 404, description: 'restaurant_id is outside the organization or the user\'s restaurant scope'),
+            new OA\Response(response: 422, description: 'restaurant_id missing or invalid'),
+        ]
+    )]
+    public function dashboard(KitchenDashboardRequest $request): JsonResponse
+    {
+        $organization = $this->activeOrganization();
+
+        $this->authorize('viewKitchen', [Order::class, $organization]);
+
+        $restaurant = $this->restaurantQuery($organization, RestaurantScope::accessibleRestaurantIds($request->user(), $organization))
+            ->findOrFail((int) $request->validated('restaurant_id'));
+
+        return response()->json([
+            'data' => $this->buildDashboard->execute($restaurant),
         ]);
     }
 

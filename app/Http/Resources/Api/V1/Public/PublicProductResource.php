@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources\Api\V1\Public;
 
+use App\Http\Resources\Api\V1\ProductMediaResource;
 use App\Models\ProductTranslation;
 use App\Models\RestaurantProduct;
 use Illuminate\Http\Request;
@@ -38,6 +39,12 @@ class PublicProductResource extends JsonResource
             'name' => $this->translation->name,
             'description' => $this->translation->description,
             'price' => (string) $this->price,
+            'allergens' => $this->resource->product->allergens,
+            'nutrition' => $this->resource->product->nutritionPayload(),
+            'media' => [
+                'image' => optional($this->resource->product->mediaImage(), fn ($media) => new ProductMediaResource($media)),
+                'video' => optional($this->resource->product->mediaVideo(), fn ($media) => new ProductMediaResource($media)),
+            ],
             'modifier_groups' => $this->modifierGroups,
         ];
     }

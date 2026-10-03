@@ -23,8 +23,18 @@ class TableResource extends JsonResource
             'restaurant_id' => $this->restaurant_id,
             'name' => $this->name,
             'number' => $this->number,
+            'capacity' => $this->capacity,
             'public_token' => $this->public_token,
             'status' => $this->status,
+            'zone_id' => $this->zone_id,
+            'layout' => [
+                'x' => $this->layout_x,
+                'y' => $this->layout_y,
+                'rotation' => $this->layout_rotation,
+                'shape' => $this->layout_shape,
+                'width' => $this->layout_width,
+                'height' => $this->layout_height,
+            ],
             'has_active_session' => $activeSession !== null,
             'active_session' => $activeSession ? [
                 'id' => $activeSession->id,

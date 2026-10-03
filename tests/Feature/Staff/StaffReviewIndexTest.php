@@ -30,7 +30,7 @@ class StaffReviewIndexTest extends TestCase
         app(CreateStaffReviewAction::class)->execute($organization, $restaurant, $waiter, $manager, 5, 'Great');
 
         $this->actingAs($manager, 'web')
-            ->getJson("/api/v1/staff/{$waiter->id}/reviews")
+            ->getJson("/api/v1/restaurants/{$restaurant->id}/staff/{$waiter->id}/reviews")
             ->assertOk()
             ->assertJsonCount(2, 'data.reviews')
             ->assertJsonPath('data.reviews.0.rating', 5)
@@ -51,7 +51,7 @@ class StaffReviewIndexTest extends TestCase
         $review3 = app(CreateStaffReviewAction::class)->execute($organization, $restaurant, $waiter, $owner, 3, 'third');
 
         $response = $this->actingAs($owner, 'web')
-            ->getJson("/api/v1/staff/{$waiter->id}/reviews")
+            ->getJson("/api/v1/restaurants/{$restaurant->id}/staff/{$waiter->id}/reviews")
             ->assertOk();
 
         $ids = $response->json('data.reviews.*.id');
@@ -64,7 +64,7 @@ class StaffReviewIndexTest extends TestCase
         $waiter = $this->createStaff($organization, $restaurant, 'waiter', 'W-1');
 
         $this->actingAs($waiter, 'web')
-            ->getJson("/api/v1/staff/{$waiter->id}/reviews")
+            ->getJson("/api/v1/restaurants/{$restaurant->id}/staff/{$waiter->id}/reviews")
             ->assertForbidden();
     }
 
@@ -75,7 +75,7 @@ class StaffReviewIndexTest extends TestCase
         $otherStaff = $this->createStaff($otherOrganization, $otherRestaurant, 'waiter', 'W-1');
 
         $this->actingAs($owner, 'web')
-            ->getJson("/api/v1/staff/{$otherStaff->id}/reviews")
+            ->getJson("/api/v1/restaurants/{$otherRestaurant->id}/staff/{$otherStaff->id}/reviews")
             ->assertNotFound();
     }
 
@@ -87,7 +87,34 @@ class StaffReviewIndexTest extends TestCase
         $waiterB = $this->createStaff($organization, $restaurantB, 'waiter', 'W-B');
 
         $this->actingAs($manager, 'web')
-            ->getJson("/api/v1/staff/{$waiterB->id}/reviews")
+            ->getJson("/api/v1/restaurants/{$restaurantB->id}/staff/{$waiterB->id}/reviews")
             ->assertNotFound();
+    }
+
+    /**
+     * Rating isolation across restaurants (section 111/38): a review
+     * created for restaurant A must never appear when listing reviews of
+     * the same staff member through restaurant B.
+     */
+    public function test_reviews_of_a_staff_member_in_two_restaurants_are_isolated_per_restaurant(): void
+    {
+        [$organization, $owner, $restaurantA] = $this->createTenant();
+        $restaurantB = Restaurant::factory()->create(['organization_id' => $organization->id]);
+        $carlos = $this->createStaffAcrossRestaurants($organization, [$restaurantA, $restaurantB], 'waiter', $owner);
+
+        app(CreateStaffReviewAction::class)->execute($organization, $restaurantA, $carlos, $owner, 5, 'A review');
+        app(CreateStaffReviewAction::class)->execute($organization, $restaurantB, $carlos, $owner, 1, 'B review');
+
+        $this->actingAs($owner, 'web')
+            ->getJson("/api/v1/restaurants/{$restaurantA->id}/staff/{$carlos->id}/reviews")
+            ->assertOk()
+            ->assertJsonCount(1, 'data.reviews')
+            ->assertJsonPath('data.reviews.0.rating', 5);
+
+        $this->actingAs($owner, 'web')
+            ->getJson("/api/v1/restaurants/{$restaurantB->id}/staff/{$carlos->id}/reviews")
+            ->assertOk()
+            ->assertJsonCount(1, 'data.reviews')
+            ->assertJsonPath('data.reviews.0.rating', 1);
     }
 }

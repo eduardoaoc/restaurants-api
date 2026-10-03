@@ -1,9 +1,18 @@
 <?php
 
+use App\Http\Controllers\Api\V1\AuditLogController;
 use App\Http\Controllers\Api\V1\Auth\AuthController;
 use App\Http\Controllers\Api\V1\BillReceiptController;
+use App\Http\Controllers\Api\V1\CashMovementController;
 use App\Http\Controllers\Api\V1\CategoryController;
 use App\Http\Controllers\Api\V1\CategoryProductController;
+use App\Http\Controllers\Api\V1\CustomerFeedbackController;
+use App\Http\Controllers\Api\V1\CustomerFeedbackSummaryController;
+use App\Http\Controllers\Api\V1\DayCloseController;
+use App\Http\Controllers\Api\V1\DayCloseDeliveryController;
+use App\Http\Controllers\Api\V1\DayCloseWhatsAppSettingsController;
+use App\Http\Controllers\Api\V1\FloorController;
+use App\Http\Controllers\Api\V1\FloorPlanController;
 use App\Http\Controllers\Api\V1\HealthController;
 use App\Http\Controllers\Api\V1\KitchenController;
 use App\Http\Controllers\Api\V1\KitchenTicketController;
@@ -12,21 +21,41 @@ use App\Http\Controllers\Api\V1\ModifierGroupController;
 use App\Http\Controllers\Api\V1\ModifierOptionController;
 use App\Http\Controllers\Api\V1\OrderController;
 use App\Http\Controllers\Api\V1\OrganizationController;
+use App\Http\Controllers\Api\V1\Platform\PlatformAuditLogController;
+use App\Http\Controllers\Api\V1\Platform\PlatformOrganizationController;
+use App\Http\Controllers\Api\V1\Platform\PlatformRestaurantController;
+use App\Http\Controllers\Api\V1\Platform\PlatformUserController;
 use App\Http\Controllers\Api\V1\ProductController;
+use App\Http\Controllers\Api\V1\ProductMediaController;
+use App\Http\Controllers\Api\V1\Public\PublicFeedbackController;
 use App\Http\Controllers\Api\V1\Public\PublicMenuController;
 use App\Http\Controllers\Api\V1\Public\PublicOrderController;
 use App\Http\Controllers\Api\V1\Public\PublicTableController;
 use App\Http\Controllers\Api\V1\Public\PublicTableRequestController;
+use App\Http\Controllers\Api\V1\Public\PublicVisitController;
+use App\Http\Controllers\Api\V1\RestaurantActivityController;
+use App\Http\Controllers\Api\V1\RestaurantAnalyticsController;
 use App\Http\Controllers\Api\V1\RestaurantController;
+use App\Http\Controllers\Api\V1\RestaurantDashboardController;
+use App\Http\Controllers\Api\V1\RestaurantOperationsController;
 use App\Http\Controllers\Api\V1\RestaurantProductController;
+use App\Http\Controllers\Api\V1\RestaurantSettingsController;
 use App\Http\Controllers\Api\V1\StaffController;
 use App\Http\Controllers\Api\V1\StaffPerformanceController;
 use App\Http\Controllers\Api\V1\StaffReviewController;
+use App\Http\Controllers\Api\V1\StaffShiftController;
 use App\Http\Controllers\Api\V1\TableController;
 use App\Http\Controllers\Api\V1\TableRequestController;
 use App\Http\Controllers\Api\V1\TableSessionBillController;
 use App\Http\Controllers\Api\V1\TableSessionController;
+use App\Http\Controllers\Api\V1\TableSessionTransferController;
+use App\Http\Controllers\Api\V1\TableSessionVoidController;
+use App\Http\Controllers\Api\V1\TableSessionWaiterController;
+use App\Http\Controllers\Api\V1\WaiterCallController;
+use App\Http\Controllers\Api\V1\WhatsAppWebhookController;
+use App\Http\Controllers\Api\V1\ZoneController;
 use Illuminate\Support\Facades\Route;
+use Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful;
 
 Route::prefix('v1')->group(function () {
     Route::get('/health', HealthController::class);
@@ -34,8 +63,17 @@ Route::prefix('v1')->group(function () {
     Route::prefix('auth')->group(function () {
         Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:login');
 
-        Route::middleware('auth:sanctum')->group(function () {
+        // /me and /context are gated by active_user too — a suspended
+        // staff member must never receive identity/authorization context
+        // usable by the frontend as if they were still authorized (Passo
+        // 2.8B). /logout stays on auth:sanctum alone: a suspended user
+        // must still be able to clear their own (already-dead) session.
+        Route::middleware(['auth:sanctum', 'active_user'])->group(function () {
             Route::get('/me', [AuthController::class, 'me']);
+            Route::get('/context', [AuthController::class, 'context']);
+        });
+
+        Route::middleware('auth:sanctum')->group(function () {
             Route::post('/logout', [AuthController::class, 'logout']);
         });
     });
@@ -43,22 +81,90 @@ Route::prefix('v1')->group(function () {
     // Public surface: QR resolution + menu + order creation. No auth, no
     // tenant context — everything is derived from the public_token itself
     // (see Bloco 9). Order creation gets its own, stricter limiter.
-    Route::prefix('public')->group(function () {
-        Route::middleware('throttle:public-menu')->group(function () {
-            Route::get('/tables/{publicToken}', [PublicTableController::class, 'show']);
-            Route::get('/tables/{publicToken}/menu', [PublicMenuController::class, 'show']);
+    //
+    // withoutMiddleware([EnsureFrontendRequestsAreStateful::class]) is
+    // required here because bootstrap/app.php's statefulApi() injects that
+    // middleware into the whole `api` group (not just authenticated
+    // routes). It classifies any request whose Origin/Referer matches
+    // config('sanctum.stateful') (which includes the SPA's own dev origin,
+    // e.g. localhost:5174) as "from the frontend" and pipes it through
+    // StartSession + CSRF validation — even though this surface never
+    // issues a session cookie or XSRF token to the anonymous QR client.
+    // That produced a 419 CSRF mismatch on every public POST made by a
+    // browser tab with that Origin, while curl (no Origin/Referer) sailed
+    // through. Excluding the middleware only for this group keeps it
+    // (and Sanctum SPA auth/CSRF) fully intact for the admin panel.
+    Route::prefix('public')
+        ->withoutMiddleware([EnsureFrontendRequestsAreStateful::class])
+        ->group(function () {
+            Route::middleware('throttle:public-menu')->group(function () {
+                Route::get('/tables/{publicToken}', [PublicTableController::class, 'show']);
+                Route::get('/tables/{publicToken}/menu', [PublicMenuController::class, 'show']);
+            });
+
+            Route::post('/tables/{publicToken}/orders', [PublicOrderController::class, 'store'])
+                ->middleware('throttle:public-orders');
+
+            Route::middleware('throttle:public-table-requests')->group(function () {
+                Route::post('/tables/{publicToken}/requests/call-waiter', [PublicTableRequestController::class, 'callWaiter']);
+                Route::post('/tables/{publicToken}/requests/bill', [PublicTableRequestController::class, 'bill']);
+            });
+
+            // Post-visit feedback (Passo 3.5): keyed ONLY by the opaque
+            // feedback_token minted at payment time — never by
+            // table_session_id/table_id/the table's own public_token. See
+            // TableSession::generateUniqueFeedbackToken() and
+            // PublicSessionStateResource for how the token is discovered.
+            Route::middleware('throttle:public-feedback')->group(function () {
+                Route::get('/feedback/{feedbackToken}', [PublicFeedbackController::class, 'show']);
+                Route::post('/feedback/{feedbackToken}', [PublicFeedbackController::class, 'store']);
+
+                // Post-payment visit summary (CARTA 5.1A): same opaque
+                // credential and limiter as feedback, separate contract.
+                Route::get('/visits/{feedbackToken}', [PublicVisitController::class, 'show']);
+            });
         });
 
-        Route::post('/tables/{publicToken}/orders', [PublicOrderController::class, 'store'])
-            ->middleware('throttle:public-orders');
-
-        Route::middleware('throttle:public-table-requests')->group(function () {
-            Route::post('/tables/{publicToken}/requests/call-waiter', [PublicTableRequestController::class, 'callWaiter']);
-            Route::post('/tables/{publicToken}/requests/bill', [PublicTableRequestController::class, 'bill']);
+    // Meta WhatsApp Cloud API webhook (CARTA 9.1E): called by Meta, so no
+    // Sanctum/tenant and no stateful/CSRF middleware (same reasoning as the
+    // public group above) — authenticity is the verify token (GET) and the
+    // X-Hub-Signature-256 HMAC of the raw body (POST). See
+    // WhatsAppWebhookController.
+    Route::prefix('webhooks')
+        ->withoutMiddleware([EnsureFrontendRequestsAreStateful::class])
+        ->middleware('throttle:whatsapp-webhook')
+        ->group(function () {
+            Route::get('/whatsapp', [WhatsAppWebhookController::class, 'verify']);
+            Route::post('/whatsapp', [WhatsAppWebhookController::class, 'receive']);
         });
+
+    // Platform namespace: cross-tenant administration for AFORO platform
+    // admins only (see EnsurePlatformAdmin). Deliberately its own
+    // top-level group, sibling to the tenant group below — NOT nested
+    // inside it, and NOT running `tenant` (ResolveTenant): a platform
+    // admin has no "active organization" of their own, and every target
+    // organization/restaurant/user here is addressed explicitly by its
+    // own id in the URL, never resolved from the actor's own membership.
+    Route::prefix('platform')->middleware(['auth:sanctum', 'active_user', 'platform_admin'])->group(function () {
+        Route::get('/users', [PlatformUserController::class, 'index']);
+        Route::get('/users/{user}', [PlatformUserController::class, 'show']);
+        Route::patch('/users/{user}/status', [PlatformUserController::class, 'updateStatus']);
+
+        Route::get('/organizations', [PlatformOrganizationController::class, 'index']);
+        Route::get('/organizations/{organization}', [PlatformOrganizationController::class, 'show']);
+        Route::patch('/organizations/{organization}/status', [PlatformOrganizationController::class, 'updateStatus']);
+        Route::patch('/organizations/{organization}/plan', [PlatformOrganizationController::class, 'updatePlan']);
+
+        Route::get('/restaurants', [PlatformRestaurantController::class, 'index']);
+        Route::get('/restaurants/{restaurant}', [PlatformRestaurantController::class, 'show']);
+        Route::patch('/restaurants/{restaurant}/status', [PlatformRestaurantController::class, 'updateStatus']);
+
+        Route::get('/audit-logs', [PlatformAuditLogController::class, 'index']);
     });
 
-    Route::middleware(['auth:sanctum', 'tenant'])->group(function () {
+    Route::middleware(['auth:sanctum', 'active_user', 'tenant'])->group(function () {
+        Route::get('/audit-logs', [AuditLogController::class, 'index']);
+
         Route::get('/organization', [OrganizationController::class, 'show']);
         Route::patch('/organization', [OrganizationController::class, 'update']);
 
@@ -66,6 +172,23 @@ Route::prefix('v1')->group(function () {
         Route::post('/restaurants', [RestaurantController::class, 'store']);
         Route::get('/restaurants/{restaurant}', [RestaurantController::class, 'show']);
         Route::patch('/restaurants/{restaurant}', [RestaurantController::class, 'update']);
+        Route::get('/restaurants/{restaurant}/dashboard', [RestaurantDashboardController::class, 'show']);
+        // Operations Live (Bloco 5): real-time operational snapshot,
+        // deliberately separate from the historical/period dashboard
+        // above — see RestaurantOperationsController.
+        Route::get('/restaurants/{restaurant}/operations/live', [RestaurantOperationsController::class, 'live']);
+        // Activity feed (CARTA 6.1A): persistent operational timeline +
+        // per-user read cursor — history, distinct from the live alerts
+        // above and from the audit log. See RestaurantActivityController.
+        Route::get('/restaurants/{restaurant}/activity', [RestaurantActivityController::class, 'index']);
+        Route::get('/restaurants/{restaurant}/activity/unread-count', [RestaurantActivityController::class, 'unreadCount']);
+        Route::post('/restaurants/{restaurant}/activity/read', [RestaurantActivityController::class, 'markRead']);
+        // Analytics (Bloco 6): historical/period read model, distinct
+        // from both /dashboard above and /operations/live — see
+        // RestaurantAnalyticsController.
+        Route::get('/restaurants/{restaurant}/analytics', [RestaurantAnalyticsController::class, 'show']);
+        Route::get('/restaurants/{restaurant}/settings', [RestaurantSettingsController::class, 'show']);
+        Route::patch('/restaurants/{restaurant}/settings', [RestaurantSettingsController::class, 'update']);
 
         Route::get('/staff', [StaffController::class, 'index']);
         Route::post('/staff', [StaffController::class, 'store']);
@@ -73,16 +196,68 @@ Route::prefix('v1')->group(function () {
         Route::patch('/staff/{user}', [StaffController::class, 'update']);
 
         Route::get('/me/performance', [StaffPerformanceController::class, 'me']);
-        Route::get('/staff/{staff}/performance', [StaffPerformanceController::class, 'show']);
-        Route::post('/staff/{staff}/reviews', [StaffReviewController::class, 'store']);
-        Route::get('/staff/{staff}/reviews', [StaffReviewController::class, 'index']);
+        Route::get('/restaurants/{restaurant}/staff/{staff}/performance', [StaffPerformanceController::class, 'show']);
+        Route::post('/restaurants/{restaurant}/staff/{staff}/reviews', [StaffReviewController::class, 'store']);
+        Route::get('/restaurants/{restaurant}/staff/{staff}/reviews', [StaffReviewController::class, 'index']);
+
+        // Customer Feedback (Passo 3.5): owner/manager detail (see
+        // CustomerFeedbackController) is deliberately separate from the
+        // waiter-facing aggregate-only summary (CustomerFeedbackSummaryController)
+        // — different permission gate, never the same endpoint.
+        Route::get('/restaurants/{restaurant}/feedback', [CustomerFeedbackController::class, 'index']);
+        Route::get('/feedback/{customerFeedback}', [CustomerFeedbackController::class, 'show']);
+        Route::get('/me/feedback-summary', [CustomerFeedbackSummaryController::class, 'me']);
+        Route::get('/restaurants/{restaurant}/staff/{staff}/feedback-summary', [CustomerFeedbackSummaryController::class, 'show']);
 
         Route::get('/restaurants/{restaurant}/tables', [TableController::class, 'index']);
         Route::post('/restaurants/{restaurant}/tables', [TableController::class, 'store']);
+        // Staff QR resolution (CARTA 8.1A): same physical QR as the public
+        // surface above, resolved through the authenticated user's own
+        // membership/scope/permission — the token is a lookup key, never
+        // a credential. See TableController::resolve().
+        Route::get('/tables/resolve/{publicToken}', [TableController::class, 'resolve']);
         Route::get('/tables/{table}', [TableController::class, 'show']);
         Route::patch('/tables/{table}', [TableController::class, 'update']);
         Route::post('/tables/{table}/open', [TableSessionController::class, 'open']);
         Route::post('/tables/{table}/close', [TableSessionController::class, 'close']);
+
+        // Floor Plan (Bloco 1): floors, zones and the aggregated/bulk-save
+        // endpoints that feed the map editor. See FloorPolicy/ZonePolicy
+        // for the view (manage_tables/close_bill) vs manage
+        // (manage_floor_plan) permission split.
+        Route::get('/restaurants/{restaurant}/floors', [FloorController::class, 'index']);
+        Route::post('/restaurants/{restaurant}/floors', [FloorController::class, 'store']);
+        Route::get('/floors/{floor}', [FloorController::class, 'show']);
+        Route::patch('/floors/{floor}', [FloorController::class, 'update']);
+        Route::delete('/floors/{floor}', [FloorController::class, 'destroy']);
+
+        Route::get('/restaurants/{restaurant}/zones', [ZoneController::class, 'index']);
+        Route::post('/restaurants/{restaurant}/zones', [ZoneController::class, 'store']);
+        Route::get('/zones/{zone}', [ZoneController::class, 'show']);
+        Route::patch('/zones/{zone}', [ZoneController::class, 'update']);
+        Route::delete('/zones/{zone}', [ZoneController::class, 'destroy']);
+
+        // Cierre Diario (CARTA 9.1A): preview/close/cash movements need
+        // close_daily_operation; history/detail/annotations need
+        // view_daily_closes (PDF too — CARTA 9.1C). See DayCloseController.
+        Route::get('/restaurants/{restaurant}/day-close/preview', [DayCloseController::class, 'preview']);
+        Route::get('/restaurants/{restaurant}/day-closes', [DayCloseController::class, 'index']);
+        Route::post('/restaurants/{restaurant}/day-closes', [DayCloseController::class, 'store']);
+        Route::get('/day-closes/{dayClose}', [DayCloseController::class, 'show']);
+        Route::get('/day-closes/{dayClose}/pdf', [DayCloseController::class, 'pdf']);
+        Route::post('/day-closes/{dayClose}/annotations', [DayCloseController::class, 'storeAnnotation']);
+        // Cierre Diario by WhatsApp (CARTA 9.1E): deliveries/resend need
+        // view_daily_closes; recipient settings need manage_restaurants.
+        Route::get('/day-closes/{dayClose}/deliveries', [DayCloseDeliveryController::class, 'index']);
+        Route::post('/day-closes/{dayClose}/deliveries', [DayCloseDeliveryController::class, 'store'])
+            ->middleware('throttle:day-close-whatsapp-resend');
+        Route::get('/restaurants/{restaurant}/day-close-whatsapp-settings', [DayCloseWhatsAppSettingsController::class, 'show']);
+        Route::put('/restaurants/{restaurant}/day-close-whatsapp-settings', [DayCloseWhatsAppSettingsController::class, 'update']);
+        Route::get('/restaurants/{restaurant}/cash-movements', [CashMovementController::class, 'index']);
+        Route::post('/restaurants/{restaurant}/cash-movements', [CashMovementController::class, 'store']);
+
+        Route::get('/restaurants/{restaurant}/floor-plan', [FloorPlanController::class, 'show']);
+        Route::patch('/restaurants/{restaurant}/floor-plan/layout', [FloorPlanController::class, 'updateLayout']);
 
         Route::get('/restaurants/{restaurant}/menu', [MenuController::class, 'show']);
         Route::post('/restaurants/{restaurant}/menu', [MenuController::class, 'store']);
@@ -98,11 +273,19 @@ Route::prefix('v1')->group(function () {
         Route::get('/products/{product}', [ProductController::class, 'show']);
         Route::patch('/products/{product}', [ProductController::class, 'update']);
 
+        Route::post('/products/{product}/media/{type}', [ProductMediaController::class, 'store'])
+            ->whereIn('type', ['image', 'video']);
+        Route::delete('/products/{product}/media/{type}', [ProductMediaController::class, 'destroy'])
+            ->whereIn('type', ['image', 'video']);
+
+        Route::get('/restaurants/{restaurant}/products', [RestaurantProductController::class, 'index']);
         Route::post('/restaurants/{restaurant}/products', [RestaurantProductController::class, 'store']);
         Route::patch('/restaurant-products/{restaurantProduct}', [RestaurantProductController::class, 'update']);
 
+        Route::get('/categories/{category}/products', [CategoryProductController::class, 'index']);
         Route::post('/categories/{category}/products', [CategoryProductController::class, 'store']);
         Route::patch('/categories/{category}/products/{restaurantProduct}', [CategoryProductController::class, 'update']);
+        Route::delete('/categories/{category}/products/{restaurantProduct}', [CategoryProductController::class, 'destroy']);
 
         Route::get('/restaurant-products/{restaurantProduct}/modifier-groups', [ModifierGroupController::class, 'index']);
         Route::post('/restaurant-products/{restaurantProduct}/modifier-groups', [ModifierGroupController::class, 'store']);
@@ -127,6 +310,7 @@ Route::prefix('v1')->group(function () {
         Route::post('/orders/{order}/kitchen-ticket/print', [KitchenTicketController::class, 'print']);
 
         Route::get('/kitchen/orders', [KitchenController::class, 'orders']);
+        Route::get('/kitchen/dashboard', [KitchenController::class, 'dashboard']);
 
         Route::get('/table-requests', [TableRequestController::class, 'index']);
         Route::get('/table-requests/{tableRequest}', [TableRequestController::class, 'show']);
@@ -138,5 +322,27 @@ Route::prefix('v1')->group(function () {
         Route::post('/table-sessions/{tableSession}/payments', [TableSessionBillController::class, 'storePayment']);
         Route::get('/table-sessions/{tableSession}/receipt', [BillReceiptController::class, 'show']);
         Route::post('/table-sessions/{tableSession}/receipt/print', [BillReceiptController::class, 'print']);
+
+        // Waiter assignment (Bloco 2): belongs to the TableSession, not the
+        // Table — see TableSessionWaiterController.
+        Route::put('/table-sessions/{tableSession}/waiter', [TableSessionWaiterController::class, 'update']);
+        Route::delete('/table-sessions/{tableSession}/waiter', [TableSessionWaiterController::class, 'destroy']);
+
+        // Staff Shift (Bloco 3): canonical operational presence, scoped to
+        // one Restaurant — see StaffShiftController.
+        Route::get('/restaurants/{restaurant}/staff-shifts', [StaffShiftController::class, 'index']);
+        Route::post('/restaurants/{restaurant}/staff-shifts', [StaffShiftController::class, 'store']);
+        Route::post('/staff-shifts/{staffShift}/end', [StaffShiftController::class, 'end']);
+
+        // Table Operational Actions (Bloco 4): transfer belongs to the
+        // TableSession, not the Table — see TableSessionTransferController.
+        Route::post('/table-sessions/{tableSession}/transfer', [TableSessionTransferController::class, 'transfer']);
+        // Voiding an EMPTY session (CARTA 9.1A) — see VoidEmptyTableSessionAction.
+        Route::post('/table-sessions/{tableSession}/void', [TableSessionVoidController::class, 'void']);
+
+        // "Call responsible waiter" — internal escalation, its own minimal
+        // resource (WaiterCall), not a TableRequest — see WaiterCallController.
+        Route::post('/table-sessions/{tableSession}/waiter-calls', [WaiterCallController::class, 'store']);
+        Route::post('/waiter-calls/{waiterCall}/acknowledge', [WaiterCallController::class, 'acknowledge']);
     });
 });

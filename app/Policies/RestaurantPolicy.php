@@ -5,6 +5,7 @@ namespace App\Policies;
 use App\Models\Organization;
 use App\Models\Restaurant;
 use App\Models\User;
+use App\Support\Restaurants\RestaurantScope;
 
 class RestaurantPolicy
 {
@@ -17,11 +18,17 @@ class RestaurantPolicy
     }
 
     /**
-     * Any member of the restaurant's organization may view it.
+     * Any member of the restaurant's organization may view it — but only
+     * if it's within their own RestaurantScope. The controller's query is
+     * already scoped (an out-of-scope restaurant never reaches this
+     * Policy — it's 404 via findOrFail first), so this check is defense
+     * in depth, not the primary gate; kept here anyway so the Policy is
+     * never the weaker link if a future caller skips the scoped query.
      */
     public function view(User $user, Restaurant $restaurant): bool
     {
-        return $user->organizations()->whereKey($restaurant->organization_id)->exists();
+        return $user->organizations()->whereKey($restaurant->organization_id)->exists()
+            && RestaurantScope::canAccessRestaurant($user, $restaurant);
     }
 
     /**
@@ -33,10 +40,123 @@ class RestaurantPolicy
     }
 
     /**
-     * Only users holding the manage_restaurants permission may update restaurants.
+     * Only users holding the manage_restaurants permission, for a
+     * restaurant within their own RestaurantScope, may update it. Same
+     * defense-in-depth note as view() above.
      */
     public function update(User $user, Restaurant $restaurant): bool
     {
-        return $user->hasPermission('manage_restaurants', $restaurant->organization);
+        return $user->hasPermission('manage_restaurants', $restaurant->organization)
+            && RestaurantScope::canAccessRestaurant($user, $restaurant);
+    }
+
+    /**
+     * Viewing the restaurant's operational dashboard requires view_reports
+     * (reused, no new permission) plus RestaurantScope reachability. The
+     * route already resolves the restaurant through a RestaurantScope-
+     * filtered query, so an out-of-scope restaurant is 404 before this
+     * policy ever runs; the RestaurantScope check here is defense in
+     * depth, same pattern as StaffPolicy::canAccessStaff.
+     */
+    public function viewReports(User $user, Restaurant $restaurant): bool
+    {
+        return $user->organizations()->whereKey($restaurant->organization_id)->exists()
+            && $user->hasPermission('view_reports', $restaurant->organization)
+            && RestaurantScope::canAccessRestaurant($user, $restaurant);
+    }
+
+    /**
+     * Viewing/updating a restaurant's operational settings requires
+     * manage_restaurants (reused, no new permission) plus RestaurantScope
+     * reachability — unlike view()/update() above (organization-wide by
+     * design since Bloco 1), settings are explicitly scoped: a manager
+     * restricted to Restaurant A must not see or change Restaurant B's
+     * settings even if they hold manage_restaurants.
+     */
+    public function manageSettings(User $user, Restaurant $restaurant): bool
+    {
+        return $user->organizations()->whereKey($restaurant->organization_id)->exists()
+            && $user->hasPermission('manage_restaurants', $restaurant->organization)
+            && RestaurantScope::canAccessRestaurant($user, $restaurant);
+    }
+
+    /**
+     * Viewing the aggregated floor plan (Bloco 1) — same view permissions
+     * as FloorPolicy/ZonePolicy: manage_tables OR close_bill, plus
+     * RestaurantScope reachability.
+     */
+    public function viewFloorPlan(User $user, Restaurant $restaurant): bool
+    {
+        return $user->organizations()->whereKey($restaurant->organization_id)->exists()
+            && RestaurantScope::canAccessRestaurant($user, $restaurant)
+            && ($user->hasPermission('manage_tables', $restaurant->organization)
+                || $user->hasPermission('close_bill', $restaurant->organization));
+    }
+
+    /**
+     * Bulk-saving the floor plan layout (Bloco 1) requires manage_floor_plan
+     * — same permission gate as creating/editing a Floor or Zone.
+     */
+    public function manageFloorPlan(User $user, Restaurant $restaurant): bool
+    {
+        return $user->organizations()->whereKey($restaurant->organization_id)->exists()
+            && RestaurantScope::canAccessRestaurant($user, $restaurant)
+            && $user->hasPermission('manage_floor_plan', $restaurant->organization);
+    }
+
+    /**
+     * Viewing the live operations snapshot (Bloco 5) — the administrative/
+     * managerial command center. Deliberately its own dedicated permission
+     * (view_operations), not view_reports: this is real-time operational
+     * state, not the historical/analytical dashboard, and not automatically
+     * granted to waiter/kitchen/cashier — they get their own operational
+     * surfaces later, not this cross-cutting snapshot.
+     */
+    public function viewOperations(User $user, Restaurant $restaurant): bool
+    {
+        return $user->organizations()->whereKey($restaurant->organization_id)->exists()
+            && $user->hasPermission('view_operations', $restaurant->organization)
+            && RestaurantScope::canAccessRestaurant($user, $restaurant);
+    }
+
+    /**
+     * Reading the operational activity feed (CARTA 6.1A) and managing
+     * one's own read cursor on it. Its own permission (view_activity —
+     * owner/manager), not view_operations: waiters hold view_operations
+     * for the live snapshot, but the full administrative timeline (who
+     * did what, payments, ...) is not granted to waiter/kitchen/cashier
+     * in this block.
+     */
+    public function viewActivity(User $user, Restaurant $restaurant): bool
+    {
+        return $user->organizations()->whereKey($restaurant->organization_id)->exists()
+            && $user->hasPermission('view_activity', $restaurant->organization)
+            && RestaurantScope::canAccessRestaurant($user, $restaurant);
+    }
+
+    /**
+     * Running the Cierre Diario (CARTA 9.1A): its live preview, the cash
+     * drawer movements and the close itself. close_daily_operation is held
+     * by owner/manager/cashier/waiter by default — the last person on the
+     * floor must be able to close — but never by kitchen.
+     */
+    public function closeDay(User $user, Restaurant $restaurant): bool
+    {
+        return $user->organizations()->whereKey($restaurant->organization_id)->exists()
+            && $user->hasPermission('close_daily_operation', $restaurant->organization)
+            && RestaurantScope::canAccessRestaurant($user, $restaurant);
+    }
+
+    /**
+     * Reading past Cierres Diarios (history, detail) and adding post-close
+     * annotations — its own permission (view_daily_closes, owner/manager):
+     * whoever can close today does not automatically see every past day's
+     * financial history.
+     */
+    public function viewDayCloses(User $user, Restaurant $restaurant): bool
+    {
+        return $user->organizations()->whereKey($restaurant->organization_id)->exists()
+            && $user->hasPermission('view_daily_closes', $restaurant->organization)
+            && RestaurantScope::canAccessRestaurant($user, $restaurant);
     }
 }

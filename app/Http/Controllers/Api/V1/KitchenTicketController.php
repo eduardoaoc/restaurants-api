@@ -2,13 +2,16 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Exceptions\Printing\KitchenTicketPrintingDisabledException;
 use App\Exceptions\Printing\OrderNotPrintableException;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\Api\V1\Printing\KitchenTicketResource;
+use App\Models\AuditLog;
 use App\Models\Order;
 use App\Models\Organization;
 use App\Models\PrintRecord;
 use App\Models\User;
+use App\Support\Audit\AuditLogger;
 use App\Support\Restaurants\RestaurantScope;
 use App\Support\Tenancy\TenantContext;
 use Illuminate\Database\Eloquent\Builder;
@@ -18,7 +21,10 @@ use OpenApi\Attributes as OA;
 
 class KitchenTicketController extends Controller
 {
-    public function __construct(private readonly TenantContext $tenantContext) {}
+    public function __construct(
+        private readonly TenantContext $tenantContext,
+        private readonly AuditLogger $auditLogger,
+    ) {}
 
     /**
      * Preview the kitchen ticket document for an order. A GET: read-only,
@@ -63,7 +69,7 @@ class KitchenTicketController extends Controller
             new OA\Response(response: 401, description: 'Unauthenticated'),
             new OA\Response(response: 403, description: 'The user is not allowed to print this order\'s kitchen ticket'),
             new OA\Response(response: 404, description: 'Order not found'),
-            new OA\Response(response: 409, description: 'The order is waiting_approval or cancelled and cannot be printed'),
+            new OA\Response(response: 409, description: 'The order is waiting_approval or cancelled and cannot be printed, or kitchen_ticket_printing_enabled is false'),
         ]
     )]
     public function print(Request $request, int $order): JsonResponse
@@ -71,8 +77,14 @@ class KitchenTicketController extends Controller
         $orderModel = $this->resolveOrder($request, $order);
         $user = $request->user();
 
+        $organization = $this->activeOrganization();
+
+        if (! $orderModel->restaurant->settings->kitchen_ticket_printing_enabled) {
+            throw new KitchenTicketPrintingDisabledException;
+        }
+
         $printRecord = PrintRecord::query()->create([
-            'organization_id' => $this->activeOrganization()->id,
+            'organization_id' => $organization->id,
             'restaurant_id' => $orderModel->restaurant_id,
             'document_type' => PrintRecord::DOCUMENT_TYPE_KITCHEN_TICKET,
             'order_id' => $orderModel->id,
@@ -80,6 +92,21 @@ class KitchenTicketController extends Controller
             'requested_by_user_id' => $user->id,
             'generated_at' => now(),
         ]);
+
+        $this->auditLogger->log(
+            organizationId: $organization->id,
+            restaurantId: $orderModel->restaurant_id,
+            actorType: AuditLog::ACTOR_USER,
+            actor: $user,
+            event: AuditLog::EVENT_PRINT_RECORD_CREATED,
+            resourceType: AuditLog::RESOURCE_PRINT_RECORD,
+            resourceId: $printRecord->id,
+            metadata: [
+                'document_type' => PrintRecord::DOCUMENT_TYPE_KITCHEN_TICKET,
+                'order_id' => $orderModel->id,
+                'table_session_id' => $orderModel->table_session_id,
+            ],
+        );
 
         return response()->json([
             'data' => [
@@ -100,7 +127,7 @@ class KitchenTicketController extends Controller
         $organization = $this->activeOrganization();
         $user = $request->user();
         $orderModel = $this->orderQuery($organization, $user)
-            ->with(['restaurant', 'table', 'items.modifiers'])
+            ->with(['restaurant.settings', 'table', 'items.modifiers'])
             ->findOrFail($orderId);
 
         $this->authorize('viewKitchenTicket', $orderModel);

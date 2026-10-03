@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Actions\Catalog\AttachProductToRestaurantAction;
+use App\Actions\Catalog\UpdateRestaurantProductAction;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\RestaurantProduct\AttachRestaurantProductRequest;
 use App\Http\Requests\Api\V1\RestaurantProduct\UpdateRestaurantProductRequest;
@@ -19,7 +20,65 @@ class RestaurantProductController extends Controller
     public function __construct(
         private readonly TenantContext $tenantContext,
         private readonly AttachProductToRestaurantAction $attachProductToRestaurantAction,
+        private readonly UpdateRestaurantProductAction $updateRestaurantProductAction,
     ) {}
+
+    /**
+     * List the products a restaurant has in its catalog (price, availability
+     * and the underlying catalog product), regardless of category placement.
+     */
+    #[OA\Get(
+        path: '/api/v1/restaurants/{restaurant}/products',
+        operationId: 'restaurantProductsIndex',
+        summary: "List a restaurant's catalog products",
+        security: [['sessionCookie' => []]],
+        tags: ['Restaurant Products'],
+        parameters: [
+            new OA\Parameter(name: 'restaurant', in: 'path', required: true, schema: new OA\Schema(type: 'integer')),
+        ],
+        responses: [
+            new OA\Response(
+                response: 200,
+                description: 'List of restaurant products',
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(
+                            property: 'data',
+                            properties: [
+                                new OA\Property(
+                                    property: 'restaurant_products',
+                                    type: 'array',
+                                    items: new OA\Items(ref: '#/components/schemas/RestaurantProduct')
+                                ),
+                            ],
+                            type: 'object'
+                        ),
+                    ]
+                )
+            ),
+            new OA\Response(response: 401, description: 'Unauthenticated'),
+            new OA\Response(response: 403, description: 'The user is not allowed to view restaurant products'),
+            new OA\Response(response: 404, description: 'Restaurant not found'),
+        ]
+    )]
+    public function index(int $restaurant): JsonResponse
+    {
+        $organization = $this->activeOrganization();
+        $restaurantModel = $organization->restaurants()->findOrFail($restaurant);
+
+        $this->authorize('viewAny', [RestaurantProduct::class, $restaurantModel]);
+
+        $restaurantProducts = $restaurantModel->restaurantProducts()
+            ->with('product.translations')
+            ->orderBy('id')
+            ->get();
+
+        return response()->json([
+            'data' => [
+                'restaurant_products' => RestaurantProductResource::collection($restaurantProducts),
+            ],
+        ]);
+    }
 
     /**
      * Add a catalog product to a restaurant, with its price and availability.
@@ -141,7 +200,7 @@ class RestaurantProductController extends Controller
 
         $this->authorize('update', $restaurantProductModel);
 
-        $restaurantProductModel->update($request->validated());
+        $this->updateRestaurantProductAction->execute($restaurantProductModel, $request->user(), $request->validated());
 
         return response()->json([
             'message' => 'Restaurant product updated successfully.',

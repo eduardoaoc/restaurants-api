@@ -30,6 +30,7 @@ class BuildOrderItemsAction
         $itemSpecs = [];
         $subtotalCents = 0;
         $modifiersTotalCents = 0;
+        $restaurantDefaultLocale = $restaurant->settings?->default_locale;
 
         foreach ($items as $rawItem) {
             $restaurantProduct = RestaurantProduct::query()
@@ -43,7 +44,7 @@ class BuildOrderItemsAction
                 throw new InvalidOrderItemException('One of the selected products is not available.');
             }
 
-            $translation = LocaleResolver::pickTranslation($restaurantProduct->product->translations, $locale);
+            $translation = LocaleResolver::pickTranslation($restaurantProduct->product->translations, $locale, $restaurantDefaultLocale);
 
             if (! $translation) {
                 throw new InvalidOrderItemException('One of the selected products has no publishable name.');
@@ -61,8 +62,8 @@ class BuildOrderItemsAction
                 $group = $selection['group'];
                 $option = $selection['option'];
 
-                $groupTranslation = LocaleResolver::pickTranslation($group->translations, $locale);
-                $optionTranslation = LocaleResolver::pickTranslation($option->translations, $locale);
+                $groupTranslation = LocaleResolver::pickTranslation($group->translations, $locale, $restaurantDefaultLocale);
+                $optionTranslation = LocaleResolver::pickTranslation($option->translations, $locale, $restaurantDefaultLocale);
 
                 if (! $groupTranslation || ! $optionTranslation) {
                     throw new InvalidOrderItemException('One of the selected modifiers has no publishable name.');

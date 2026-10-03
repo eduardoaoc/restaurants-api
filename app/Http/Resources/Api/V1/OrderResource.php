@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources\Api\V1;
 
+use App\Http\Resources\Api\V1\Kitchen\KitchenOrderResource;
 use App\Models\Order;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -16,6 +17,11 @@ class OrderResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
+        // All order endpoints share this boundary, including transition responses.
+        if ($request->user() && ! $request->user()->can('viewDetails', $this->resource)) {
+            return (new KitchenOrderResource($this->resource))->toArray($request);
+        }
+
         return [
             'id' => $this->id,
             'order_number' => sprintf('#%d', $this->id),

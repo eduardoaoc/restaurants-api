@@ -30,8 +30,6 @@ class RestaurantStoreTest extends TestCase
             ->postJson('/api/v1/restaurants', [
                 'name' => 'Downtown Branch',
                 'slug' => 'downtown-branch',
-                'timezone' => 'America/Sao_Paulo',
-                'default_locale' => 'pt-BR',
             ])
             ->assertCreated()
             ->assertJsonPath('data.restaurant.name', 'Downtown Branch')

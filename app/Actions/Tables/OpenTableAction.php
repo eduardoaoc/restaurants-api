@@ -2,10 +2,17 @@
 
 namespace App\Actions\Tables;
 
+use App\Events\Realtime\TableSessionOpened;
 use App\Exceptions\TableSessionConflictException;
+use App\Models\AuditLog;
 use App\Models\Table;
 use App\Models\TableSession;
 use App\Models\User;
+use App\Support\Activity\ActivityActor;
+use App\Support\Activity\RestaurantActivityRecorder;
+use App\Support\Activity\RestaurantActivityType;
+use App\Support\Audit\AuditLogger;
+use App\Support\Restaurants\RestaurantOperationalLock;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 
@@ -17,25 +24,71 @@ use Illuminate\Support\Facades\DB;
  */
 class OpenTableAction
 {
+    public function __construct(
+        private readonly AuditLogger $auditLogger,
+        private readonly RestaurantActivityRecorder $activityRecorder,
+    ) {}
+
     public function execute(Table $table, User $openedBy, int $guestCount): TableSession
     {
         return DB::transaction(function () use ($table, $openedBy, $guestCount) {
+            RestaurantOperationalLock::shared($table->restaurant_id);
+
             if ($table->activeSession()->exists()) {
                 throw new TableSessionConflictException('This table already has an active session.');
             }
 
             try {
-                return TableSession::query()->create([
+                $session = TableSession::query()->create([
                     'restaurant_id' => $table->restaurant_id,
                     'table_id' => $table->id,
                     'opened_by_user_id' => $openedBy->id,
                     'guest_count' => $guestCount,
                     'status' => 'occupied',
                     'opened_at' => now(),
+                    // Generated at open, not at payment (Passo 3.5
+                    // token-lifecycle fix): the public feedback identity
+                    // must not depend on the payment->close window, which
+                    // can be seconds wide. eligible stays false until the
+                    // session is paid — see PublicSessionStateResource /
+                    // SubmitPublicFeedbackAction, both of which stay
+                    // authoritative on payment_status.
+                    'feedback_token' => TableSession::generateUniqueFeedbackToken(),
                 ]);
             } catch (UniqueConstraintViolationException $e) {
                 throw new TableSessionConflictException('This table already has an active session.', previous: $e);
             }
+
+            $this->auditLogger->log(
+                organizationId: $table->restaurant->organization_id,
+                restaurantId: $table->restaurant_id,
+                actorType: AuditLog::ACTOR_USER,
+                actor: $openedBy,
+                event: AuditLog::EVENT_TABLE_SESSION_OPENED,
+                resourceType: AuditLog::RESOURCE_TABLE_SESSION,
+                resourceId: $session->id,
+                metadata: ['table_id' => $table->id, 'status' => $session->status],
+            );
+
+            $this->activityRecorder->record(
+                restaurantId: $table->restaurant_id,
+                type: RestaurantActivityType::TABLE_SESSION_OPENED,
+                actor: ActivityActor::staff($openedBy),
+                table: $table,
+                tableSessionId: $session->id,
+                metadata: ['guest_count' => $session->guest_count],
+                occurredAt: $session->opened_at,
+            );
+
+            TableSessionOpened::dispatch(
+                $table->restaurant_id,
+                $table->id,
+                $session->id,
+                $session->guest_count,
+                $session->opened_at,
+            );
+
+            return $session;
         });
     }
 }

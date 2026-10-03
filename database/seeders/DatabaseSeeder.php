@@ -20,6 +20,12 @@ class DatabaseSeeder extends Seeder
             RoleSeeder::class,
             PermissionSeeder::class,
             RolePermissionSeeder::class,
+            PlatformRoleSeeder::class,
+            PlatformPermissionSeeder::class,
+            PlatformRolePermissionSeeder::class,
+            // Dev/test only — no-ops outside local/testing. See
+            // PlatformAdminDevSeeder for why this never touches production.
+            PlatformAdminDevSeeder::class,
         ]);
 
         // User::factory(10)->create();

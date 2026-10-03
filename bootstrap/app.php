@@ -1,5 +1,7 @@
 <?php
 
+use App\Exceptions\Analytics\InvalidAnalyticsPeriodException;
+use App\Exceptions\Audit\InvalidAuditPeriodException;
 use App\Exceptions\Billing\PaymentExceedsBalanceException;
 use App\Exceptions\Billing\PaymentIdempotencyKeyReusedException;
 use App\Exceptions\Billing\TableSessionAlreadyPaidException;
@@ -7,21 +9,45 @@ use App\Exceptions\Billing\TableSessionClosedException;
 use App\Exceptions\Billing\TableSessionHasNoBillableOrdersException;
 use App\Exceptions\Billing\TableSessionHasOpenOrdersException;
 use App\Exceptions\Billing\TableSessionNotPaidException;
+use App\Exceptions\DayClose\DayCloseException;
+use App\Exceptions\FloorPlan\FloorHasZonesException;
+use App\Exceptions\FloorPlan\ZoneHasTablesException;
 use App\Exceptions\Orders\IdempotencyKeyReusedException;
 use App\Exceptions\Orders\InvalidModifierSelectionException;
 use App\Exceptions\Orders\InvalidOrderItemException;
 use App\Exceptions\Orders\OrderCreationConflictException;
 use App\Exceptions\Orders\OrderStateConflictException;
 use App\Exceptions\Orders\TableSessionNotActiveException;
+use App\Exceptions\Printing\BillReceiptPrintingDisabledException;
+use App\Exceptions\Printing\KitchenTicketPrintingDisabledException;
 use App\Exceptions\Printing\OrderNotPrintableException;
+use App\Exceptions\Public\BillRequestDisabledException;
+use App\Exceptions\Public\CustomerOrderingDisabledException;
+use App\Exceptions\Public\FeedbackAlreadySubmittedException;
+use App\Exceptions\Public\FeedbackTokenNotFoundException;
 use App\Exceptions\Public\InvalidPublicLocaleException;
 use App\Exceptions\Public\PublicMenuNotAvailableException;
 use App\Exceptions\Public\PublicTableNotFoundException;
+use App\Exceptions\Public\TableSessionBillRequestedException;
+use App\Exceptions\Public\TableSessionNotPaidForFeedbackException;
+use App\Exceptions\Public\TableSessionNotPaidForVisitException;
+use App\Exceptions\Public\WaiterCallDisabledException;
+use App\Exceptions\Reports\InvalidReportPeriodException;
 use App\Exceptions\Staff\CannotReviewSelfException;
 use App\Exceptions\Staff\InvalidPerformancePeriodException;
+use App\Exceptions\Staff\InvalidStaffShiftPeriodException;
+use App\Exceptions\Staff\StaffShiftConflictException;
+use App\Exceptions\Staff\StaffShiftIneligibleException;
 use App\Exceptions\TableRequests\TableRequestAlreadyOpenException;
 use App\Exceptions\TableRequests\TableRequestStateConflictException;
+use App\Exceptions\Tables\TableSessionHasNoAssignedWaiterException;
+use App\Exceptions\Tables\TableSessionNotEmptyException;
+use App\Exceptions\Tables\WaiterAssignmentIneligibleException;
+use App\Exceptions\Tables\WaiterCallConflictException;
 use App\Exceptions\TableSessionConflictException;
+use App\Exceptions\WhatsApp\WhatsAppDeliveryException;
+use App\Http\Middleware\EnsurePlatformAdmin;
+use App\Http\Middleware\EnsureUserIsActive;
 use App\Http\Middleware\ResolveTenant;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -36,10 +62,23 @@ return Application::configure(basePath: dirname(__DIR__))
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
     )
+    // Bloco 7 — registered as its own call (not via withRouting's
+    // `channels` shorthand) so the /broadcasting/auth route runs the SAME
+    // auth stack as every other tenant endpoint (auth:sanctum +
+    // active_user — see routes/api.php's own tenant group), rather than
+    // withRouting's default `web` session-guard middleware, which this
+    // Sanctum-SPA-only API does not use. See routes/channels.php and
+    // docs/realtime.md.
+    ->withBroadcasting(
+        __DIR__.'/../routes/channels.php',
+        ['middleware' => ['api', 'auth:sanctum', 'active_user']],
+    )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->statefulApi();
         $middleware->alias([
             'tenant' => ResolveTenant::class,
+            'active_user' => EnsureUserIsActive::class,
+            'platform_admin' => EnsurePlatformAdmin::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
@@ -47,6 +86,28 @@ return Application::configure(basePath: dirname(__DIR__))
             fn (Request $request) => $request->is('api/*') || $request->expectsJson(),
         );
         $exceptions->render(function (TableSessionConflictException $e, Request $request) {
+            return response()->json(['message' => $e->getMessage()], 409);
+        });
+        $exceptions->render(function (WaiterAssignmentIneligibleException $e, Request $request) {
+            return response()->json(['message' => $e->getMessage()], 422);
+        });
+        $exceptions->render(function (StaffShiftConflictException $e, Request $request) {
+            return response()->json(['message' => $e->getMessage()], 409);
+        });
+        $exceptions->render(function (StaffShiftIneligibleException $e, Request $request) {
+            return response()->json(['message' => $e->getMessage()], 422);
+        });
+        $exceptions->render(function (InvalidStaffShiftPeriodException $e, Request $request) {
+            return response()->json([
+                'error' => ['code' => 'INVALID_STAFF_SHIFT_PERIOD', 'message' => 'The staff shift period is invalid.'],
+            ], 422);
+        });
+        $exceptions->render(function (TableSessionHasNoAssignedWaiterException $e, Request $request) {
+            return response()->json([
+                'error' => ['code' => 'TABLE_SESSION_HAS_NO_ASSIGNED_WAITER', 'message' => $e->getMessage()],
+            ], 409);
+        });
+        $exceptions->render(function (WaiterCallConflictException $e, Request $request) {
             return response()->json(['message' => $e->getMessage()], 409);
         });
         $exceptions->render(function (PublicTableNotFoundException $e, Request $request) {
@@ -140,6 +201,11 @@ return Application::configure(basePath: dirname(__DIR__))
                 'error' => ['code' => 'ORDER_NOT_PRINTABLE', 'message' => 'This order cannot be printed in its current state.'],
             ], 409);
         });
+        $exceptions->render(function (InvalidAuditPeriodException $e, Request $request) {
+            return response()->json([
+                'error' => ['code' => 'INVALID_AUDIT_PERIOD', 'message' => 'The audit log period is invalid.'],
+            ], 422);
+        });
         $exceptions->render(function (CannotReviewSelfException $e, Request $request) {
             return response()->json([
                 'error' => ['code' => 'CANNOT_REVIEW_SELF', 'message' => 'A staff member cannot review themselves.'],
@@ -149,6 +215,87 @@ return Application::configure(basePath: dirname(__DIR__))
             return response()->json([
                 'error' => ['code' => 'INVALID_PERFORMANCE_PERIOD', 'message' => 'The performance period is invalid.'],
             ], 422);
+        });
+        $exceptions->render(function (InvalidReportPeriodException $e, Request $request) {
+            return response()->json([
+                'error' => ['code' => 'INVALID_REPORT_PERIOD', 'message' => 'The report period is invalid.'],
+            ], 422);
+        });
+        $exceptions->render(function (InvalidAnalyticsPeriodException $e, Request $request) {
+            return response()->json([
+                'error' => ['code' => 'INVALID_ANALYTICS_PERIOD', 'message' => 'The analytics period or granularity is invalid.'],
+            ], 422);
+        });
+        $exceptions->render(function (CustomerOrderingDisabledException $e, Request $request) {
+            return response()->json([
+                'error' => ['code' => 'CUSTOMER_ORDERING_DISABLED', 'message' => 'Customer ordering is disabled for this restaurant.'],
+            ], 409);
+        });
+        $exceptions->render(function (TableSessionBillRequestedException $e, Request $request) {
+            return response()->json([
+                'error' => ['code' => 'TABLE_SESSION_BILL_REQUESTED', 'message' => 'The bill has already been requested for this table session.'],
+            ], 409);
+        });
+        $exceptions->render(function (FeedbackTokenNotFoundException $e, Request $request) {
+            return response()->json([
+                'error' => ['code' => 'FEEDBACK_TOKEN_NOT_FOUND', 'message' => 'This feedback link is invalid or has expired.'],
+            ], 404);
+        });
+        $exceptions->render(function (FeedbackAlreadySubmittedException $e, Request $request) {
+            return response()->json([
+                'error' => ['code' => 'FEEDBACK_ALREADY_SUBMITTED', 'message' => 'Feedback has already been submitted for this visit.'],
+            ], 409);
+        });
+        $exceptions->render(function (TableSessionNotPaidForFeedbackException $e, Request $request) {
+            return response()->json([
+                'error' => ['code' => 'TABLE_SESSION_NOT_PAID_FOR_FEEDBACK', 'message' => 'This visit is not eligible for feedback yet.'],
+            ], 409);
+        });
+        $exceptions->render(function (TableSessionNotPaidForVisitException $e, Request $request) {
+            return response()->json([
+                'error' => ['code' => 'TABLE_SESSION_NOT_PAID_FOR_VISIT', 'message' => 'This visit has not been paid yet.'],
+            ], 409);
+        });
+        $exceptions->render(function (WaiterCallDisabledException $e, Request $request) {
+            return response()->json([
+                'error' => ['code' => 'WAITER_CALL_DISABLED', 'message' => 'Calling the waiter is disabled for this restaurant.'],
+            ], 409);
+        });
+        $exceptions->render(function (BillRequestDisabledException $e, Request $request) {
+            return response()->json([
+                'error' => ['code' => 'BILL_REQUEST_DISABLED', 'message' => 'Requesting the bill is disabled for this restaurant.'],
+            ], 409);
+        });
+        $exceptions->render(function (KitchenTicketPrintingDisabledException $e, Request $request) {
+            return response()->json([
+                'error' => ['code' => 'KITCHEN_TICKET_PRINTING_DISABLED', 'message' => 'Kitchen ticket printing is disabled for this restaurant.'],
+            ], 409);
+        });
+        $exceptions->render(function (BillReceiptPrintingDisabledException $e, Request $request) {
+            return response()->json([
+                'error' => ['code' => 'BILL_RECEIPT_PRINTING_DISABLED', 'message' => 'Bill receipt printing is disabled for this restaurant.'],
+            ], 409);
+        });
+        $exceptions->render(function (FloorHasZonesException $e, Request $request) {
+            return response()->json([
+                'error' => ['code' => 'FLOOR_HAS_ZONES', 'message' => 'This floor still has zones assigned to it.'],
+            ], 409);
+        });
+        $exceptions->render(function (ZoneHasTablesException $e, Request $request) {
+            return response()->json([
+                'error' => ['code' => 'ZONE_HAS_TABLES', 'message' => 'This zone still has tables assigned to it.'],
+            ], 409);
+        });
+        $exceptions->render(function (TableSessionNotEmptyException $e, Request $request) {
+            return response()->json([
+                'error' => ['code' => 'TABLE_SESSION_NOT_EMPTY', 'message' => $e->getMessage(), 'reason' => $e->reason],
+            ], 409);
+        });
+        $exceptions->render(function (DayCloseException $e, Request $request) {
+            return response()->json(['error' => $e->toResponseError()], $e->status);
+        });
+        $exceptions->render(function (WhatsAppDeliveryException $e, Request $request) {
+            return response()->json(['error' => $e->toResponseError()], $e->status);
         });
         $exceptions->render(function (ThrottleRequestsException $e, Request $request) {
             if (! $request->is('api/v1/public/*')) {

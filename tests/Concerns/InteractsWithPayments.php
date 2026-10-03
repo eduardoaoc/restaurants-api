@@ -8,6 +8,8 @@ use App\Models\Order;
 use App\Models\PaymentRecord;
 use App\Models\TableSession;
 use App\Models\User;
+use App\Support\Billing\SessionBillCalculator;
+use App\Support\Money\Money;
 
 /**
  * PaymentRecord deliberately has no factory, same as Order/TableRequest/
@@ -55,8 +57,13 @@ trait InteractsWithPayments
         $order = $this->createWaiterOrder($session->table, $actor, [
             ['restaurant_product_id' => $restaurantProduct->id, 'quantity' => 1],
         ]);
-        $order = $this->advanceOrderTo($order, Order::STATUS_SERVED, $actor);
-        $this->recordPayment($session, $actor, $order->total);
+        $this->advanceOrderTo($order, Order::STATUS_SERVED, $actor);
+
+        // Pay the whole balance, not just this order: the session may
+        // already hold other served orders (e.g. the one a request_bill
+        // needed).
+        $balanceCents = SessionBillCalculator::summarize($session->refresh())['balanceCents'];
+        $this->recordPayment($session, $actor, Money::centsToDecimal($balanceCents));
 
         return app(CloseTableAction::class)->execute($session, $actor);
     }

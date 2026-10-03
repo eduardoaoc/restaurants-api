@@ -11,11 +11,24 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
-#[Fillable(['organization_id', 'name', 'slug', 'status', 'timezone', 'default_locale'])]
+#[Fillable(['organization_id', 'name', 'slug', 'status'])]
 class Restaurant extends Model
 {
     /** @use HasFactory<RestaurantFactory> */
     use HasFactory;
+
+    public const STATUS_ACTIVE = 'active';
+
+    // Tenant self-service value (see StoreRestaurantRequest/
+    // UpdateRestaurantRequest) — unrelated to platform suspension below.
+    public const STATUS_INACTIVE = 'inactive';
+
+    // Platform-only value: never accepted by the tenant-facing Store/
+    // UpdateRestaurantRequest, only settable via
+    // PATCH /platform/restaurants/{restaurant}/status. See
+    // RestaurantController::update, which refuses to let a tenant request
+    // move status away from this value.
+    public const STATUS_SUSPENDED = 'suspended';
 
     /**
      * The organization this restaurant belongs to.
@@ -60,6 +73,26 @@ class Restaurant extends Model
     }
 
     /**
+     * The floors of this restaurant's floor plan (Bloco 1).
+     *
+     * @return HasMany<Floor, $this>
+     */
+    public function floors(): HasMany
+    {
+        return $this->hasMany(Floor::class);
+    }
+
+    /**
+     * The zones of this restaurant's floor plan, across every floor.
+     *
+     * @return HasMany<Zone, $this>
+     */
+    public function zones(): HasMany
+    {
+        return $this->hasMany(Zone::class);
+    }
+
+    /**
      * The single menu of this restaurant, if it has been created yet.
      *
      * @return HasOne<Menu, $this>
@@ -67,6 +100,17 @@ class Restaurant extends Model
     public function menu(): HasOne
     {
         return $this->hasOne(Menu::class);
+    }
+
+    /**
+     * This restaurant's operational configuration — always present for a
+     * real Restaurant (see RestaurantSettings::createDefaultsFor()).
+     *
+     * @return HasOne<RestaurantSettings, $this>
+     */
+    public function settings(): HasOne
+    {
+        return $this->hasOne(RestaurantSettings::class);
     }
 
     /**

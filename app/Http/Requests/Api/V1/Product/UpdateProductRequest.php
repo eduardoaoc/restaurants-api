@@ -2,14 +2,18 @@
 
 namespace App\Http\Requests\Api\V1\Product;
 
+use App\Http\Requests\Api\V1\Concerns\ValidatesNutritionValues;
 use App\Http\Requests\Api\V1\Concerns\ValidatesUniqueTranslationLocales;
+use App\Http\Requests\Api\V1\Rules\NotBlank;
+use App\Models\Product;
+use App\Support\Locale\LocaleResolver;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
 
 class UpdateProductRequest extends FormRequest
 {
-    use ValidatesUniqueTranslationLocales;
+    use ValidatesNutritionValues, ValidatesUniqueTranslationLocales;
 
     /**
      * Authorization is handled by the controller via ProductPolicy.
@@ -31,9 +35,12 @@ class UpdateProductRequest extends FormRequest
             'internal_name' => ['sometimes', 'string', 'max:255'],
             'status' => ['sometimes', Rule::in(['active', 'inactive'])],
             'translations' => ['sometimes', 'array', 'min:1'],
-            'translations.*.locale' => ['required', 'string', 'max:10', 'regex:/^[a-z]{2}(-[A-Z]{2})?$/'],
+            'translations.*.locale' => ['required', 'string', 'max:20', 'regex:'.LocaleResolver::PATTERN],
             'translations.*.name' => ['required', 'string', 'max:255'],
-            'translations.*.description' => ['nullable', 'string'],
+            'translations.*.description' => ['required', 'string', 'max:500', new NotBlank],
+            'allergens' => ['sometimes', 'array'],
+            'allergens.*' => ['distinct', 'string', Rule::in(Product::ALLERGEN_CODES)],
+            ...$this->nutritionRules(),
         ];
     }
 

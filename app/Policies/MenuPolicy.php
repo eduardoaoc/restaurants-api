@@ -2,9 +2,9 @@
 
 namespace App\Policies;
 
-use App\Models\Organization;
 use App\Models\Restaurant;
 use App\Models\User;
+use App\Policies\Concerns\AuthorizesRestaurantScopedCatalog;
 
 /**
  * Authorizes menu management. All abilities are authorized against the
@@ -13,24 +13,25 @@ use App\Models\User;
  */
 class MenuPolicy
 {
+    use AuthorizesRestaurantScopedCatalog;
+
     public function view(User $user, Restaurant $restaurant): bool
     {
-        return $this->canManage($user, $restaurant->organization);
+        return $this->canManage($user, $restaurant);
     }
 
     public function create(User $user, Restaurant $restaurant): bool
     {
-        return $this->canManage($user, $restaurant->organization);
+        return $this->canManage($user, $restaurant);
     }
 
     public function update(User $user, Restaurant $restaurant): bool
     {
-        return $this->canManage($user, $restaurant->organization);
+        return $this->canManage($user, $restaurant);
     }
 
-    private function canManage(User $user, Organization $organization): bool
+    private function canManage(User $user, Restaurant $restaurant): bool
     {
-        return $user->organizations()->whereKey($organization->id)->exists()
-            && $user->hasPermission('manage_menu', $organization);
+        return $this->userCanAccessRestaurantWithAnyPermission($user, $restaurant, ['manage_menu']);
     }
 }

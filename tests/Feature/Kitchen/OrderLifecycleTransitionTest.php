@@ -92,6 +92,7 @@ class OrderLifecycleTransitionTest extends TestCase
     public function test_accept_waiting_approval_order_returns_409(): void
     {
         [$organization, $owner, $restaurant, $rp] = $this->createTenantWithRestaurantProduct();
+        $this->requireOrderApproval($restaurant);
         $kitchen = $this->createStaff($organization, $restaurant, 'kitchen', 'K-1');
         $table = $this->createTable($restaurant);
         $this->openSession($table, $owner);
@@ -355,6 +356,7 @@ class OrderLifecycleTransitionTest extends TestCase
     public function test_cancelled_order_rejects_kitchen_transitions(): void
     {
         [$organization, $owner, $restaurant, $rp] = $this->createTenantWithRestaurantProduct();
+        $this->requireOrderApproval($restaurant);
         $kitchen = $this->createStaff($organization, $restaurant, 'kitchen', 'K-1');
         $table = $this->createTable($restaurant);
         $this->openSession($table, $owner);
@@ -371,6 +373,7 @@ class OrderLifecycleTransitionTest extends TestCase
     public function test_cancelled_order_rejects_being_served(): void
     {
         [$organization, $owner, $restaurant, $rp] = $this->createTenantWithRestaurantProduct();
+        $this->requireOrderApproval($restaurant);
         $waiter = $this->createStaff($organization, $restaurant, 'waiter', 'W-1');
         $table = $this->createTable($restaurant);
         $this->openSession($table, $owner);

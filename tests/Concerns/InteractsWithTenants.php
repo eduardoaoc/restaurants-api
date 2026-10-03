@@ -8,6 +8,7 @@ use App\Actions\Catalog\CreateModifierOptionAction;
 use App\Actions\Catalog\CreateProductAction;
 use App\Actions\Staff\CreateStaffAction;
 use App\Models\Category;
+use App\Models\Floor;
 use App\Models\Menu;
 use App\Models\ModifierGroup;
 use App\Models\ModifierOption;
@@ -19,6 +20,7 @@ use App\Models\Role;
 use App\Models\Table;
 use App\Models\User;
 use App\Models\UserRole;
+use App\Models\Zone;
 use Database\Seeders\PermissionSeeder;
 use Database\Seeders\RolePermissionSeeder;
 use Database\Seeders\RoleSeeder;
@@ -54,7 +56,20 @@ trait InteractsWithTenants
 
     /**
      * Create a fully-wired operational staff member (user + organization_users
-     * + restaurant_users + user_roles) via the real creation action.
+     * + restaurant_users + user_roles) directly — fixture setup, not a test
+     * of CreateStaffAction itself.
+     *
+     * Deliberately does NOT call CreateStaffAction: that Action requires a
+     * real actor and always records staff.created (Bloco 16's audit-actor
+     * hardening — see report). A generic test fixture has no real acting
+     * user and must not invent one just to produce an AuditLog nobody
+     * asked for. Tests that actually exercise staff creation as a domain
+     * operation (transaction behavior, AuditLog content, ...) must call
+     * CreateStaffAction directly with an explicit actor instead of this
+     * helper — see StaffTransactionTest and the AuditLog staff tests.
+     *
+     * Mirrors CreateStaffAction's wiring exactly: organization_users
+     * attach, restaurant_users attach with sub_id, one user_roles row.
      */
     protected function createStaff(
         Organization $organization,
@@ -64,14 +79,69 @@ trait InteractsWithTenants
         ?string $email = null,
         ?string $name = null,
     ): User {
-        return app(CreateStaffAction::class)->execute($organization, [
+        $user = User::factory()->create([
             'name' => $name ?? 'Staff Member',
             'email' => $email ?? sprintf('staff-%s@example.com', uniqid()),
             'password' => 'password123',
-            'restaurant_id' => $restaurant->id,
-            'role' => $role,
-            'sub_id' => $subId,
         ]);
+
+        $organization->users()->attach($user->id);
+        $restaurant->users()->attach($user->id, ['sub_id' => $subId]);
+
+        $roleModel = Role::query()->where('slug', $role)->firstOrFail();
+
+        UserRole::query()->create([
+            'user_id' => $user->id,
+            'role_id' => $roleModel->id,
+            'organization_id' => $organization->id,
+            'restaurant_id' => $restaurant->id,
+        ]);
+
+        return $user;
+    }
+
+    /**
+     * Create a staff member linked to several restaurants at once (Carlos
+     * -> A + B), through the real CreateStaffAction — unlike createStaff()
+     * above, this exercises the multi-restaurant assignment wiring itself,
+     * so it goes through the Action rather than a direct fixture insert.
+     *
+     * @param  array<int, Restaurant>  $restaurants
+     */
+    protected function createStaffAcrossRestaurants(
+        Organization $organization,
+        array $restaurants,
+        string $role,
+        User $actor,
+        ?string $email = null,
+        ?string $name = null,
+    ): User {
+        return app(CreateStaffAction::class)->execute($organization, [
+            'name' => $name ?? 'Multi Restaurant Staff',
+            'email' => $email ?? sprintf('staff-%s@example.com', uniqid()),
+            'password' => 'password123',
+            'role' => $role,
+            'restaurant_assignments' => collect($restaurants)
+                ->map(fn (Restaurant $restaurant) => [
+                    'restaurant_id' => $restaurant->id,
+                    'sub_id' => 'MS-'.$restaurant->id,
+                ])
+                ->values()
+                ->all(),
+        ], $actor);
+    }
+
+    /**
+     * Switch a restaurant to the pre-Bloco-18 controlled-approval flow:
+     * a customer_qr order starts waiting_approval and needs a waiter to
+     * approve it. Restaurants default to customer_order_requires_approval
+     * = false (auto-confirm) since Bloco 18 — tests that specifically
+     * exercise the controlled flow must opt into it explicitly here rather
+     * than relying on the old default.
+     */
+    protected function requireOrderApproval(Restaurant $restaurant): void
+    {
+        $restaurant->settings()->update(['customer_order_requires_approval' => true]);
     }
 
     /**
@@ -102,6 +172,29 @@ trait InteractsWithTenants
     }
 
     /**
+     * Create a floor for a restaurant (Bloco 1: Floor Plan).
+     */
+    protected function createFloor(Restaurant $restaurant, ?string $name = null, int $sortOrder = 0): Floor
+    {
+        return $restaurant->floors()->create([
+            'name' => $name ?? 'Floor '.uniqid(),
+            'sort_order' => $sortOrder,
+        ]);
+    }
+
+    /**
+     * Create a zone under a floor (Bloco 1: Floor Plan).
+     */
+    protected function createZone(Floor $floor, ?string $name = null, int $sortOrder = 0): Zone
+    {
+        return $floor->zones()->create([
+            'restaurant_id' => $floor->restaurant_id,
+            'name' => $name ?? 'Zone '.uniqid(),
+            'sort_order' => $sortOrder,
+        ]);
+    }
+
+    /**
      * Create the (single) menu of a restaurant.
      */
     protected function createMenu(Restaurant $restaurant, string $name = 'Main Menu'): Menu
@@ -127,15 +220,37 @@ trait InteractsWithTenants
     /**
      * Create a product with translations under an organization's catalog.
      *
+     * Defaults `allergens` to `[]` (an explicit "none declared") and fills
+     * any translation missing a `description` with a placeholder, so every
+     * existing call site stays publicly eligible under Carta 4.2's rules
+     * without having to know about them. Pass `allergens: null` or a
+     * translation with an explicit `description` to opt out of a default.
+     *
      * @param  array<int, array{locale: string, name: string, description?: ?string}>|null  $translations
+     * @param  array<int, string>|null  $allergens
+     * @param  array{calories_kcal?: ?int, protein_g?: ?float, carbohydrates_g?: ?float, fat_g?: ?float, salt_g?: ?float}|null  $nutrition
      */
-    protected function createProduct(Organization $organization, ?string $internalName = null, ?array $translations = null): Product
-    {
+    protected function createProduct(
+        Organization $organization,
+        ?string $internalName = null,
+        ?array $translations = null,
+        ?array $allergens = [],
+        ?array $nutrition = null,
+    ): Product {
+        $translations = $translations ?? [
+            ['locale' => 'en', 'name' => 'Cola'],
+        ];
+
+        $translations = array_map(
+            fn (array $translation) => $translation + ['description' => 'Test product description.'],
+            $translations,
+        );
+
         return app(CreateProductAction::class)->execute($organization, [
             'internal_name' => $internalName ?? 'Product '.uniqid(),
-            'translations' => $translations ?? [
-                ['locale' => 'en', 'name' => 'Cola'],
-            ],
+            'translations' => $translations,
+            'allergens' => $allergens,
+            'nutrition' => $nutrition,
         ]);
     }
 

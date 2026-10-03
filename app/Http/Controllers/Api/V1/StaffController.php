@@ -9,10 +9,14 @@ use App\Http\Requests\Api\V1\Staff\StoreStaffRequest;
 use App\Http\Requests\Api\V1\Staff\UpdateStaffRequest;
 use App\Http\Resources\Api\V1\StaffResource;
 use App\Models\Organization;
+use App\Models\OrganizationUser;
+use App\Models\Restaurant;
 use App\Models\User;
+use App\Support\Restaurants\RestaurantScope;
 use App\Support\Tenancy\TenantContext;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use OpenApi\Attributes as OA;
 
 class StaffController extends Controller
@@ -56,13 +60,13 @@ class StaffController extends Controller
             new OA\Response(response: 403, description: 'The user is not allowed to manage staff'),
         ]
     )]
-    public function index(): JsonResponse
+    public function index(Request $request): JsonResponse
     {
         $organization = $this->activeOrganization();
 
         $this->authorize('viewAny', [User::class, $organization]);
 
-        $staff = $this->staffQuery($organization)->get();
+        $staff = $this->staffQuery($organization, $request->user())->get();
 
         return response()->json([
             'data' => [
@@ -82,17 +86,7 @@ class StaffController extends Controller
         tags: ['Staff'],
         requestBody: new OA\RequestBody(
             required: true,
-            content: new OA\JsonContent(
-                required: ['name', 'email', 'password', 'restaurant_id', 'role', 'sub_id'],
-                properties: [
-                    new OA\Property(property: 'name', type: 'string', example: 'Carlos'),
-                    new OA\Property(property: 'email', type: 'string', format: 'email', example: 'carlos@example.com'),
-                    new OA\Property(property: 'password', type: 'string', format: 'password', example: 'TemporaryPassword123!'),
-                    new OA\Property(property: 'restaurant_id', type: 'integer', example: 3),
-                    new OA\Property(property: 'role', type: 'string', example: 'waiter'),
-                    new OA\Property(property: 'sub_id', type: 'string', example: 'W-023'),
-                ]
-            )
+            content: new OA\JsonContent(ref: '#/components/schemas/CreateStaffRequest')
         ),
         responses: [
             new OA\Response(
@@ -121,11 +115,21 @@ class StaffController extends Controller
     {
         $organization = $this->activeOrganization();
 
-        $this->authorize('create', [User::class, $organization]);
+        // Scope before permission: any restaurant_assignments entry
+        // outside the requester's RestaurantScope resolves as 404, exactly
+        // like show()/update() — it never even reaches the create
+        // permission check, and nothing is created if any single
+        // assignment is out of scope (all lookups happen before the
+        // Action ever runs).
+        $restaurants = collect($request->validated('restaurant_assignments'))
+            ->map(fn (array $assignment) => $this->restaurantQuery($organization, $request->user())
+                ->findOrFail($assignment['restaurant_id']));
 
-        $staff = $this->createStaffAction->execute($organization, $request->validated());
+        $this->authorize('create', [User::class, $organization, $restaurants->first()]);
 
-        $staff = $this->staffQuery($organization)->findOrFail($staff->id);
+        $staff = $this->createStaffAction->execute($organization, $request->validated(), $request->user());
+
+        $staff = $this->staffQuery($organization, $request->user())->findOrFail($staff->id);
 
         return response()->json([
             'message' => 'Staff member created successfully.',
@@ -168,11 +172,11 @@ class StaffController extends Controller
             new OA\Response(response: 404, description: 'Staff member not found'),
         ]
     )]
-    public function show(int $user): JsonResponse
+    public function show(Request $request, int $user): JsonResponse
     {
         $organization = $this->activeOrganization();
 
-        $staff = $this->staffQuery($organization)->findOrFail($user);
+        $staff = $this->staffQuery($organization, $request->user())->findOrFail($user);
 
         $this->authorize('view', [$staff, $organization]);
 
@@ -197,15 +201,7 @@ class StaffController extends Controller
         ],
         requestBody: new OA\RequestBody(
             required: false,
-            content: new OA\JsonContent(
-                properties: [
-                    new OA\Property(property: 'name', type: 'string', example: 'Carlos'),
-                    new OA\Property(property: 'email', type: 'string', format: 'email', example: 'carlos@example.com'),
-                    new OA\Property(property: 'restaurant_id', type: 'integer', example: 3),
-                    new OA\Property(property: 'role', type: 'string', example: 'waiter'),
-                    new OA\Property(property: 'sub_id', type: 'string', example: 'W-023'),
-                ]
-            )
+            content: new OA\JsonContent(ref: '#/components/schemas/UpdateStaffRequest')
         ),
         responses: [
             new OA\Response(
@@ -234,13 +230,35 @@ class StaffController extends Controller
     {
         $organization = $this->activeOrganization();
 
-        $staff = $this->staffQuery($organization)->findOrFail($user);
+        $staff = $this->staffQuery($organization, $request->user())->findOrFail($user);
 
         $this->authorize('update', [$staff, $organization]);
 
-        $staff = $this->updateStaffAction->execute($organization, $staff, $request->validated());
+        // Self-deactivation is refused outright, same rule as
+        // PlatformUserController::updateStatus() at the platform level: a
+        // manager/owner with manage_users must never be able to lock
+        // themselves out via the very endpoint meant to manage OTHER
+        // staff members' access. This checks the TENANT-level status only
+        // (OrganizationUser::STATUS_INACTIVE) — the Staff API has no
+        // ability to touch users.status at all, so there is nothing to
+        // guard there.
+        if ($staff->id === $request->user()->id && $request->validated('status') === OrganizationUser::STATUS_INACTIVE) {
+            abort(403, 'You cannot deactivate your own account.');
+        }
 
-        $staff = $this->staffQuery($organization)->findOrFail($staff->id);
+        // Every restaurant_assignments entry (if sent) must itself be
+        // within the requester's RestaurantScope — resolved before the
+        // Action ever runs, so an out-of-scope restaurant_id yields 404
+        // with no partial mutation, exactly like store().
+        if ($request->has('restaurant_assignments')) {
+            collect($request->validated('restaurant_assignments'))
+                ->each(fn (array $assignment) => $this->restaurantQuery($organization, $request->user())
+                    ->findOrFail($assignment['restaurant_id']));
+        }
+
+        $staff = $this->updateStaffAction->execute($organization, $staff, $request->validated(), $request->user());
+
+        $staff = $this->staffQuery($organization, $request->user())->findOrFail($staff->id);
 
         return response()->json([
             'message' => 'Staff member updated successfully.',
@@ -262,12 +280,26 @@ class StaffController extends Controller
      * Users linked to a restaurant of the active organization, i.e.
      * operational staff. The owner never appears here: it has no
      * restaurant_users row.
+     *
+     * Restricted to restaurants the requester can reach via RestaurantScope
+     * — a target staff member in another restaurant of the same
+     * organization is out of this query entirely, yielding 404 (not 403)
+     * via findOrFail, matching the convention used across every other
+     * restaurant-scoped resource (Orders, TableRequests, StaffPerformance,
+     * ...). An organization-wide requester (RestaurantScope returns null)
+     * still sees every restaurant of the organization.
      */
-    private function staffQuery(Organization $organization): Builder
+    private function staffQuery(Organization $organization, User $requester): Builder
     {
+        $accessibleRestaurantIds = RestaurantScope::accessibleRestaurantIds($requester, $organization);
+
         return User::query()
-            ->whereHas('restaurants', function ($query) use ($organization) {
+            ->whereHas('restaurants', function ($query) use ($organization, $accessibleRestaurantIds) {
                 $query->where('restaurants.organization_id', $organization->id);
+
+                if ($accessibleRestaurantIds !== null) {
+                    $query->whereIn('restaurants.id', $accessibleRestaurantIds);
+                }
             })
             ->with([
                 'restaurants' => function ($query) use ($organization) {
@@ -276,6 +308,32 @@ class StaffController extends Controller
                 'roles' => function ($query) use ($organization) {
                     $query->wherePivot('organization_id', $organization->id);
                 },
+                // Scoped to this one organization so StaffResource reads
+                // the correct membership pivot (`->organizations->first()
+                // ->pivot->status`) even for a staff member who, in a
+                // multi-org future, might belong to more than one
+                // organization — see Passo 2.8B-FIX.
+                'organizations' => function ($query) use ($organization) {
+                    $query->whereKey($organization->id);
+                },
             ]);
+    }
+
+    /**
+     * Restaurants of the active organization reachable by the requester —
+     * used by store() to resolve the target restaurant_id the same way
+     * staffQuery() resolves an existing staff member: out of scope means
+     * 404, before the create permission is even checked.
+     */
+    private function restaurantQuery(Organization $organization, User $requester): Builder
+    {
+        $accessibleRestaurantIds = RestaurantScope::accessibleRestaurantIds($requester, $organization);
+
+        return Restaurant::query()
+            ->where('organization_id', $organization->id)
+            ->when(
+                $accessibleRestaurantIds !== null,
+                fn (Builder $query) => $query->whereIn('id', $accessibleRestaurantIds),
+            );
     }
 }

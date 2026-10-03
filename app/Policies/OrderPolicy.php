@@ -55,6 +55,15 @@ class OrderPolicy
         return $this->hasAnyPermissionInRestaurantScope($user, $order, self::VIEW_PERMISSIONS);
     }
 
+    /** Full order details require an operational permission beyond kitchen work. */
+    public function viewDetails(User $user, Order $order): bool
+    {
+        return $this->hasAnyPermissionInRestaurantScope($user, $order, array_values(array_diff(
+            self::VIEW_PERMISSIONS,
+            ['update_kitchen_status'],
+        )));
+    }
+
     public function viewKitchen(User $user, Organization $organization): bool
     {
         return $this->belongsTo($user, $organization) && $this->hasAnyPermission($user, $organization, self::KITCHEN_VIEW_PERMISSIONS);

@@ -92,6 +92,54 @@ class TableStoreTest extends TestCase
             ->assertJsonPath('data.table.restaurant_id', $restaurant->id);
     }
 
+    public function test_owner_can_create_a_table_with_capacity_zone_and_layout(): void
+    {
+        [, $owner, $restaurant] = $this->createTenant();
+        $floor = $this->createFloor($restaurant);
+        $zone = $this->createZone($floor);
+
+        $this->actingAs($owner, 'web')
+            ->postJson("/api/v1/restaurants/{$restaurant->id}/tables", [
+                'name' => 'Mesa 4p',
+                'capacity' => 4,
+                'zone_id' => $zone->id,
+                'layout_x' => 0.3,
+                'layout_y' => 0.3,
+                'layout_shape' => 'round',
+            ])
+            ->assertCreated()
+            ->assertJsonPath('data.table.capacity', 4)
+            ->assertJsonPath('data.table.zone_id', $zone->id)
+            ->assertJsonPath('data.table.layout.shape', 'round');
+    }
+
+    public function test_waiter_with_manage_tables_cannot_set_zone_or_layout_when_creating_a_table(): void
+    {
+        [$organization, , $restaurant] = $this->createTenant();
+        $floor = $this->createFloor($restaurant);
+        $zone = $this->createZone($floor);
+        $waiter = $this->createStaff($organization, $restaurant, 'waiter', 'W-1');
+
+        $this->actingAs($waiter, 'web')
+            ->postJson("/api/v1/restaurants/{$restaurant->id}/tables", [
+                'name' => 'Mesa 4p',
+                'zone_id' => $zone->id,
+            ])
+            ->assertForbidden();
+
+        $this->assertDatabaseMissing('tables', ['name' => 'Mesa 4p']);
+    }
+
+    public function test_waiter_with_manage_tables_can_still_create_a_plain_table(): void
+    {
+        [$organization, , $restaurant] = $this->createTenant();
+        $waiter = $this->createStaff($organization, $restaurant, 'waiter', 'W-1');
+
+        $this->actingAs($waiter, 'web')
+            ->postJson("/api/v1/restaurants/{$restaurant->id}/tables", ['name' => 'Mesa 4p'])
+            ->assertCreated();
+    }
+
     public function test_creating_a_table_under_a_restaurant_from_another_organization_returns_not_found(): void
     {
         [, $ownerA] = $this->createTenant();

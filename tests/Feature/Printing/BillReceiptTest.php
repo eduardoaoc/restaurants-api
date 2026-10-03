@@ -119,6 +119,7 @@ class BillReceiptTest extends TestCase
     public function test_receipt_includes_served_and_preparing_excludes_cancelled_and_waiting_approval(): void
     {
         [$organization, $owner, $restaurant] = $this->createTenant();
+        $this->requireOrderApproval($restaurant);
         $kitchen = $this->createStaff($organization, $restaurant, 'kitchen', 'K-1');
         $table = $this->createTable($restaurant);
         $session = $this->openSession($table, $owner);

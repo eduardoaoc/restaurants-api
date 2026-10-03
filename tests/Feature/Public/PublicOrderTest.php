@@ -25,6 +25,7 @@ class PublicOrderTest extends TestCase
     public function test_creates_an_order_without_authentication(): void
     {
         [, $owner, $restaurant, $rp] = $this->createTenantWithRestaurantProduct();
+        $this->requireOrderApproval($restaurant);
         $table = $this->createTable($restaurant);
         $this->openSession($table, $owner);
 
@@ -42,6 +43,7 @@ class PublicOrderTest extends TestCase
     public function test_status_is_waiting_approval_and_origin_is_customer_qr(): void
     {
         [, $owner, $restaurant, $rp] = $this->createTenantWithRestaurantProduct();
+        $this->requireOrderApproval($restaurant);
         $table = $this->createTable($restaurant);
         $this->openSession($table, $owner);
 
@@ -195,6 +197,7 @@ class PublicOrderTest extends TestCase
     public function test_frontend_supplied_price_and_context_fields_are_ignored(): void
     {
         [$organization, $owner, $restaurant] = $this->createTenant();
+        $this->requireOrderApproval($restaurant);
         $product = $this->createProduct($organization);
         $rp = $this->createRestaurantProduct($restaurant, $product, 12.90);
         $table = $this->createTable($restaurant);

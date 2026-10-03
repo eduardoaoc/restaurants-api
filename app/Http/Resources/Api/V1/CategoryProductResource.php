@@ -21,6 +21,7 @@ class CategoryProductResource extends JsonResource
             'category_id' => $this->category_id,
             'restaurant_product_id' => $this->restaurant_product_id,
             'sort_order' => $this->sort_order,
+            'restaurant_product' => new RestaurantProductResource($this->whenLoaded('restaurantProduct')),
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
         ];

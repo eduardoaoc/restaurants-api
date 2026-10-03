@@ -67,6 +67,27 @@ trait InteractsWithOrders
     }
 
     /**
+     * Create one waiter order on a fresh product and serve it — the
+     * minimum consumption a session needs before the customer may request
+     * the bill (CreatePublicTableRequestAction). Assumes the test class
+     * also uses InteractsWithTenants (for createProduct/
+     * createRestaurantProduct).
+     */
+    protected function createServedOrder(Table $table, User $actor): Order
+    {
+        $restaurantProduct = $this->createRestaurantProduct(
+            $table->restaurant,
+            $this->createProduct($table->restaurant->organization),
+            10.0,
+        );
+        $order = $this->createWaiterOrder($table, $actor, [
+            ['restaurant_product_id' => $restaurantProduct->id, 'quantity' => 1],
+        ]);
+
+        return $this->advanceOrderTo($order, Order::STATUS_SERVED, $actor);
+    }
+
+    /**
      * Drive a `confirmed` order through the kitchen/lifecycle state machine
      * up to (and including) $targetStatus, via the real
      * TransitionOrderStatusAction — the same code the endpoints use.

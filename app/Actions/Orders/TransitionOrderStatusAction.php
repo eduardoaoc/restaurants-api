@@ -2,9 +2,18 @@
 
 namespace App\Actions\Orders;
 
+use App\Events\Realtime\OrderReadyForWaiter;
+use App\Events\Realtime\OrderStatusChanged;
 use App\Exceptions\Orders\OrderStateConflictException;
+use App\Models\AuditLog;
 use App\Models\Order;
 use App\Models\User;
+use App\Support\Activity\ActivityActor;
+use App\Support\Activity\RestaurantActivityRecorder;
+use App\Support\Activity\RestaurantActivityType;
+use App\Support\Audit\AuditLogger;
+use App\Support\Restaurants\RestaurantOperationalLock;
+use App\Support\Tables\ResponsibleWaiterResolver;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -28,6 +37,31 @@ use Illuminate\Support\Facades\DB;
  */
 class TransitionOrderStatusAction
 {
+    /**
+     * @var array<string, string>
+     */
+    private const EVENTS = [
+        Order::STATUS_ACCEPTED => AuditLog::EVENT_ORDER_ACCEPTED,
+        Order::STATUS_PREPARING => AuditLog::EVENT_ORDER_PREPARING,
+        Order::STATUS_READY => AuditLog::EVENT_ORDER_READY,
+        Order::STATUS_SERVED => AuditLog::EVENT_ORDER_SERVED,
+    ];
+
+    /**
+     * @var array<string, string>
+     */
+    private const ACTIVITY_TYPES = [
+        Order::STATUS_ACCEPTED => RestaurantActivityType::ORDER_ACCEPTED,
+        Order::STATUS_PREPARING => RestaurantActivityType::ORDER_PREPARING,
+        Order::STATUS_READY => RestaurantActivityType::ORDER_READY,
+        Order::STATUS_SERVED => RestaurantActivityType::ORDER_SERVED,
+    ];
+
+    public function __construct(
+        private readonly AuditLogger $auditLogger,
+        private readonly RestaurantActivityRecorder $activityRecorder,
+    ) {}
+
     public function accept(Order $order, User $actor): Order
     {
         return $this->transition($order, Order::STATUS_CONFIRMED, Order::STATUS_ACCEPTED, 'accepted', $actor);
@@ -51,6 +85,8 @@ class TransitionOrderStatusAction
     private function transition(Order $order, string $expectedFrom, string $to, string $auditFieldPrefix, User $actor): Order
     {
         return DB::transaction(function () use ($order, $expectedFrom, $to, $auditFieldPrefix, $actor) {
+            RestaurantOperationalLock::shared($order->restaurant_id);
+
             $locked = Order::query()->whereKey($order->id)->lockForUpdate()->first();
 
             if (! $locked || $locked->status !== $expectedFrom) {
@@ -63,7 +99,43 @@ class TransitionOrderStatusAction
                 "{$auditFieldPrefix}_at" => now(),
             ]);
 
-            return $locked->fresh(['items.modifiers', 'restaurant', 'table']);
+            $fresh = $locked->fresh(['items.modifiers', 'restaurant', 'table']);
+
+            $this->auditLogger->log(
+                organizationId: $fresh->restaurant->organization_id,
+                restaurantId: $fresh->restaurant_id,
+                actorType: AuditLog::ACTOR_USER,
+                actor: $actor,
+                event: self::EVENTS[$to],
+                resourceType: AuditLog::RESOURCE_ORDER,
+                resourceId: $fresh->id,
+                metadata: ['previous_status' => $expectedFrom, 'new_status' => $to],
+            );
+
+            $this->activityRecorder->record(
+                restaurantId: $fresh->restaurant_id,
+                type: self::ACTIVITY_TYPES[$to],
+                actor: ActivityActor::staff($actor),
+                table: $fresh->table,
+                tableSessionId: $fresh->table_session_id,
+                order: $fresh,
+                occurredAt: $fresh->{"{$auditFieldPrefix}_at"},
+            );
+
+            OrderStatusChanged::dispatch($fresh->restaurant_id, $fresh->table_id, $fresh->table_session_id, $fresh->id, $expectedFrom, $to, $fresh->{"{$auditFieldPrefix}_at"});
+
+            // Directed "order ready" signal to the session's responsible
+            // waiter (CARTA 7.1A). No eligible waiter => no directed event;
+            // the restaurant-wide signals above still go out.
+            if ($to === Order::STATUS_READY) {
+                $waiter = ResponsibleWaiterResolver::recipientFor($fresh->tableSession);
+
+                if ($waiter !== null) {
+                    OrderReadyForWaiter::dispatch($fresh->restaurant_id, $waiter->id, $fresh->id, $fresh->table_id, $fresh->table->name, $fresh->table_session_id, $fresh->ready_at);
+                }
+            }
+
+            return $fresh;
         });
     }
 }

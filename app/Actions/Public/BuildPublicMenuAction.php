@@ -37,8 +37,10 @@ class BuildPublicMenuAction
             return null;
         }
 
+        $defaultLocale = $restaurant->settings?->default_locale;
+
         $categories = $menu->categories
-            ->map(fn (Category $category) => $this->buildCategory($category, $locale))
+            ->map(fn (Category $category) => $this->buildCategory($category, $locale, $defaultLocale))
             ->filter()
             ->values()
             ->all();
@@ -46,16 +48,16 @@ class BuildPublicMenuAction
         return new PublicMenuResource($menu, $categories);
     }
 
-    private function buildCategory(Category $category, string $locale): ?PublicCategoryResource
+    private function buildCategory(Category $category, string $locale, ?string $defaultLocale): ?PublicCategoryResource
     {
-        $translation = LocaleResolver::pickTranslation($category->translations, $locale);
+        $translation = LocaleResolver::pickTranslation($category->translations, $locale, $defaultLocale);
 
         if (! $translation) {
             return null;
         }
 
         $products = $category->categoryProducts
-            ->map(fn (CategoryProduct $categoryProduct) => $this->buildProduct($categoryProduct, $locale))
+            ->map(fn (CategoryProduct $categoryProduct) => $this->buildProduct($categoryProduct, $locale, $defaultLocale))
             ->filter()
             ->values()
             ->all();
@@ -67,7 +69,7 @@ class BuildPublicMenuAction
         return new PublicCategoryResource($category, $translation, $products);
     }
 
-    private function buildProduct(CategoryProduct $categoryProduct, string $locale): ?PublicProductResource
+    private function buildProduct(CategoryProduct $categoryProduct, string $locale, ?string $defaultLocale): ?PublicProductResource
     {
         $restaurantProduct = $categoryProduct->restaurantProduct;
 
@@ -75,14 +77,22 @@ class BuildPublicMenuAction
             return null;
         }
 
-        $translation = LocaleResolver::pickTranslation($restaurantProduct->product->translations, $locale);
+        $product = $restaurantProduct->product;
 
-        if (! $translation) {
+        // null = allergen declaration never made (legacy data) — not
+        // publicly eligible. [] = declared explicitly as "none" — eligible.
+        if ($product->allergens === null) {
+            return null;
+        }
+
+        $translation = LocaleResolver::pickTranslation($product->translations, $locale, $defaultLocale);
+
+        if (! $translation || trim((string) $translation->description) === '') {
             return null;
         }
 
         $modifierGroups = $restaurantProduct->modifierGroups
-            ->map(fn (ModifierGroup $group) => $this->buildModifierGroup($group, $locale))
+            ->map(fn (ModifierGroup $group) => $this->buildModifierGroup($group, $locale, $defaultLocale))
             ->filter()
             ->values()
             ->all();
@@ -90,16 +100,16 @@ class BuildPublicMenuAction
         return new PublicProductResource($restaurantProduct, $translation, $modifierGroups);
     }
 
-    private function buildModifierGroup(ModifierGroup $group, string $locale): ?PublicModifierGroupResource
+    private function buildModifierGroup(ModifierGroup $group, string $locale, ?string $defaultLocale): ?PublicModifierGroupResource
     {
-        $translation = LocaleResolver::pickTranslation($group->translations, $locale);
+        $translation = LocaleResolver::pickTranslation($group->translations, $locale, $defaultLocale);
 
         if (! $translation) {
             return null;
         }
 
         $options = $group->options
-            ->map(fn (ModifierOption $option) => $this->buildModifierOption($option, $locale))
+            ->map(fn (ModifierOption $option) => $this->buildModifierOption($option, $locale, $defaultLocale))
             ->filter()
             ->values()
             ->all();
@@ -111,9 +121,9 @@ class BuildPublicMenuAction
         return new PublicModifierGroupResource($group, $translation, $options);
     }
 
-    private function buildModifierOption(ModifierOption $option, string $locale): ?PublicModifierOptionResource
+    private function buildModifierOption(ModifierOption $option, string $locale, ?string $defaultLocale): ?PublicModifierOptionResource
     {
-        $translation = LocaleResolver::pickTranslation($option->translations, $locale);
+        $translation = LocaleResolver::pickTranslation($option->translations, $locale, $defaultLocale);
 
         if (! $translation) {
             return null;
@@ -134,6 +144,7 @@ class BuildPublicMenuAction
             'categories.categoryProducts.restaurantProduct' => fn ($query) => $query->where('available', true),
             'categories.categoryProducts.restaurantProduct.product' => fn ($query) => $query->where('status', 'active'),
             'categories.categoryProducts.restaurantProduct.product.translations' => fn ($query) => $query,
+            'categories.categoryProducts.restaurantProduct.product.media' => fn ($query) => $query,
             'categories.categoryProducts.restaurantProduct.modifierGroups' => fn ($query) => $query->where('status', 'active')->orderBy('sort_order')->orderBy('id'),
             'categories.categoryProducts.restaurantProduct.modifierGroups.translations' => fn ($query) => $query,
             'categories.categoryProducts.restaurantProduct.modifierGroups.options' => fn ($query) => $query->where('status', 'active')->where('available', true)->orderBy('sort_order')->orderBy('id'),

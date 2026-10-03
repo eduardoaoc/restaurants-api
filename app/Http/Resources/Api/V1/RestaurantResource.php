@@ -22,8 +22,6 @@ class RestaurantResource extends JsonResource
             'name' => $this->name,
             'slug' => $this->slug,
             'status' => $this->status,
-            'timezone' => $this->timezone,
-            'default_locale' => $this->default_locale,
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
         ];

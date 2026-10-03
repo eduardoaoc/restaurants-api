@@ -2,13 +2,21 @@
 
 namespace App\Actions\Orders;
 
+use App\Events\Realtime\OrderCreated;
 use App\Exceptions\Billing\TableSessionAlreadyPaidException;
 use App\Exceptions\Orders\OrderCreationConflictException;
+use App\Exceptions\Public\TableSessionBillRequestedException;
+use App\Models\AuditLog;
 use App\Models\Order;
 use App\Models\Table;
 use App\Models\TableSession;
 use App\Models\User;
+use App\Support\Activity\ActivityActor;
+use App\Support\Activity\RestaurantActivityRecorder;
+use App\Support\Activity\RestaurantActivityType;
+use App\Support\Audit\AuditLogger;
 use App\Support\Money\Money;
+use App\Support\Restaurants\RestaurantOperationalLock;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -26,10 +34,22 @@ use Illuminate\Support\Facades\DB;
  */
 class OrderCreationService
 {
-    public function __construct(private readonly BuildOrderItemsAction $buildOrderItems) {}
+    public function __construct(
+        private readonly BuildOrderItemsAction $buildOrderItems,
+        private readonly AuditLogger $auditLogger,
+        private readonly RestaurantActivityRecorder $activityRecorder,
+    ) {}
 
     /**
      * @param  array<int, array<string, mixed>>  $items
+     */
+    /**
+     * $requiresApproval only matters for a non-waiter origin (currently:
+     * customer_qr) — a waiter's own order is always pre-confirmed
+     * regardless of the restaurant's customer_order_requires_approval
+     * setting, since the staff member placing it has already validated it
+     * in person. See RestaurantSettings::customer_order_requires_approval
+     * and CreatePublicOrderAction for where this is derived.
      */
     public function execute(
         Table $table,
@@ -42,11 +62,16 @@ class OrderCreationService
         ?string $customerNote = null,
         ?string $idempotencyKey = null,
         ?string $idempotencyPayloadHash = null,
+        bool $requiresApproval = true,
+        bool $blockIfBillRequested = false,
     ): Order {
         return DB::transaction(function () use (
             $table, $tableSessionId, $origin, $createdBy, $locale, $items,
             $customerName, $customerNote, $idempotencyKey, $idempotencyPayloadHash,
+            $requiresApproval, $blockIfBillRequested,
         ) {
+            RestaurantOperationalLock::shared($table->restaurant_id);
+
             $session = TableSession::query()->whereKey($tableSessionId)->lockForUpdate()->first();
 
             if (! $session || ! $session->isActive()) {
@@ -57,9 +82,20 @@ class OrderCreationService
                 throw new TableSessionAlreadyPaidException;
             }
 
+            // Public-only gate (see CreatePublicOrderAction, the sole
+            // caller passing true here): once the customer has asked for
+            // the bill, the QR surface stops accepting new orders for this
+            // session. Staff ordering (CreateStaffOrderAction) never
+            // passes this flag and stays unaffected.
+            if ($blockIfBillRequested && $session->hasOpenBillRequest()) {
+                throw new TableSessionBillRequestedException;
+            }
+
             $built = $this->buildOrderItems->execute($table->restaurant, $items, $locale);
 
-            $status = $origin === Order::ORIGIN_WAITER ? Order::STATUS_CONFIRMED : Order::STATUS_WAITING_APPROVAL;
+            $status = $origin === Order::ORIGIN_WAITER || ! $requiresApproval
+                ? Order::STATUS_CONFIRMED
+                : Order::STATUS_WAITING_APPROVAL;
             $totalCents = $built['subtotalCents'] + $built['modifiersTotalCents'];
 
             $order = Order::query()->create([
@@ -96,6 +132,35 @@ class OrderCreationService
                     $orderItem->modifiers()->create($modifierSpec);
                 }
             }
+
+            $this->auditLogger->log(
+                organizationId: $table->restaurant->organization_id,
+                restaurantId: $table->restaurant_id,
+                actorType: $createdBy ? AuditLog::ACTOR_USER : AuditLog::ACTOR_PUBLIC,
+                actor: $createdBy,
+                event: AuditLog::EVENT_ORDER_CREATED,
+                resourceType: AuditLog::RESOURCE_ORDER,
+                resourceId: $order->id,
+                metadata: ['origin' => $origin, 'initial_status' => $status],
+            );
+
+            $this->activityRecorder->record(
+                restaurantId: $table->restaurant_id,
+                type: RestaurantActivityType::ORDER_CREATED,
+                actor: $createdBy ? ActivityActor::staff($createdBy) : ActivityActor::customer(),
+                table: $table,
+                tableSessionId: $session->id,
+                order: $order,
+                metadata: [
+                    'origin' => $order->origin,
+                    'initial_status' => $status,
+                    'item_count' => array_sum(array_column($built['itemSpecs'], 'quantity')),
+                    'total' => $order->total,
+                ],
+                occurredAt: $order->created_at,
+            );
+
+            OrderCreated::dispatch($table->restaurant_id, $table->id, $session->id, $order->id, $order->origin, $order->status, $order->created_at);
 
             return $order->load('items.modifiers');
         });

@@ -2,16 +2,23 @@
 
 namespace App\Actions\Billing;
 
+use App\Events\Realtime\PaymentRecorded;
 use App\Exceptions\Billing\PaymentExceedsBalanceException;
 use App\Exceptions\Billing\PaymentIdempotencyKeyReusedException;
 use App\Exceptions\Billing\TableSessionAlreadyPaidException;
 use App\Exceptions\Billing\TableSessionClosedException;
 use App\Exceptions\Billing\TableSessionHasNoBillableOrdersException;
+use App\Models\AuditLog;
 use App\Models\PaymentRecord;
 use App\Models\TableSession;
 use App\Models\User;
+use App\Support\Activity\ActivityActor;
+use App\Support\Activity\RestaurantActivityRecorder;
+use App\Support\Activity\RestaurantActivityType;
+use App\Support\Audit\AuditLogger;
 use App\Support\Billing\SessionBillCalculator;
 use App\Support\Money\Money;
+use App\Support\Restaurants\RestaurantOperationalLock;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 
@@ -32,6 +39,11 @@ use Illuminate\Support\Facades\DB;
  */
 class RecordPaymentAction
 {
+    public function __construct(
+        private readonly AuditLogger $auditLogger,
+        private readonly RestaurantActivityRecorder $activityRecorder,
+    ) {}
+
     /**
      * @param  array{method: string, amount: string, reference?: ?string, note?: ?string, idempotency_key?: ?string}  $data
      * @return array{payment: PaymentRecord, replayed: bool}
@@ -39,6 +51,8 @@ class RecordPaymentAction
     public function execute(TableSession $session, User $recordedBy, array $data): array
     {
         return DB::transaction(function () use ($session, $recordedBy, $data) {
+            RestaurantOperationalLock::shared($session->restaurant_id);
+
             $locked = TableSession::query()->whereKey($session->id)->lockForUpdate()->first();
 
             if (! $locked || ! $locked->isActive()) {
@@ -108,9 +122,47 @@ class RecordPaymentAction
                 return $this->replayOrConflict($existing, $payloadHash);
             }
 
+            $this->auditLogger->log(
+                organizationId: $locked->restaurant->organization_id,
+                restaurantId: $locked->restaurant_id,
+                actorType: AuditLog::ACTOR_USER,
+                actor: $recordedBy,
+                event: AuditLog::EVENT_PAYMENT_RECORD_CREATED,
+                resourceType: AuditLog::RESOURCE_PAYMENT_RECORD,
+                resourceId: $payment->id,
+                metadata: [
+                    'table_session_id' => $locked->id,
+                    'method' => $payment->method,
+                    'amount' => $payment->amount,
+                    'currency' => $payment->currency,
+                ],
+            );
+
+            // Never reached on an idempotency replay (returned above) —
+            // one real payment, one activity event.
+            $this->activityRecorder->record(
+                restaurantId: $locked->restaurant_id,
+                type: RestaurantActivityType::PAYMENT_RECORDED,
+                actor: ActivityActor::staff($recordedBy),
+                table: $locked->table,
+                tableSessionId: $locked->id,
+                metadata: [
+                    'payment_id' => $payment->id,
+                    'amount' => $payment->amount,
+                    'method' => $payment->method,
+                ],
+                occurredAt: $payment->recorded_at,
+            );
+
+            PaymentRecorded::dispatch($locked->restaurant_id, $locked->id, $locked->table_id, $payment->id, $payment->amount, $payment->method, $payment->recorded_at);
+
             $newPaidTotalCents = $summary['paidTotalCents'] + $amountCents;
 
             if ($newPaidTotalCents === $summary['ordersTotalCents']) {
+                // feedback_token itself is generated at session-open time
+                // (see OpenTableAction) — payment only flips payment_status,
+                // it is never responsible for minting the visit's public
+                // feedback identity (Passo 3.5 token-lifecycle fix).
                 $locked->update([
                     'payment_status' => TableSession::PAYMENT_STATUS_PAID,
                     'paid_at' => now(),

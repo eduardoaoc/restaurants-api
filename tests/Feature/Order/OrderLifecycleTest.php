@@ -85,6 +85,7 @@ class OrderLifecycleTest extends TestCase
     public function test_reopening_the_table_starts_a_fresh_session_for_new_orders(): void
     {
         [, $owner, $restaurant, $rp] = $this->createTenantWithRestaurantProduct();
+        $this->requireOrderApproval($restaurant);
         $table = $this->createTable($restaurant);
 
         $sessionA = $this->openSession($table, $owner);
@@ -225,6 +226,7 @@ class OrderLifecycleTest extends TestCase
     public function test_filter_by_status(): void
     {
         [, $owner, $restaurant, $rp] = $this->createTenantWithRestaurantProduct();
+        $this->requireOrderApproval($restaurant);
         $table = $this->createTable($restaurant);
         $this->openSession($table, $owner);
         $waiting = $this->createCustomerOrder($table, [['restaurant_product_id' => $rp->id, 'quantity' => 1]]);

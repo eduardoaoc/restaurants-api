@@ -35,8 +35,6 @@ class StoreRestaurantRequest extends FormRequest
                 Rule::unique('restaurants', 'slug')->where('organization_id', $organizationId),
             ],
             'status' => ['sometimes', Rule::in(['active', 'inactive'])],
-            'timezone' => ['sometimes', 'timezone'],
-            'default_locale' => ['sometimes', 'string', 'regex:/^[a-z]{2}(-[A-Z]{2})?$/'],
         ];
     }
 

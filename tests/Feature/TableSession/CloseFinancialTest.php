@@ -49,6 +49,7 @@ class CloseFinancialTest extends TestCase
     public function test_close_allows_a_cancelled_order_alongside_a_served_one(): void
     {
         [, $owner, $restaurant, $rp] = $this->createTenantWithRestaurantProduct();
+        $this->requireOrderApproval($restaurant);
         $table = $this->createTable($restaurant);
         $session = $this->openSession($table, $owner);
 
@@ -162,6 +163,7 @@ class CloseFinancialTest extends TestCase
     public function test_close_with_only_cancelled_orders_returns_no_billable_orders_conflict(): void
     {
         [, $owner, $restaurant, $rp] = $this->createTenantWithRestaurantProduct();
+        $this->requireOrderApproval($restaurant);
         $table = $this->createTable($restaurant);
         $this->openSession($table, $owner);
         $order = $this->createCustomerOrder($table, [['restaurant_product_id' => $rp->id, 'quantity' => 1]]);

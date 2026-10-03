@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\TableRequests\IndexTableRequestsRequest;
 use App\Http\Resources\Api\V1\TableRequestResource;
 use App\Models\Organization;
+use App\Models\Table;
 use App\Models\TableRequest;
 use App\Models\User;
 use App\Support\Restaurants\RestaurantScope;
@@ -14,6 +15,7 @@ use App\Support\Tenancy\TenantContext;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 use OpenApi\Attributes as OA;
 
 class TableRequestController extends Controller
@@ -42,6 +44,7 @@ class TableRequestController extends Controller
             new OA\Parameter(name: 'restaurant_id', in: 'query', required: false, schema: new OA\Schema(type: 'integer')),
             new OA\Parameter(name: 'status', in: 'query', required: false, schema: new OA\Schema(type: 'string', example: 'pending')),
             new OA\Parameter(name: 'type', in: 'query', required: false, schema: new OA\Schema(type: 'string', example: 'call_waiter')),
+            new OA\Parameter(name: 'table_id', in: 'query', required: false, description: 'Only requests of this table (CARTA 8.2A). Must be a table of a restaurant the user can access — and of restaurant_id when both are sent — otherwise 422 (same response for unknown and out-of-scope tables).', schema: new OA\Schema(type: 'integer')),
         ],
         responses: [
             new OA\Response(
@@ -59,7 +62,7 @@ class TableRequestController extends Controller
             ),
             new OA\Response(response: 401, description: 'Unauthenticated'),
             new OA\Response(response: 403, description: 'The user is not allowed to view table requests'),
-            new OA\Response(response: 422, description: 'Invalid status/type filter'),
+            new OA\Response(response: 422, description: 'Invalid status/type filter, or a table_id outside the user\'s scope / not of restaurant_id'),
         ]
     )]
     public function index(IndexTableRequestsRequest $request): JsonResponse
@@ -79,6 +82,10 @@ class TableRequestController extends Controller
         }
         if ($request->filled('type')) {
             $query->where('type', $request->validated('type'));
+        }
+        if ($request->filled('table_id')) {
+            $tableId = $this->scopedTableId($organization, $user, (int) $request->validated('table_id'), $request->validated('restaurant_id'));
+            $query->where('table_id', $tableId);
         }
 
         $tableRequests = $query->with(['restaurant', 'table', 'acknowledgedBy', 'completedBy', 'cancelledBy'])
@@ -226,6 +233,31 @@ class TableRequestController extends Controller
     private function activeOrganization(): Organization
     {
         return Organization::query()->findOrFail($this->tenantContext->getOrganizationId());
+    }
+
+    /**
+     * The table_id filter must name a table of the active organization,
+     * within the user's RestaurantScope and — when restaurant_id is also
+     * sent — of that restaurant. Anything else (unknown id, another
+     * tenant's table, a sibling restaurant's table) is the SAME 422, so
+     * the filter can never be used to probe for foreign tables.
+     */
+    private function scopedTableId(Organization $organization, User $user, int $tableId, mixed $restaurantId): int
+    {
+        $restaurantIds = RestaurantScope::accessibleRestaurantIds($user, $organization);
+
+        $exists = Table::query()
+            ->whereKey($tableId)
+            ->whereHas('restaurant', fn ($q) => $q->where('organization_id', $organization->id))
+            ->when($restaurantIds !== null, fn (Builder $q) => $q->whereIn('restaurant_id', $restaurantIds))
+            ->when($restaurantId !== null, fn (Builder $q) => $q->where('restaurant_id', (int) $restaurantId))
+            ->exists();
+
+        if (! $exists) {
+            throw ValidationException::withMessages(['table_id' => 'The selected table id is invalid.']);
+        }
+
+        return $tableId;
     }
 
     /**

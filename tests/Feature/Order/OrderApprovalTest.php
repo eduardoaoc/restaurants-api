@@ -31,6 +31,7 @@ class OrderApprovalTest extends TestCase
     private function waitingApprovalOrder(): array
     {
         [$organization, $owner, $restaurant, $rp] = $this->createTenantWithRestaurantProduct();
+        $this->requireOrderApproval($restaurant);
         $table = $this->createTable($restaurant);
         $this->openSession($table, $owner);
         $order = $this->createCustomerOrder($table, [['restaurant_product_id' => $rp->id, 'quantity' => 1]]);

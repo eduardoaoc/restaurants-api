@@ -196,6 +196,7 @@ class TableRequestLifecycleTest extends TestCase
         $waiter = $this->createStaff($organization, $restaurant, 'waiter', 'W-1');
         $table = $this->createTable($restaurant);
         $session = $this->openSession($table, $owner);
+        $this->createServedOrder($table, $owner);
         $tableRequest = $this->createTableRequest($table, TableRequest::TYPE_REQUEST_BILL);
         $this->advanceTableRequestTo($tableRequest, TableRequest::STATUS_COMPLETED, $waiter);
 
@@ -223,6 +224,7 @@ class TableRequestLifecycleTest extends TestCase
         $waiter = $this->createStaff($organization, $restaurant, 'waiter', 'W-1');
         $table = $this->createTable($restaurant);
         $session = $this->openSession($table, $owner);
+        $this->createServedOrder($table, $owner);
         $tableRequest = $this->createTableRequest($table, TableRequest::TYPE_REQUEST_BILL);
 
         $this->actingAs($waiter, 'web')->postJson("/api/v1/table-requests/{$tableRequest->id}/acknowledge")->assertOk();

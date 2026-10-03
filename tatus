@@ -1,0 +1,71 @@
+[1mdiff --git a/.env.example b/.env.example[m
+[1mindex fc461bc..15542b1 100644[m
+[1m--- a/.env.example[m
+[1m+++ b/.env.example[m
+[36m@@ -38,6 +38,10 @@[m [mSANCTUM_STATEFUL_DOMAINS=localhost:8080,127.0.0.1:8080,localhost:5173,127.0.0.1:[m
+ [m
+ BROADCAST_CONNECTION=reverb[m
+ FILESYSTEM_DISK=local[m
+[32m+[m[32m# Disk product photos/videos are stored on — see config/media.php. Kept[m
+[32m+[m[32m# independent of FILESYSTEM_DISK so it can move to S3/a CDN later without[m
+[32m+[m[32m# an application code change.[m
+[32m+[m[32mPRODUCT_MEDIA_DISK=public[m
+ QUEUE_CONNECTION=database[m
+ [m
+ REVERB_APP_ID=[m
+[1mdiff --git a/app/Actions/Catalog/CreateProductAction.php b/app/Actions/Catalog/CreateProductAction.php[m
+[1mindex bfefe36..f807dcd 100644[m
+[1m--- a/app/Actions/Catalog/CreateProductAction.php[m
+[1m+++ b/app/Actions/Catalog/CreateProductAction.php[m
+[36m@@ -32,7 +32,7 @@[m [mpublic function execute(Organization $organization, array $data): Product[m
+                 $product->translations()->create($translation);[m
+             }[m
+ [m
+[31m-            return $product->load('translations');[m
+[32m+[m[32m            return $product->load(['translations', 'media']);[m
+         });[m
+     }[m
+ }[m
+[1mdiff --git a/app/Actions/Catalog/UpdateProductAction.php b/app/Actions/Catalog/UpdateProductAction.php[m
+[1mindex 06ff07e..8d25774 100644[m
+[1m--- a/app/Actions/Catalog/UpdateProductAction.php[m
+[1m+++ b/app/Actions/Catalog/UpdateProductAction.php[m
+[36m@@ -43,7 +43,7 @@[m [mpublic function execute(Product $product, array $data): Product[m
+                 );[m
+             }[m
+ [m
+[31m-            return $product->load('translations');[m
+[32m+[m[32m            return $product->load(['translations', 'media']);[m
+         });[m
+     }[m
+ }[m
+[1mdiff --git a/app/Actions/Public/BuildPublicMenuAction.php b/app/Actions/Public/BuildPublicMenuAction.php[m
+[1mindex 146f913..6c37942 100644[m
+[1m--- a/app/Actions/Public/BuildPublicMenuAction.php[m
+[1m+++ b/app/Actions/Public/BuildPublicMenuAction.php[m
+[36m@@ -144,6 +144,7 @@[m [mprivate function eagerLoads(): array[m
+             'categories.categoryProducts.restaurantProduct' => fn ($query) => $query->where('available', true),[m
+             'categories.categoryProducts.restaurantProduct.product' => fn ($query) => $query->where('status', 'active'),[m
+             'categories.categoryProducts.restaurantProduct.product.translations' => fn ($query) => $query,[m
+[32m+[m[32m            'categories.categoryProducts.restaurantProduct.product.media' => fn ($query) => $query,[m
+             'categories.categoryProducts.restaurantProduct.modifierGroups' => fn ($query) => $query->where('status', 'active')->orderBy('sort_order')->orderBy('id'),[m
+             'categories.categoryProducts.restaurantProduct.modifierGroups.translations' => fn ($query) => $query,[m
+             'categories.categoryProducts.restaurantProduct.modifierGroups.options' => fn ($query) => $query->where('status', 'active')->where('available', true)->orderBy('sort_order')->orderBy('id'),[m
+[1mdiff --git a/app/Http/Controllers/Api/V1/ProductController.php b/app/Http/Controllers/Api/V1/ProductController.php[m
+[1mindex 1d476c6..82b175a 100644[m
+[1m--- a/app/Http/Controllers/Api/V1/ProductController.php[m
+[1m+++ b/app/Http/Controllers/Api/V1/ProductController.php[m
+[36m@@ -61,7 +61,7 @@[m [mpublic function index(): JsonResponse[m
+ [m
+         $this->authorize('viewAny', [Product::class, $organization]);[m
+ [m
+[31m-        $products = $organization->products()->with('translations')->get();[m
+[32m+[m[32m        $products = $organization->products()->with(['translations', 'media'])->get();[m
+ [m
+         return response()->json([[m
+             'data' => [[m
+[36m@@ -177,7 +177,7 @@[m [mpublic function store(StoreProductRequest $request): JsonResponse[m
+     public function show(int $product): JsonResponse[m
+     {[m
+         $organization = $this->activeOrganization();[m
+[31m-        $productModel = $or

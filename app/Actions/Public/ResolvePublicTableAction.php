@@ -20,7 +20,7 @@ class ResolvePublicTableAction
             ->where('public_token', $publicToken)
             ->where('status', 'active')
             ->whereHas('restaurant', fn ($query) => $query->where('status', 'active'))
-            ->with(['restaurant.menu', 'activeSession'])
+            ->with(['restaurant.menu', 'restaurant.settings', 'activeSession'])
             ->first();
 
         if (! $table) {

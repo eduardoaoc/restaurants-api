@@ -119,6 +119,7 @@ class TableRequestScopeTest extends TestCase
         $cashier = $this->createStaff($organization, $restaurant, 'cashier', 'C-1');
         $table = $this->createTable($restaurant);
         $this->openSession($table, $owner);
+        $this->createServedOrder($table, $owner);
         $tableRequest = $this->createTableRequest($table, TableRequest::TYPE_REQUEST_BILL);
 
         $this->actingAs($cashier, 'web')

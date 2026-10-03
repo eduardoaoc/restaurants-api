@@ -130,4 +130,16 @@ class TableSessionCloseTest extends TestCase
             ->postJson("/api/v1/tables/{$table->id}/close")
             ->assertForbidden();
     }
+
+    public function test_unauthenticated_request_cannot_close_a_table(): void
+    {
+        [, $owner, $restaurant] = $this->createTenant();
+        $table = $this->createTable($restaurant);
+        $session = app(OpenTableAction::class)->execute($table, $owner, 4);
+        $this->makeSessionCloseable($session, $owner);
+
+        $this->postJson("/api/v1/tables/{$table->id}/close")->assertStatus(401);
+
+        $this->assertTrue($session->fresh()->isActive());
+    }
 }

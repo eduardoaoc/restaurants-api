@@ -11,11 +11,26 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Str;
 
-#[Fillable(['restaurant_id', 'name', 'number', 'public_token', 'status'])]
+#[Fillable([
+    'restaurant_id', 'name', 'number', 'public_token', 'status', 'capacity',
+    'zone_id', 'layout_x', 'layout_y', 'layout_rotation', 'layout_shape', 'layout_width', 'layout_height',
+])]
 class Table extends Model
 {
     /** @use HasFactory<TableFactory> */
     use HasFactory;
+
+    public const SHAPES = ['round', 'square', 'rectangle'];
+
+    protected function casts(): array
+    {
+        return [
+            'layout_x' => 'float',
+            'layout_y' => 'float',
+            'layout_width' => 'float',
+            'layout_height' => 'float',
+        ];
+    }
 
     /**
      * The restaurant this table belongs to.
@@ -25,6 +40,17 @@ class Table extends Model
     public function restaurant(): BelongsTo
     {
         return $this->belongsTo(Restaurant::class);
+    }
+
+    /**
+     * The floor-plan zone this table is placed in, if it has been assigned
+     * one yet (Bloco 1 — nullable so pre-existing tables keep working).
+     *
+     * @return BelongsTo<Zone, $this>
+     */
+    public function zone(): BelongsTo
+    {
+        return $this->belongsTo(Zone::class);
     }
 
     /**

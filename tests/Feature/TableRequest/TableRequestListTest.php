@@ -36,6 +36,7 @@ class TableRequestListTest extends TestCase
         $table = $this->createTable($restaurant);
         $this->openSession($table, $owner);
         $pending = $this->createTableRequest($table, TableRequest::TYPE_CALL_WAITER);
+        $this->createServedOrder($table, $owner);
         $acknowledged = $this->createTableRequest($table, TableRequest::TYPE_REQUEST_BILL);
         $this->advanceTableRequestTo($acknowledged, TableRequest::STATUS_ACKNOWLEDGED, $owner);
 
@@ -52,6 +53,7 @@ class TableRequestListTest extends TestCase
         $table = $this->createTable($restaurant);
         $this->openSession($table, $owner);
         $callWaiter = $this->createTableRequest($table, TableRequest::TYPE_CALL_WAITER);
+        $this->createServedOrder($table, $owner);
         $this->createTableRequest($table, TableRequest::TYPE_REQUEST_BILL);
 
         $response = $this->actingAs($owner, 'web')

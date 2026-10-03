@@ -18,6 +18,63 @@ class CategoryProductController extends Controller
     public function __construct(private readonly TenantContext $tenantContext) {}
 
     /**
+     * List the restaurant products placed in a category, ordered for display.
+     */
+    #[OA\Get(
+        path: '/api/v1/categories/{category}/products',
+        operationId: 'categoryProductsIndex',
+        summary: "List a category's products",
+        security: [['sessionCookie' => []]],
+        tags: ['Categories'],
+        parameters: [
+            new OA\Parameter(name: 'category', in: 'path', required: true, schema: new OA\Schema(type: 'integer')),
+        ],
+        responses: [
+            new OA\Response(
+                response: 200,
+                description: 'List of category products',
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(
+                            property: 'data',
+                            properties: [
+                                new OA\Property(
+                                    property: 'category_products',
+                                    type: 'array',
+                                    items: new OA\Items(ref: '#/components/schemas/CategoryProduct')
+                                ),
+                            ],
+                            type: 'object'
+                        ),
+                    ]
+                )
+            ),
+            new OA\Response(response: 401, description: 'Unauthenticated'),
+            new OA\Response(response: 403, description: 'The user is not allowed to view this category'),
+            new OA\Response(response: 404, description: 'Category not found'),
+        ]
+    )]
+    public function index(int $category): JsonResponse
+    {
+        $organization = $this->activeOrganization();
+        $categoryModel = $this->categoryQuery($organization)->findOrFail($category);
+
+        $this->authorize('view', $categoryModel);
+
+        $categoryProducts = $categoryModel->categoryProducts()
+            ->with('restaurantProduct.product.translations')
+            ->orderBy('sort_order')
+            ->orderBy('id')
+            ->get();
+
+        return response()->json([
+            'data' => [
+                'category_products' => CategoryProductResource::collection($categoryProducts),
+            ],
+        ]);
+    }
+
+    /**
      * Place a restaurant product into a category.
      */
     #[OA\Post(
@@ -142,6 +199,55 @@ class CategoryProductController extends Controller
             'data' => [
                 'category_product' => new CategoryProductResource($categoryProductModel),
             ],
+        ]);
+    }
+
+    /**
+     * Remove a restaurant product from a category. This only deletes the
+     * placement (category_products row) — the RestaurantProduct and its
+     * underlying Product are untouched, and no order history references
+     * this pivot, so it is always safe to delete outright.
+     */
+    #[OA\Delete(
+        path: '/api/v1/categories/{category}/products/{restaurantProduct}',
+        operationId: 'categoryProductsDestroy',
+        summary: 'Remove a product from a category',
+        security: [['sessionCookie' => []]],
+        tags: ['Categories'],
+        parameters: [
+            new OA\Parameter(name: 'category', in: 'path', required: true, schema: new OA\Schema(type: 'integer')),
+            new OA\Parameter(name: 'restaurantProduct', in: 'path', required: true, schema: new OA\Schema(type: 'integer')),
+        ],
+        responses: [
+            new OA\Response(
+                response: 200,
+                description: 'Product removed from category successfully',
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(property: 'message', type: 'string', example: 'Product removed from category successfully.'),
+                    ]
+                )
+            ),
+            new OA\Response(response: 401, description: 'Unauthenticated'),
+            new OA\Response(response: 403, description: 'The user is not allowed to manage this category'),
+            new OA\Response(response: 404, description: 'Category or category product not found'),
+        ]
+    )]
+    public function destroy(int $category, int $restaurantProduct): JsonResponse
+    {
+        $organization = $this->activeOrganization();
+        $categoryModel = $this->categoryQuery($organization)->findOrFail($category);
+
+        $this->authorize('update', $categoryModel);
+
+        $categoryProductModel = $categoryModel->categoryProducts()
+            ->where('restaurant_product_id', $restaurantProduct)
+            ->firstOrFail();
+
+        $categoryProductModel->delete();
+
+        return response()->json([
+            'message' => 'Product removed from category successfully.',
         ]);
     }
 
