@@ -43,6 +43,7 @@
     .later { border: 1pt dashed #777; padding: 3mm; margin-top: 2mm; }
     .later-head { font-size: 8pt; color: #444; margin-bottom: 2mm; }
     .section { page-break-inside: auto; }
+    .products-summary { page-break-inside: avoid; }
 </style>
 </head>
 <body>
@@ -122,6 +123,7 @@
     @endforeach
 </table>
 
+<div class="products-summary">
 <h2>Productos</h2>
 @if ($top_product)
     <p><strong>Producto más vendido:</strong> {{ $top_product['name'] }} ({{ $top_product['quantity'] }} uds.)</p>
@@ -136,6 +138,8 @@
 @else
     <p class="empty">No se vendieron productos durante el periodo.</p>
 @endif
+
+</div>
 
 <h2>Productos marcados como no disponibles</h2>
 @if (count($availability) > 0)
