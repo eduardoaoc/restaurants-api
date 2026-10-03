@@ -1828,6 +1828,53 @@
                 ]
             }
         },
+        "/api/v1/day-closes/{dayClose}/pdf": {
+            "get": {
+                "tags": [
+                    "Cierre Diario"
+                ],
+                "summary": "Download the PDF of a persisted Cierre Diario",
+                "description": "PDF is generated from the persisted day-close snapshot (RestaurantDayClose columns + report + annotations) — never recomputed from current orders/payments/analytics. Generated on demand (A4 portrait, es-ES, the close's own timezone and currency). Post-close annotations appear only in a separate final \"Notas posteriores\" section. Downloaded as an attachment; Cache-Control: private, no-store. No public URL exists.",
+                "operationId": "dayClosesPdf",
+                "parameters": [
+                    {
+                        "name": "dayClose",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The PDF (Content-Disposition: attachment; filename=\"aforo-cierre-diario-{restaurant-slug}-{business_date}.pdf\")",
+                        "content": {
+                            "application/pdf": {
+                                "schema": {
+                                    "type": "string",
+                                    "format": "binary"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "Requires view_daily_closes"
+                    },
+                    "404": {
+                        "description": "Not found in the user's organization/restaurant scope"
+                    }
+                },
+                "security": [
+                    {
+                        "sessionCookie": []
+                    }
+                ]
+            }
+        },
         "/api/v1/day-closes/{dayClose}/annotations": {
             "post": {
                 "tags": [

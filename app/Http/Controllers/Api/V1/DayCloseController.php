@@ -17,21 +17,23 @@ use App\Models\Organization;
 use App\Models\Restaurant;
 use App\Models\RestaurantDayClose;
 use App\Models\User;
+use App\Support\DayClose\Pdf\DayClosePdf;
 use App\Support\Restaurants\RestaurantScope;
 use App\Support\Tenancy\TenantContext;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use OpenApi\Attributes as OA;
 
 /**
  * Cierre Diario (CARTA 9.1A): live preview, the close itself, history,
- * the persisted detail and post-close annotations.
+ * the persisted detail, its PDF (CARTA 9.1C) and post-close annotations.
  *
  * Restaurants/closes outside the requester's organization or
  * RestaurantScope resolve as 404 before any Policy runs (scoped queries),
  * exactly like every other tenant endpoint. Preview/close require
- * close_daily_operation; history/detail/annotations view_daily_closes.
+ * close_daily_operation; history/detail/PDF/annotations view_daily_closes.
  */
 class DayCloseController extends Controller
 {
@@ -40,6 +42,7 @@ class DayCloseController extends Controller
         private readonly BuildDayClosePreviewAction $buildPreview,
         private readonly CloseRestaurantDayAction $closeRestaurantDay,
         private readonly AddDayCloseAnnotationAction $addAnnotation,
+        private readonly DayClosePdf $dayClosePdf,
     ) {}
 
     #[OA\Get(
@@ -193,6 +196,39 @@ class DayCloseController extends Controller
         $this->authorize('viewDayCloses', $dayCloseModel->restaurant);
 
         return response()->json(['data' => new DayCloseResource($dayCloseModel)]);
+    }
+
+    #[OA\Get(
+        path: '/api/v1/day-closes/{dayClose}/pdf',
+        operationId: 'dayClosesPdf',
+        summary: 'Download the PDF of a persisted Cierre Diario',
+        description: 'PDF is generated from the persisted day-close snapshot (RestaurantDayClose columns + report + annotations) — never recomputed from current orders/payments/analytics. Generated on demand (A4 portrait, es-ES, the close\'s own timezone and currency). Post-close annotations appear only in a separate final "Notas posteriores" section. Downloaded as an attachment; Cache-Control: private, no-store. No public URL exists.',
+        security: [['sessionCookie' => []]],
+        tags: ['Cierre Diario'],
+        parameters: [new OA\Parameter(name: 'dayClose', in: 'path', required: true, schema: new OA\Schema(type: 'integer'))],
+        responses: [
+            new OA\Response(
+                response: 200,
+                description: 'The PDF (Content-Disposition: attachment; filename="aforo-cierre-diario-{restaurant-slug}-{business_date}.pdf")',
+                content: new OA\MediaType(mediaType: 'application/pdf', schema: new OA\Schema(type: 'string', format: 'binary'))
+            ),
+            new OA\Response(response: 401, description: 'Unauthenticated'),
+            new OA\Response(response: 403, description: 'Requires view_daily_closes'),
+            new OA\Response(response: 404, description: 'Not found in the user\'s organization/restaurant scope'),
+        ]
+    )]
+    public function pdf(Request $request, int $dayClose): Response
+    {
+        $dayCloseModel = $this->dayCloseQuery($this->activeOrganization(), $request->user())->findOrFail($dayClose);
+
+        $this->authorize('viewDayCloses', $dayCloseModel->restaurant);
+
+        return response($this->dayClosePdf->render($dayCloseModel), 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'attachment; filename="'.$this->dayClosePdf->filename($dayCloseModel).'"',
+            'Cache-Control' => 'private, no-store',
+            'X-Content-Type-Options' => 'nosniff',
+        ]);
     }
 
     #[OA\Post(

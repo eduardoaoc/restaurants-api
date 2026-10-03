@@ -223,11 +223,12 @@ Route::prefix('v1')->group(function () {
 
         // Cierre Diario (CARTA 9.1A): preview/close/cash movements need
         // close_daily_operation; history/detail/annotations need
-        // view_daily_closes. See DayCloseController.
+        // view_daily_closes (PDF too — CARTA 9.1C). See DayCloseController.
         Route::get('/restaurants/{restaurant}/day-close/preview', [DayCloseController::class, 'preview']);
         Route::get('/restaurants/{restaurant}/day-closes', [DayCloseController::class, 'index']);
         Route::post('/restaurants/{restaurant}/day-closes', [DayCloseController::class, 'store']);
         Route::get('/day-closes/{dayClose}', [DayCloseController::class, 'show']);
+        Route::get('/day-closes/{dayClose}/pdf', [DayCloseController::class, 'pdf']);
         Route::post('/day-closes/{dayClose}/annotations', [DayCloseController::class, 'storeAnnotation']);
         Route::get('/restaurants/{restaurant}/cash-movements', [CashMovementController::class, 'index']);
         Route::post('/restaurants/{restaurant}/cash-movements', [CashMovementController::class, 'store']);
