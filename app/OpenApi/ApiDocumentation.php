@@ -2099,6 +2099,14 @@ use OpenApi\Attributes as OA;
         new OA\Property(property: 'has_incidents', type: 'boolean', description: 'cash difference != 0, critical feedback, severe delay, product marked unavailable, or closing notes'),
         new OA\Property(property: 'closed_by', type: 'object'),
         new OA\Property(property: 'closed_at', type: 'string', format: 'date-time'),
+        new OA\Property(property: 'whatsapp', nullable: true, description: 'CARTA 9.1E: latest WhatsApp delivery, or null when none was attempted (e.g. disabled).', properties: [
+            new OA\Property(property: 'delivery_id', type: 'integer'),
+            new OA\Property(property: 'kind', type: 'string', enum: ['automatic', 'manual_resend']),
+            new OA\Property(property: 'status', type: 'string', enum: ['pending', 'accepted', 'sent', 'delivered', 'read', 'failed', 'skipped']),
+            new OA\Property(property: 'recipient_phone_masked', type: 'string', nullable: true),
+            new OA\Property(property: 'failure_code', type: 'string', nullable: true),
+            new OA\Property(property: 'updated_at', type: 'string', format: 'date-time'),
+        ], type: 'object'),
     ],
     type: 'object'
 )]
@@ -2134,6 +2142,54 @@ use OpenApi\Attributes as OA;
         new OA\Property(property: 'report', ref: '#/components/schemas/DayCloseReport'),
         new OA\Property(property: 'annotations', type: 'array', items: new OA\Items(ref: '#/components/schemas/DayCloseAnnotation')),
         new OA\Property(property: 'created_at', type: 'string', format: 'date-time'),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
+    schema: 'DayCloseDelivery',
+    description: 'A WhatsApp delivery of a Cierre Diario (CARTA 9.1E). status: pending -> accepted (Meta accepted the request; NOT delivered) -> sent -> delivered -> read, or failed / skipped. Never the full phone number nor the provider message id.',
+    properties: [
+        new OA\Property(property: 'id', type: 'integer', format: 'int64'),
+        new OA\Property(property: 'kind', type: 'string', enum: ['automatic', 'manual_resend']),
+        new OA\Property(property: 'channel', type: 'string', enum: ['whatsapp']),
+        new OA\Property(property: 'status', type: 'string', enum: ['pending', 'accepted', 'sent', 'delivered', 'read', 'failed', 'skipped']),
+        new OA\Property(property: 'recipient', nullable: true, properties: [
+            new OA\Property(property: 'name', type: 'string'),
+            new OA\Property(property: 'phone_masked', type: 'string', example: '+34 ••• •• 12 34'),
+        ], type: 'object'),
+        new OA\Property(property: 'template', properties: [new OA\Property(property: 'name', type: 'string', nullable: true), new OA\Property(property: 'language', type: 'string', nullable: true)], type: 'object'),
+        new OA\Property(property: 'attempts', type: 'integer'),
+        new OA\Property(property: 'requested_by', nullable: true, properties: [new OA\Property(property: 'id', type: 'integer', nullable: true), new OA\Property(property: 'name', type: 'string', nullable: true)], type: 'object'),
+        new OA\Property(property: 'failure', nullable: true, description: 'skipped: configuration_incomplete | recipient_missing | consent_missing. failed: Meta error code, unknown_outcome[:…], job_failed, ...', properties: [new OA\Property(property: 'code', type: 'string'), new OA\Property(property: 'reason', type: 'string', nullable: true)], type: 'object'),
+        new OA\Property(property: 'queued_at', type: 'string', format: 'date-time', nullable: true),
+        new OA\Property(property: 'accepted_at', type: 'string', format: 'date-time', nullable: true),
+        new OA\Property(property: 'sent_at', type: 'string', format: 'date-time', nullable: true),
+        new OA\Property(property: 'delivered_at', type: 'string', format: 'date-time', nullable: true),
+        new OA\Property(property: 'read_at', type: 'string', format: 'date-time', nullable: true),
+        new OA\Property(property: 'failed_at', type: 'string', format: 'date-time', nullable: true),
+        new OA\Property(property: 'created_at', type: 'string', format: 'date-time'),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
+    schema: 'DayCloseWhatsAppSettings',
+    description: 'Cierre Diario WhatsApp delivery configuration of a restaurant (CARTA 9.1E). The full phone number is write-only.',
+    properties: [
+        new OA\Property(property: 'enabled', type: 'boolean'),
+        new OA\Property(property: 'available', type: 'boolean', description: 'Whether the central AFORO WhatsApp sender is configured on this installation.'),
+        new OA\Property(property: 'status', type: 'string', enum: ['disabled', 'configuration_required', 'ready']),
+        new OA\Property(property: 'consent_text', type: 'string'),
+        new OA\Property(property: 'consent_text_version', type: 'string', example: 'v1'),
+        new OA\Property(property: 'recipient', nullable: true, properties: [
+            new OA\Property(property: 'id', type: 'integer'),
+            new OA\Property(property: 'name', type: 'string'),
+            new OA\Property(property: 'phone_masked', type: 'string', example: '+34 ••• •• 12 34'),
+            new OA\Property(property: 'linked_user_id', type: 'integer', nullable: true),
+            new OA\Property(property: 'active', type: 'boolean'),
+            new OA\Property(property: 'consent_given_at', type: 'string', format: 'date-time', nullable: true),
+            new OA\Property(property: 'consent_method', type: 'string', nullable: true, example: 'declared_by_admin'),
+            new OA\Property(property: 'consent_text_version', type: 'string', nullable: true),
+        ], type: 'object'),
     ],
     type: 'object'
 )]

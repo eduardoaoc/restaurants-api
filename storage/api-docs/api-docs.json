@@ -1948,6 +1948,294 @@
                 ]
             }
         },
+        "/api/v1/day-closes/{dayClose}/deliveries": {
+            "get": {
+                "tags": [
+                    "Cierre Diario"
+                ],
+                "summary": "WhatsApp deliveries of a Cierre Diario (automatic + manual resends), oldest first",
+                "description": "status: pending (queued) -> accepted (Meta took the request; NOT delivered) -> sent -> delivered -> read (Meta webhooks); failed; skipped (automatic delivery not attempted: failure.code configuration_incomplete | recipient_missing | consent_missing). Never the full phone number.",
+                "operationId": "dayCloseDeliveriesIndex",
+                "parameters": [
+                    {
+                        "name": "dayClose",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Deliveries",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "properties": {
+                                                "deliveries": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "$ref": "#/components/schemas/DayCloseDelivery"
+                                                    }
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "Requires view_daily_closes"
+                    },
+                    "404": {
+                        "description": "Not found in the user's organization/restaurant scope"
+                    }
+                },
+                "security": [
+                    {
+                        "sessionCookie": []
+                    }
+                ]
+            },
+            "post": {
+                "tags": [
+                    "Cierre Diario"
+                ],
+                "summary": "Resend a Cierre Diario by WhatsApp to the current recipient (new manual delivery)",
+                "description": "The POST is the confirmation. Creates a new manual_resend delivery for the current active recipient; never reuses an old delivery and never creates a new close. Idempotent by Idempotency-Key (same key + same user = same delivery, 200). Throttled.",
+                "operationId": "dayCloseDeliveriesResend",
+                "parameters": [
+                    {
+                        "name": "dayClose",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "Idempotency-Key",
+                        "in": "header",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "maxLength": 100
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Delivery queued",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/DayCloseDelivery"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "200": {
+                        "description": "Idempotent replay",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/DayCloseDelivery"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "Requires view_daily_closes"
+                    },
+                    "404": {
+                        "description": "Not found in the user's organization/restaurant scope"
+                    },
+                    "409": {
+                        "description": "DELIVERY_ALREADY_PENDING or IDEMPOTENCY_KEY_REUSED"
+                    },
+                    "422": {
+                        "description": "WHATSAPP_NOT_AVAILABLE, WHATSAPP_DISABLED, RECIPIENT_REQUIRED, CONSENT_REQUIRED, or missing Idempotency-Key"
+                    },
+                    "429": {
+                        "description": "Too many resend attempts"
+                    }
+                },
+                "security": [
+                    {
+                        "sessionCookie": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/restaurants/{restaurant}/day-close-whatsapp-settings": {
+            "get": {
+                "tags": [
+                    "Cierre Diario"
+                ],
+                "summary": "Get the Cierre Diario WhatsApp delivery settings of a restaurant",
+                "operationId": "dayCloseWhatsAppSettingsShow",
+                "parameters": [
+                    {
+                        "name": "restaurant",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Settings",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/DayCloseWhatsAppSettings"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "Requires manage_restaurants"
+                    },
+                    "404": {
+                        "description": "Restaurant not found in the user's scope"
+                    }
+                },
+                "security": [
+                    {
+                        "sessionCookie": []
+                    }
+                ]
+            },
+            "put": {
+                "tags": [
+                    "Cierre Diario"
+                ],
+                "summary": "Configure the Cierre Diario WhatsApp delivery of a restaurant",
+                "description": "recipient=null disables the current recipient (its consent is revoked). A new or changed phone number requires recipient.consent_confirmed=true — the admin confirms: \"Confirmo que esta persona ha aceptado recibir los cierres diarios por WhatsApp.\" (consent_text_version v1). Consent never migrates to another number. enabled=true requires an active recipient with valid consent.",
+                "operationId": "dayCloseWhatsAppSettingsUpdate",
+                "parameters": [
+                    {
+                        "name": "restaurant",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "enabled",
+                                    "recipient"
+                                ],
+                                "properties": {
+                                    "enabled": {
+                                        "type": "boolean"
+                                    },
+                                    "recipient": {
+                                        "properties": {
+                                            "name": {
+                                                "type": "string",
+                                                "example": "Carlos Ruiz",
+                                                "maxLength": 100
+                                            },
+                                            "phone": {
+                                                "description": "Strict E.164. Required for a new recipient; omit to keep the current number. Write-only: never returned.",
+                                                "type": "string",
+                                                "example": "+34612345678",
+                                                "nullable": true
+                                            },
+                                            "user_id": {
+                                                "description": "Optional AFORO user of the same organization.",
+                                                "type": "integer",
+                                                "nullable": true
+                                            },
+                                            "consent_confirmed": {
+                                                "description": "Required (true) for a new or changed number.",
+                                                "type": "boolean"
+                                            }
+                                        },
+                                        "type": "object",
+                                        "nullable": true
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Updated settings",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/DayCloseWhatsAppSettings"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "Requires manage_restaurants"
+                    },
+                    "404": {
+                        "description": "Restaurant not found in the user's scope"
+                    },
+                    "422": {
+                        "description": "Validation error (E.164, consent required for a new number, enabling without a usable recipient)"
+                    }
+                },
+                "security": [
+                    {
+                        "sessionCookie": []
+                    }
+                ]
+            }
+        },
         "/api/v1/restaurants/{restaurant}/floors": {
             "get": {
                 "tags": [
@@ -9472,6 +9760,94 @@
                 ]
             }
         },
+        "/api/v1/webhooks/whatsapp": {
+            "get": {
+                "tags": [
+                    "Webhooks"
+                ],
+                "summary": "Meta webhook verification handshake (called by Meta, not by clients)",
+                "operationId": "whatsAppWebhookVerify",
+                "parameters": [
+                    {
+                        "name": "hub.mode",
+                        "in": "query",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "example": "subscribe"
+                        }
+                    },
+                    {
+                        "name": "hub.verify_token",
+                        "in": "query",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "hub.challenge",
+                        "in": "query",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The hub.challenge, as text/plain",
+                        "content": {
+                            "text/plain": {
+                                "schema": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Invalid mode or verify token"
+                    }
+                }
+            },
+            "post": {
+                "tags": [
+                    "Webhooks"
+                ],
+                "summary": "Meta webhook callback: message status updates (called by Meta, not by clients)",
+                "description": "Requires a valid X-Hub-Signature-256 over the raw body. Only status updates (sent, delivered, read, failed) of messages sent by AFORO's own phone number are applied; other events are acknowledged and ignored.",
+                "operationId": "whatsAppWebhookReceive",
+                "parameters": [
+                    {
+                        "name": "X-Hub-Signature-256",
+                        "in": "header",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "example": "sha256=…"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Acknowledged"
+                    },
+                    "403": {
+                        "description": "Missing or invalid signature"
+                    }
+                }
+            }
+        },
         "/api/v1/restaurants/{restaurant}/zones": {
             "get": {
                 "tags": [
@@ -15281,6 +15657,47 @@
                     "closed_at": {
                         "type": "string",
                         "format": "date-time"
+                    },
+                    "whatsapp": {
+                        "description": "CARTA 9.1E: latest WhatsApp delivery, or null when none was attempted (e.g. disabled).",
+                        "properties": {
+                            "delivery_id": {
+                                "type": "integer"
+                            },
+                            "kind": {
+                                "type": "string",
+                                "enum": [
+                                    "automatic",
+                                    "manual_resend"
+                                ]
+                            },
+                            "status": {
+                                "type": "string",
+                                "enum": [
+                                    "pending",
+                                    "accepted",
+                                    "sent",
+                                    "delivered",
+                                    "read",
+                                    "failed",
+                                    "skipped"
+                                ]
+                            },
+                            "recipient_phone_masked": {
+                                "type": "string",
+                                "nullable": true
+                            },
+                            "failure_code": {
+                                "type": "string",
+                                "nullable": true
+                            },
+                            "updated_at": {
+                                "type": "string",
+                                "format": "date-time"
+                            }
+                        },
+                        "type": "object",
+                        "nullable": true
                     }
                 },
                 "type": "object"
@@ -15388,6 +15805,197 @@
                         "type": "object"
                     }
                 ]
+            },
+            "DayCloseDelivery": {
+                "description": "A WhatsApp delivery of a Cierre Diario (CARTA 9.1E). status: pending -> accepted (Meta accepted the request; NOT delivered) -> sent -> delivered -> read, or failed / skipped. Never the full phone number nor the provider message id.",
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    "kind": {
+                        "type": "string",
+                        "enum": [
+                            "automatic",
+                            "manual_resend"
+                        ]
+                    },
+                    "channel": {
+                        "type": "string",
+                        "enum": [
+                            "whatsapp"
+                        ]
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": [
+                            "pending",
+                            "accepted",
+                            "sent",
+                            "delivered",
+                            "read",
+                            "failed",
+                            "skipped"
+                        ]
+                    },
+                    "recipient": {
+                        "properties": {
+                            "name": {
+                                "type": "string"
+                            },
+                            "phone_masked": {
+                                "type": "string",
+                                "example": "+34 ••• •• 12 34"
+                            }
+                        },
+                        "type": "object",
+                        "nullable": true
+                    },
+                    "template": {
+                        "properties": {
+                            "name": {
+                                "type": "string",
+                                "nullable": true
+                            },
+                            "language": {
+                                "type": "string",
+                                "nullable": true
+                            }
+                        },
+                        "type": "object"
+                    },
+                    "attempts": {
+                        "type": "integer"
+                    },
+                    "requested_by": {
+                        "properties": {
+                            "id": {
+                                "type": "integer",
+                                "nullable": true
+                            },
+                            "name": {
+                                "type": "string",
+                                "nullable": true
+                            }
+                        },
+                        "type": "object",
+                        "nullable": true
+                    },
+                    "failure": {
+                        "description": "skipped: configuration_incomplete | recipient_missing | consent_missing. failed: Meta error code, unknown_outcome[:…], job_failed, ...",
+                        "properties": {
+                            "code": {
+                                "type": "string"
+                            },
+                            "reason": {
+                                "type": "string",
+                                "nullable": true
+                            }
+                        },
+                        "type": "object",
+                        "nullable": true
+                    },
+                    "queued_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true
+                    },
+                    "accepted_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true
+                    },
+                    "sent_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true
+                    },
+                    "delivered_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true
+                    },
+                    "read_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true
+                    },
+                    "failed_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                },
+                "type": "object"
+            },
+            "DayCloseWhatsAppSettings": {
+                "description": "Cierre Diario WhatsApp delivery configuration of a restaurant (CARTA 9.1E). The full phone number is write-only.",
+                "properties": {
+                    "enabled": {
+                        "type": "boolean"
+                    },
+                    "available": {
+                        "description": "Whether the central AFORO WhatsApp sender is configured on this installation.",
+                        "type": "boolean"
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": [
+                            "disabled",
+                            "configuration_required",
+                            "ready"
+                        ]
+                    },
+                    "consent_text": {
+                        "type": "string"
+                    },
+                    "consent_text_version": {
+                        "type": "string",
+                        "example": "v1"
+                    },
+                    "recipient": {
+                        "properties": {
+                            "id": {
+                                "type": "integer"
+                            },
+                            "name": {
+                                "type": "string"
+                            },
+                            "phone_masked": {
+                                "type": "string",
+                                "example": "+34 ••• •• 12 34"
+                            },
+                            "linked_user_id": {
+                                "type": "integer",
+                                "nullable": true
+                            },
+                            "active": {
+                                "type": "boolean"
+                            },
+                            "consent_given_at": {
+                                "type": "string",
+                                "format": "date-time",
+                                "nullable": true
+                            },
+                            "consent_method": {
+                                "type": "string",
+                                "example": "declared_by_admin",
+                                "nullable": true
+                            },
+                            "consent_text_version": {
+                                "type": "string",
+                                "nullable": true
+                            }
+                        },
+                        "type": "object",
+                        "nullable": true
+                    }
+                },
+                "type": "object"
             },
             "UpdateRestaurantSettingsRequest": {
                 "description": "Every field is optional (PATCH semantics). organization_id/restaurant_id are never accepted.",
@@ -17102,6 +17710,10 @@
         {
             "name": "Waiter Calls",
             "description": "Waiter Calls"
+        },
+        {
+            "name": "Webhooks",
+            "description": "Webhooks"
         }
     ]
 }

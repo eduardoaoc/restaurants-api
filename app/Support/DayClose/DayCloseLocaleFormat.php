@@ -6,8 +6,8 @@ use App\Support\Money\Money;
 use Carbon\CarbonImmutable;
 
 /**
- * es-ES display formatting of the Cierre Diario (CARTA 9.1C — used by
- * the PDF, kept apart so any other rendering reuses it). Money is
+ * es-ES display formatting shared by every Cierre Diario rendering — the
+ * PDF (CARTA 9.1C) and the WhatsApp message (CARTA 9.1E). Money is
  * formatted from the persisted decimal string through integer cents
  * (never a float, never converted), in the close's own persisted
  * currency: "1.842,50 €" for EUR, "1.842,50 USD" otherwise.

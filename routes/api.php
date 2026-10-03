@@ -9,6 +9,8 @@ use App\Http\Controllers\Api\V1\CategoryProductController;
 use App\Http\Controllers\Api\V1\CustomerFeedbackController;
 use App\Http\Controllers\Api\V1\CustomerFeedbackSummaryController;
 use App\Http\Controllers\Api\V1\DayCloseController;
+use App\Http\Controllers\Api\V1\DayCloseDeliveryController;
+use App\Http\Controllers\Api\V1\DayCloseWhatsAppSettingsController;
 use App\Http\Controllers\Api\V1\FloorController;
 use App\Http\Controllers\Api\V1\FloorPlanController;
 use App\Http\Controllers\Api\V1\HealthController;
@@ -50,6 +52,7 @@ use App\Http\Controllers\Api\V1\TableSessionTransferController;
 use App\Http\Controllers\Api\V1\TableSessionVoidController;
 use App\Http\Controllers\Api\V1\TableSessionWaiterController;
 use App\Http\Controllers\Api\V1\WaiterCallController;
+use App\Http\Controllers\Api\V1\WhatsAppWebhookController;
 use App\Http\Controllers\Api\V1\ZoneController;
 use Illuminate\Support\Facades\Route;
 use Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful;
@@ -120,6 +123,19 @@ Route::prefix('v1')->group(function () {
                 // credential and limiter as feedback, separate contract.
                 Route::get('/visits/{feedbackToken}', [PublicVisitController::class, 'show']);
             });
+        });
+
+    // Meta WhatsApp Cloud API webhook (CARTA 9.1E): called by Meta, so no
+    // Sanctum/tenant and no stateful/CSRF middleware (same reasoning as the
+    // public group above) — authenticity is the verify token (GET) and the
+    // X-Hub-Signature-256 HMAC of the raw body (POST). See
+    // WhatsAppWebhookController.
+    Route::prefix('webhooks')
+        ->withoutMiddleware([EnsureFrontendRequestsAreStateful::class])
+        ->middleware('throttle:whatsapp-webhook')
+        ->group(function () {
+            Route::get('/whatsapp', [WhatsAppWebhookController::class, 'verify']);
+            Route::post('/whatsapp', [WhatsAppWebhookController::class, 'receive']);
         });
 
     // Platform namespace: cross-tenant administration for AFORO platform
@@ -230,6 +246,13 @@ Route::prefix('v1')->group(function () {
         Route::get('/day-closes/{dayClose}', [DayCloseController::class, 'show']);
         Route::get('/day-closes/{dayClose}/pdf', [DayCloseController::class, 'pdf']);
         Route::post('/day-closes/{dayClose}/annotations', [DayCloseController::class, 'storeAnnotation']);
+        // Cierre Diario by WhatsApp (CARTA 9.1E): deliveries/resend need
+        // view_daily_closes; recipient settings need manage_restaurants.
+        Route::get('/day-closes/{dayClose}/deliveries', [DayCloseDeliveryController::class, 'index']);
+        Route::post('/day-closes/{dayClose}/deliveries', [DayCloseDeliveryController::class, 'store'])
+            ->middleware('throttle:day-close-whatsapp-resend');
+        Route::get('/restaurants/{restaurant}/day-close-whatsapp-settings', [DayCloseWhatsAppSettingsController::class, 'show']);
+        Route::put('/restaurants/{restaurant}/day-close-whatsapp-settings', [DayCloseWhatsAppSettingsController::class, 'update']);
         Route::get('/restaurants/{restaurant}/cash-movements', [CashMovementController::class, 'index']);
         Route::post('/restaurants/{restaurant}/cash-movements', [CashMovementController::class, 'store']);
 

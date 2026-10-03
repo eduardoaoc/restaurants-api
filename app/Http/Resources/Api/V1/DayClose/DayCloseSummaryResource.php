@@ -40,6 +40,16 @@ class DayCloseSummaryResource extends JsonResource
             'has_incidents' => $this->has_incidents,
             'closed_by' => ['id' => $this->closed_by_user_id, 'name' => $this->closed_by_name_snapshot],
             'closed_at' => DayCloseFormat::instant($this->closed_at),
+            // CARTA 9.1E: latest WhatsApp delivery (eager-loaded by the
+            // controllers — never lazy, no N+1); null = none attempted.
+            'whatsapp' => $this->whenLoaded('latestDelivery', fn () => $this->latestDelivery === null ? null : [
+                'delivery_id' => $this->latestDelivery->id,
+                'kind' => $this->latestDelivery->kind,
+                'status' => $this->latestDelivery->status,
+                'recipient_phone_masked' => $this->latestDelivery->recipient_phone_masked,
+                'failure_code' => $this->latestDelivery->failure_code,
+                'updated_at' => DayCloseFormat::instant($this->latestDelivery->updated_at),
+            ]),
         ];
     }
 }

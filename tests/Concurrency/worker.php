@@ -16,11 +16,15 @@ use App\Actions\DayClose\CloseRestaurantDayAction;
 use App\Actions\Orders\TransitionOrderStatusAction;
 use App\Actions\Tables\CloseTableAction;
 use App\Exceptions\DayClose\DayCloseException;
+use App\Jobs\SendDayCloseWhatsApp;
 use App\Models\Order;
 use App\Models\Restaurant;
 use App\Models\TableSession;
 use App\Models\User;
 use App\Support\Restaurants\RestaurantOperationalLock;
+use App\Support\WhatsApp\WhatsAppProvider;
+use App\Support\WhatsApp\WhatsAppSendResult;
+use App\Support\WhatsApp\WhatsAppTemplateMessage;
 use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Support\Facades\DB;
 
@@ -110,6 +114,35 @@ try {
             $close = app(CloseRestaurantDayAction::class)->execute(Restaurant::query()->findOrFail($args['restaurant_id']), User::query()->findOrFail($args['user_id']), $args['payload']);
             $result['outcome'] = $close['replayed'] ? 'replayed' : 'created';
             $result['day_close_id'] = $close['day_close']->id;
+            break;
+
+            // CARTA 9.1E: one execution of the WhatsApp send job against a fake
+            // provider that appends to calls_file and holds the "HTTP call"
+            // for hold_ms — two of these race on the same delivery.
+        case 'whatsapp_job':
+            config([
+                'whatsapp.enabled' => true, 'whatsapp.graph_api_version' => 'v25.0', 'whatsapp.phone_number_id' => '1',
+                'whatsapp.access_token' => 'fake', 'whatsapp.template_name' => 't', 'whatsapp.template_language' => 'es_ES',
+                'whatsapp.web_url' => 'https://app.aforo.test',
+            ]);
+            app()->instance(WhatsAppProvider::class, new class($args['calls_file'], $args['hold_ms']) implements WhatsAppProvider
+            {
+                public function __construct(private string $file, private int $holdMs) {}
+
+                public function sendTemplate(WhatsAppTemplateMessage $message): WhatsAppSendResult
+                {
+                    file_put_contents($this->file, getmypid()."\n", FILE_APPEND | LOCK_EX);
+                    usleep($this->holdMs * 1000);
+
+                    return WhatsAppSendResult::accepted('wamid.'.getmypid());
+                }
+            });
+            $waitFor($args['barrier'] ?? null);
+            usleep(($args['delay_ms'] ?? 0) * 1000);
+            $result['started_at_ms'] = $ms();
+            app()->call([new SendDayCloseWhatsApp($args['delivery_id']), 'handle']);
+            $result['finished_at_ms'] = $ms();
+            $result['outcome'] = 'done';
             break;
 
             // Mixed writers + closes hammering one restaurant for duration_ms;

@@ -45,6 +45,7 @@ use App\Exceptions\Tables\TableSessionNotEmptyException;
 use App\Exceptions\Tables\WaiterAssignmentIneligibleException;
 use App\Exceptions\Tables\WaiterCallConflictException;
 use App\Exceptions\TableSessionConflictException;
+use App\Exceptions\WhatsApp\WhatsAppDeliveryException;
 use App\Http\Middleware\EnsurePlatformAdmin;
 use App\Http\Middleware\EnsureUserIsActive;
 use App\Http\Middleware\ResolveTenant;
@@ -291,6 +292,9 @@ return Application::configure(basePath: dirname(__DIR__))
             ], 409);
         });
         $exceptions->render(function (DayCloseException $e, Request $request) {
+            return response()->json(['error' => $e->toResponseError()], $e->status);
+        });
+        $exceptions->render(function (WhatsAppDeliveryException $e, Request $request) {
             return response()->json(['error' => $e->toResponseError()], $e->status);
         });
         $exceptions->render(function (ThrottleRequestsException $e, Request $request) {

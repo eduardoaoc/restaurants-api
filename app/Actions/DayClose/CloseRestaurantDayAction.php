@@ -17,6 +17,7 @@ use App\Support\DayClose\DayClosePeriodResolver;
 use App\Support\DayClose\DayCloseReport;
 use App\Support\Money\Money;
 use App\Support\Restaurants\RestaurantOperationalLock;
+use App\Support\WhatsApp\DayCloseDeliveryService;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
@@ -43,7 +44,9 @@ use Illuminate\Validation\ValidationException;
  *   8. difference computed here (never sent by the client); a note is
  *      required when |difference| > the restaurant threshold (strictly
  *      greater — exactly at the threshold needs no note);
- *   9. canonical report + sha256, insert, AuditLog, activity event.
+ *   9. canonical report + sha256, insert, AuditLog, activity event;
+ *  10. the automatic WhatsApp delivery row, if enabled (CARTA 9.1E) —
+ *      its job is dispatched only after COMMIT.
  *
  * Realtime goes out only after COMMIT (RestaurantActivityCreated is a
  * ShouldDispatchAfterCommit broadcast).
@@ -55,6 +58,7 @@ class CloseRestaurantDayAction
         private readonly DayCloseReport $report,
         private readonly AuditLogger $auditLogger,
         private readonly RestaurantActivityRecorder $activityRecorder,
+        private readonly DayCloseDeliveryService $deliveryService,
     ) {}
 
     /**
@@ -260,6 +264,12 @@ class CloseRestaurantDayAction
             ],
             occurredAt: $closedAt,
         );
+
+        // CARTA 9.1E: the automatic WhatsApp delivery row is created in this
+        // same transaction (so it exists iff the close does); its job only
+        // runs after COMMIT. Never an HTTP call here, and a WhatsApp
+        // problem can never undo the close.
+        $this->deliveryService->planAutomatic($dayClose);
 
         return ['day_close' => $dayClose, 'replayed' => false];
     }

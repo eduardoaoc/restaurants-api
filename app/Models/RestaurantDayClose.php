@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use LogicException;
 
 /**
@@ -105,6 +106,25 @@ class RestaurantDayClose extends Model
     public function closedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'closed_by_user_id');
+    }
+
+    /**
+     * @return HasMany<RestaurantDayCloseDelivery, $this>
+     */
+    public function deliveries(): HasMany
+    {
+        return $this->hasMany(RestaurantDayCloseDelivery::class)->orderBy('id');
+    }
+
+    /**
+     * The most recent WhatsApp delivery (CARTA 9.1E) — eager-loadable for
+     * lists without N+1.
+     *
+     * @return HasOne<RestaurantDayCloseDelivery, $this>
+     */
+    public function latestDelivery(): HasOne
+    {
+        return $this->hasOne(RestaurantDayCloseDelivery::class)->latestOfMany();
     }
 
     /**

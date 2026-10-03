@@ -23,6 +23,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
     'waiter_table_management_enabled',
     'business_day_cutoff_time', 'default_opening_float', 'cash_difference_note_threshold',
     'accept_delay_threshold_minutes', 'preparation_delay_threshold_minutes', 'ready_pickup_delay_threshold_minutes',
+    'daily_close_whatsapp_enabled',
 ])]
 class RestaurantSettings extends Model
 {
@@ -103,6 +104,7 @@ class RestaurantSettings extends Model
             'accept_delay_threshold_minutes' => 'integer',
             'preparation_delay_threshold_minutes' => 'integer',
             'ready_pickup_delay_threshold_minutes' => 'integer',
+            'daily_close_whatsapp_enabled' => 'boolean',
         ];
     }
 

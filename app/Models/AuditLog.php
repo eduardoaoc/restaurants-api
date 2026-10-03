@@ -155,6 +155,20 @@ class AuditLog extends Model
     /** CARTA 9.1A: a Cierre Diario was completed (CloseRestaurantDayAction). */
     public const EVENT_DAY_CLOSE_COMPLETED = 'day_close.completed';
 
+    /** CARTA 9.1E: a manual WhatsApp resend of a Cierre Diario was requested. */
+    public const EVENT_DAY_CLOSE_WHATSAPP_RESEND_REQUESTED = 'day_close.whatsapp_resend_requested';
+
+    /** CARTA 9.1E: WhatsApp report recipient lifecycle (phone only ever masked). */
+    public const EVENT_WHATSAPP_RECIPIENT_CREATED = 'whatsapp_recipient.created';
+
+    public const EVENT_WHATSAPP_RECIPIENT_UPDATED = 'whatsapp_recipient.updated';
+
+    public const EVENT_WHATSAPP_RECIPIENT_DISABLED = 'whatsapp_recipient.disabled';
+
+    public const EVENT_WHATSAPP_CONSENT_RECORDED = 'whatsapp_consent.recorded';
+
+    public const EVENT_WHATSAPP_CONSENT_REVOKED = 'whatsapp_consent.revoked';
+
     /** CARTA 9.1A: a post-close note was added to a Cierre Diario. */
     public const EVENT_DAY_CLOSE_ANNOTATION_ADDED = 'day_close.annotation_added';
 
@@ -208,6 +222,12 @@ class AuditLog extends Model
         self::EVENT_CASH_MOVEMENT_RECORDED,
         self::EVENT_DAY_CLOSE_COMPLETED,
         self::EVENT_DAY_CLOSE_ANNOTATION_ADDED,
+        self::EVENT_DAY_CLOSE_WHATSAPP_RESEND_REQUESTED,
+        self::EVENT_WHATSAPP_RECIPIENT_CREATED,
+        self::EVENT_WHATSAPP_RECIPIENT_UPDATED,
+        self::EVENT_WHATSAPP_RECIPIENT_DISABLED,
+        self::EVENT_WHATSAPP_CONSENT_RECORDED,
+        self::EVENT_WHATSAPP_CONSENT_REVOKED,
     ];
 
     public const RESOURCE_STAFF = 'staff';
@@ -244,6 +264,8 @@ class AuditLog extends Model
 
     public const RESOURCE_DAY_CLOSE = 'day_close';
 
+    public const RESOURCE_REPORT_RECIPIENT = 'report_recipient';
+
     /**
      * @var array<int, string>
      */
@@ -265,6 +287,7 @@ class AuditLog extends Model
         self::RESOURCE_CUSTOMER_FEEDBACK,
         self::RESOURCE_CASH_MOVEMENT,
         self::RESOURCE_DAY_CLOSE,
+        self::RESOURCE_REPORT_RECIPIENT,
     ];
 
     /**

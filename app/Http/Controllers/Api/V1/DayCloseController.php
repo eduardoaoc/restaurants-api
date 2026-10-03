@@ -115,7 +115,7 @@ class DayCloseController extends Controller
 
         $result = $this->closeRestaurantDay->execute($restaurantModel, $user, $request->validated());
 
-        return response()->json(['data' => new DayCloseResource($result['day_close'])], $result['replayed'] ? 200 : 201);
+        return response()->json(['data' => new DayCloseResource($result['day_close']->load('latestDelivery'))], $result['replayed'] ? 200 : 201);
     }
 
     #[OA\Get(
@@ -162,6 +162,7 @@ class DayCloseController extends Controller
             ->when(isset($filters['to']), fn (Builder $query) => $query->where('business_date', '<=', $filters['to']))
             ->when(isset($filters['closed_by']), fn (Builder $query) => $query->where('closed_by_user_id', (int) $filters['closed_by']))
             ->when(isset($filters['has_incidents']), fn (Builder $query) => $query->where('has_incidents', $request->boolean('has_incidents')))
+            ->with('latestDelivery')
             ->orderByDesc('business_date')
             ->orderByDesc('id')
             ->cursorPaginate((int) ($filters['per_page'] ?? 20));
@@ -195,7 +196,7 @@ class DayCloseController extends Controller
 
         $this->authorize('viewDayCloses', $dayCloseModel->restaurant);
 
-        return response()->json(['data' => new DayCloseResource($dayCloseModel)]);
+        return response()->json(['data' => new DayCloseResource($dayCloseModel->load('latestDelivery'))]);
     }
 
     #[OA\Get(
