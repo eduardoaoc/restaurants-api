@@ -37,7 +37,11 @@ class StoreProductMediaRequest extends FormRequest
         $mimeTypes = implode(',', array_keys(ProductMedia::ACCEPTED_MIME_TYPES[$type] ?? []));
 
         return [
-            'file' => ['required', 'file', "mimetypes:{$mimeTypes}", "max:{$maxKilobytes}"],
+            'file' => array_values(array_filter([
+                'required', 'file', $type === ProductMedia::TYPE_IMAGE ? 'image' : null,
+                $type === ProductMedia::TYPE_IMAGE ? 'dimensions:min_width=1,min_height=1' : null,
+                "mimetypes:{$mimeTypes}", "max:{$maxKilobytes}",
+            ])),
         ];
     }
 }

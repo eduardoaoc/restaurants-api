@@ -13,12 +13,17 @@
 use App\Actions\Billing\RecordPaymentAction;
 use App\Actions\Cash\RecordCashMovementAction;
 use App\Actions\DayClose\CloseRestaurantDayAction;
+use App\Actions\Orders\CreatePublicOrderAction;
 use App\Actions\Orders\TransitionOrderStatusAction;
 use App\Actions\Tables\CloseTableAction;
+use App\Actions\Tables\OpenTableAction;
+use App\Exceptions\Billing\TableSessionClosedException;
 use App\Exceptions\DayClose\DayCloseException;
+use App\Exceptions\TableSessionConflictException;
 use App\Jobs\SendDayCloseWhatsApp;
 use App\Models\Order;
 use App\Models\Restaurant;
+use App\Models\Table;
 use App\Models\TableSession;
 use App\Models\User;
 use App\Support\Restaurants\RestaurantOperationalLock;
@@ -53,8 +58,26 @@ $result = ['scenario' => $scenario];
 
 try {
     switch ($scenario) {
-        // An in-flight writer: takes the shared lock, records a payment,
-        // signals, then keeps its transaction open for hold_ms.
+        case 'security_race':
+            $waitFor($args['barrier']);
+            $user = User::query()->findOrFail($args['user_id']);
+            try {
+                $operation = match ($args['operation']) {
+                    'order' => app(CreatePublicOrderAction::class)->execute($args['token'], $args['payload'], 'en')['order'],
+                    'payment' => app(RecordPaymentAction::class)->execute(TableSession::query()->findOrFail($args['session_id']), $user, $args['payload'])['payment'],
+                    'cash' => app(RecordCashMovementAction::class)->execute(Restaurant::query()->findOrFail($args['restaurant_id']), $user, $args['payload'])['movement'],
+                    'open' => app(OpenTableAction::class)->execute(Table::query()->findOrFail($args['table_id']), $user, 2),
+                    'close_session' => app(CloseTableAction::class)->execute(TableSession::query()->findOrFail($args['session_id']), $user),
+                };
+                $result['id'] = $operation->id;
+                $result['outcome'] = 'accepted';
+            } catch (TableSessionConflictException|TableSessionClosedException $e) {
+                $result['outcome'] = 'refused';
+            }
+            break;
+
+            // An in-flight writer: takes the shared lock, records a payment,
+            // signals, then keeps its transaction open for hold_ms.
         case 'hold_shared_payment':
             DB::transaction(function () use ($args, &$result, $ms) {
                 $session = TableSession::query()->findOrFail($args['session_id']);

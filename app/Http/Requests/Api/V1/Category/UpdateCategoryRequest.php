@@ -58,7 +58,7 @@ class UpdateCategoryRequest extends FormRequest
      */
     protected function prepareForValidation(): void
     {
-        if ($this->has('slug')) {
+        if (is_string($this->input('slug'))) {
             $this->merge([
                 'slug' => strtolower(trim((string) $this->input('slug'))),
             ]);

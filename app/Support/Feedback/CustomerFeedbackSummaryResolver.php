@@ -14,15 +14,14 @@ use App\Models\CustomerFeedback;
 class CustomerFeedbackSummaryResolver
 {
     /**
-     * @param  array<int, int>|null  $restaurantIds  Restricts to these restaurants; null means "every restaurant of the organization" (RestaurantScope semantics).
+     * @param  array<int, int>  $restaurantIds  Additional restriction within organizationId; an empty list returns zero feedback and null averages.
      */
-    public static function forWaiter(int $waiterId, ?array $restaurantIds = null): CustomerFeedbackSummary
+    public static function forWaiter(int $waiterId, int $organizationId, array $restaurantIds): CustomerFeedbackSummary
     {
-        $query = CustomerFeedback::query()->where('waiter_id', $waiterId);
-
-        if ($restaurantIds !== null) {
-            $query->whereIn('restaurant_id', $restaurantIds);
-        }
+        $query = CustomerFeedback::query()
+            ->where('waiter_id', $waiterId)
+            ->where('organization_id', $organizationId)
+            ->whereIn('restaurant_id', $restaurantIds);
 
         $row = $query->selectRaw(
             'COUNT(*) as feedback_count, '

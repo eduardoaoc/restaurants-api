@@ -53,7 +53,14 @@ class CustomerFeedbackSummaryController extends Controller
 
         $restaurantIds = RestaurantScope::accessibleRestaurantIds($user, $organization);
 
-        $summary = CustomerFeedbackSummaryResolver::forWaiter($user->id, $restaurantIds);
+        if ($restaurantIds === null) {
+            $restaurantIds = Restaurant::query()
+                ->where('organization_id', $organization->id)
+                ->pluck('id')
+                ->all();
+        }
+
+        $summary = CustomerFeedbackSummaryResolver::forWaiter($user->id, $organization->id, $restaurantIds);
 
         return response()->json([
             'data' => new CustomerFeedbackSummaryResource($summary),
@@ -99,7 +106,7 @@ class CustomerFeedbackSummaryController extends Controller
 
         $this->authorize('viewFeedbackSummary', [$staffUser, $organization, $restaurantModel]);
 
-        $summary = CustomerFeedbackSummaryResolver::forWaiter($staffUser->id, [$restaurantModel->id]);
+        $summary = CustomerFeedbackSummaryResolver::forWaiter($staffUser->id, $organization->id, [$restaurantModel->id]);
 
         return response()->json([
             'data' => new CustomerFeedbackSummaryResource($summary),

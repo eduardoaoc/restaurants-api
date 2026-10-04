@@ -34,6 +34,10 @@ class StoreOrReplaceProductMediaAction
 
         $storedPath = $file->storeAs($directory, $filename, $disk);
 
+        if ($storedPath === false) {
+            throw new RuntimeException('Failed to store product media.');
+        }
+
         $existing = $product->media()->where('type', $type)->first();
 
         try {

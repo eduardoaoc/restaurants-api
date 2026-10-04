@@ -168,10 +168,8 @@ class CustomerFeedbackSummaryTest extends TestCase
 
     public function test_owner_viewing_own_summary_only_counts_restaurants_in_their_scope(): void
     {
-        // An org-wide owner is never a candidate waiter (WaiterAssignmentEligibility
-        // requires the `waiter` role specifically), so their own feedback
-        // summary is always zero — this only proves RestaurantScope's
-        // null ("every restaurant") branch doesn't blow up the query.
+        // This owner has no waiter role or historical feedback. The
+        // organization-wide scope still returns a valid empty summary.
         [, $owner] = $this->tenant();
 
         $this->actingAs($owner, 'web')

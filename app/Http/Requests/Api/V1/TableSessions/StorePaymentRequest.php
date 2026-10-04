@@ -37,7 +37,7 @@ class StorePaymentRequest extends FormRequest
     {
         return [
             'method' => ['required', 'string', Rule::in(PaymentRecord::METHODS)],
-            'amount' => ['required', 'string', 'regex:/^\d+(\.\d{1,2})?$/', 'numeric', 'gt:0'],
+            'amount' => ['required', 'string', 'regex:/^\d{1,8}(\.\d{1,2})?$/', 'numeric', 'gt:0'],
             'reference' => ['nullable', 'string', 'max:100'],
             'note' => ['nullable', 'string', 'max:500'],
             'idempotency_key' => ['nullable', 'string', 'max:100'],

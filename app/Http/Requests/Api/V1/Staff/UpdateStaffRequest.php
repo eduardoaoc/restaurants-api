@@ -83,7 +83,7 @@ class UpdateStaffRequest extends FormRequest
      */
     protected function prepareForValidation(): void
     {
-        if ($this->has('email')) {
+        if (is_string($this->input('email'))) {
             $this->merge([
                 'email' => strtolower(trim((string) $this->input('email'))),
             ]);
@@ -93,7 +93,7 @@ class UpdateStaffRequest extends FormRequest
             $this->merge([
                 'restaurant_assignments' => collect($this->input('restaurant_assignments'))
                     ->map(function ($assignment) {
-                        if (is_array($assignment) && isset($assignment['sub_id'])) {
+                        if (is_array($assignment) && is_string($assignment['sub_id'] ?? null)) {
                             $assignment['sub_id'] = trim((string) $assignment['sub_id']);
                         }
 
