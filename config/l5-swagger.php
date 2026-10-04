@@ -1,10 +1,13 @@
 <?php
 
+use App\Http\Middleware\EnsureDocumentationEnabled;
 use L5Swagger\CustomGeneratorInterface;
 use L5Swagger\Generator;
 use OpenApi\scan;
 
 return [
+    'enabled' => env('L5_SWAGGER_ENABLED',
+        in_array(env('APP_ENV', 'production'), ['local', 'testing'], true)),
     'default' => 'default',
     'documentations' => [
         'default' => [
@@ -78,7 +81,9 @@ return [
             /*
              * Route Group options
              */
-            'group_options' => [],
+            'group_options' => [
+                'middleware' => [EnsureDocumentationEnabled::class],
+            ],
         ],
 
         'paths' => [

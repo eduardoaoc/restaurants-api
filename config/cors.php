@@ -19,10 +19,17 @@ return [
 
     'allowed_methods' => ['*'],
 
-    'allowed_origins' => [
-        'http://localhost:5173',
-        'http://localhost:5174',
-    ],
+    // Exact HTTP(S) origins only; wildcard origins cannot be used with cookies.
+    'allowed_origins' => array_values(array_filter(
+        array_map('trim', explode(',', env('CORS_ALLOWED_ORIGINS',
+            in_array(env('APP_ENV', 'production'), ['local', 'testing'], true)
+                ? 'http://localhost:5173,http://localhost:5174'
+                : ''
+        ))),
+        static fn (string $origin): bool => preg_match(
+            '~^https?://[a-z0-9.-]+(?::[0-9]+)?$~iD', $origin
+        ) === 1,
+    )),
 
     'allowed_origins_patterns' => [],
 

@@ -28,7 +28,9 @@ class DatabaseSeeder extends Seeder
             PlatformAdminDevSeeder::class,
         ]);
 
-        // User::factory(10)->create();
+        if (! app()->environment(['local', 'testing'])) {
+            return;
+        }
 
         User::query()->updateOrCreate([
             'email' => 'test@example.com',
