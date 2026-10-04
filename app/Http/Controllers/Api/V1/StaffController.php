@@ -66,7 +66,9 @@ class StaffController extends Controller
 
         $this->authorize('viewAny', [User::class, $organization]);
 
-        $staff = $this->staffQuery($organization, $request->user())->get();
+        $permitted = RestaurantScope::restaurantIdsWithAnyPermission($request->user(), $organization, ['manage_users']);
+        $staff = $this->staffQuery($organization, $request->user())
+            ->whereHas('restaurants', fn ($query) => $query->whereIn('restaurants.id', $permitted))->get();
 
         return response()->json([
             'data' => [
@@ -125,7 +127,7 @@ class StaffController extends Controller
             ->map(fn (array $assignment) => $this->restaurantQuery($organization, $request->user())
                 ->findOrFail($assignment['restaurant_id']));
 
-        $this->authorize('create', [User::class, $organization, $restaurants->first()]);
+        $restaurants->each(fn (Restaurant $restaurant) => $this->authorize('create', [User::class, $organization, $restaurant]));
 
         $staff = $this->createStaffAction->execute($organization, $request->validated(), $request->user());
 
@@ -252,8 +254,10 @@ class StaffController extends Controller
         // with no partial mutation, exactly like store().
         if ($request->has('restaurant_assignments')) {
             collect($request->validated('restaurant_assignments'))
-                ->each(fn (array $assignment) => $this->restaurantQuery($organization, $request->user())
-                    ->findOrFail($assignment['restaurant_id']));
+                ->each(function (array $assignment) use ($organization, $request): void {
+                    $restaurant = $this->restaurantQuery($organization, $request->user())->findOrFail($assignment['restaurant_id']);
+                    $this->authorize('create', [User::class, $organization, $restaurant]);
+                });
         }
 
         $staff = $this->updateStaffAction->execute($organization, $staff, $request->validated(), $request->user());
@@ -292,6 +296,7 @@ class StaffController extends Controller
     private function staffQuery(Organization $organization, User $requester): Builder
     {
         $accessibleRestaurantIds = RestaurantScope::accessibleRestaurantIds($requester, $organization);
+        $permittedRestaurantIds = RestaurantScope::restaurantIdsWithAnyPermission($requester, $organization, ['manage_users']);
 
         return User::query()
             ->whereHas('restaurants', function ($query) use ($organization, $accessibleRestaurantIds) {
@@ -302,11 +307,12 @@ class StaffController extends Controller
                 }
             })
             ->with([
-                'restaurants' => function ($query) use ($organization) {
-                    $query->where('restaurants.organization_id', $organization->id);
+                'restaurants' => function ($query) use ($organization, $permittedRestaurantIds) {
+                    $query->where('restaurants.organization_id', $organization->id)->whereIn('restaurants.id', $permittedRestaurantIds);
                 },
-                'roles' => function ($query) use ($organization) {
-                    $query->wherePivot('organization_id', $organization->id);
+                'roles' => function ($query) use ($organization, $permittedRestaurantIds) {
+                    $query->wherePivot('organization_id', $organization->id)
+                        ->where(fn ($grants) => $grants->whereNull('user_roles.restaurant_id')->orWhereIn('user_roles.restaurant_id', $permittedRestaurantIds));
                 },
                 // Scoped to this one organization so StaffResource reads
                 // the correct membership pivot (`->organizations->first()

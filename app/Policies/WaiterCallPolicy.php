@@ -29,7 +29,7 @@ class WaiterCallPolicy
         $organization = $session->restaurant->organization;
 
         return $this->belongsTo($user, $organization)
-            && $user->hasPermission(self::PERMISSION, $organization)
+            && $user->hasRestaurantPermission(self::PERMISSION, $session->restaurant)
             && RestaurantScope::canAccessRestaurant($user, $session->restaurant);
     }
 
@@ -45,7 +45,7 @@ class WaiterCallPolicy
             return true;
         }
 
-        return $user->hasPermission(self::PERMISSION, $organization);
+        return $user->hasRestaurantPermission(self::PERMISSION, $call->restaurant);
     }
 
     private function belongsTo(User $user, Organization $organization): bool

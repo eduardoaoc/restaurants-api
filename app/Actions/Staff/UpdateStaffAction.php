@@ -76,7 +76,9 @@ class UpdateStaffAction
                 $membership->update(['status' => $data['status']]);
             }
 
-            $existingRestaurantUsers = RestaurantUser::query()->where('user_id', $staff->id)->get()->keyBy('restaurant_id');
+            $existingRestaurantUsers = RestaurantUser::query()->where('user_id', $staff->id)
+                ->whereHas('restaurant', fn ($query) => $query->where('organization_id', $organization->id))
+                ->get()->keyBy('restaurant_id');
             $existingUserRoles = UserRole::query()
                 ->where('user_id', $staff->id)
                 ->where('organization_id', $organization->id)

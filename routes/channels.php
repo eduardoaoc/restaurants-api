@@ -80,7 +80,7 @@ Broadcast::channel('restaurant.{restaurantId}.activity', function (User $user, i
 
     return $restaurant !== null
         && $canReachRestaurant($user, $restaurant)
-        && $user->hasPermission('view_activity', $restaurant->organization);
+        && $user->hasRestaurantPermission('view_activity', $restaurant);
 });
 
 /*

@@ -10,6 +10,7 @@ use App\Http\Resources\Api\V1\Kitchen\KitchenOrderResource;
 use App\Models\Order;
 use App\Models\Organization;
 use App\Models\Restaurant;
+use App\Policies\OrderPolicy;
 use App\Support\Restaurants\RestaurantScope;
 use App\Support\Tenancy\TenantContext;
 use Illuminate\Database\Eloquent\Builder;
@@ -78,11 +79,9 @@ class KitchenController extends Controller
             ->whereHas('restaurant', fn ($q) => $q->where('organization_id', $organization->id))
             ->whereIn('status', Order::kitchenQueueStatuses());
 
-        $restaurantIds = RestaurantScope::accessibleRestaurantIds($user, $organization);
+        $restaurantIds = RestaurantScope::restaurantIdsWithAnyPermission($user, $organization, OrderPolicy::KITCHEN_VIEW_PERMISSIONS);
 
-        if ($restaurantIds !== null) {
-            $query->whereIn('restaurant_id', $restaurantIds);
-        }
+        $query->whereIn('restaurant_id', $restaurantIds);
 
         if ($request->filled('restaurant_id')) {
             $restaurant = $this->restaurantQuery($organization, $restaurantIds)
@@ -143,6 +142,8 @@ class KitchenController extends Controller
 
         $restaurant = $this->restaurantQuery($organization, RestaurantScope::accessibleRestaurantIds($request->user(), $organization))
             ->findOrFail((int) $request->validated('restaurant_id'));
+
+        $this->authorize('viewKitchenInRestaurant', [Order::class, $restaurant]);
 
         return response()->json([
             'data' => $this->buildDashboard->execute($restaurant),

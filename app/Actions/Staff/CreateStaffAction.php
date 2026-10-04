@@ -21,9 +21,9 @@ use Illuminate\Support\Facades\DB;
  * matched 1:1 — user_roles.restaurant_id is not a vestigial "pick one"
  * marker, each row genuinely ties this role to that one restaurant.
  * RestaurantScope reads restaurant membership from restaurant_users, not
- * from this duplication; hasPermission() (User::hasPermission()) is
- * restaurant_id-agnostic, so the duplication costs nothing at permission-
- * check time and keeps every user_roles row self-describing.
+ * from this duplication. Permission enforcement reads grants scoped to
+ * the target restaurant (or organization-wide grants), so each assignment
+ * remains independently enforceable.
  */
 class CreateStaffAction
 {

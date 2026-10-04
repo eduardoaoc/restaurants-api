@@ -36,7 +36,7 @@ class RestaurantPolicy
      */
     public function create(User $user, Organization $organization): bool
     {
-        return $user->hasPermission('manage_restaurants', $organization);
+        return $user->hasOrganizationPermission('manage_restaurants', $organization);
     }
 
     /**
@@ -46,7 +46,7 @@ class RestaurantPolicy
      */
     public function update(User $user, Restaurant $restaurant): bool
     {
-        return $user->hasPermission('manage_restaurants', $restaurant->organization)
+        return $user->hasRestaurantPermission('manage_restaurants', $restaurant)
             && RestaurantScope::canAccessRestaurant($user, $restaurant);
     }
 
@@ -61,7 +61,7 @@ class RestaurantPolicy
     public function viewReports(User $user, Restaurant $restaurant): bool
     {
         return $user->organizations()->whereKey($restaurant->organization_id)->exists()
-            && $user->hasPermission('view_reports', $restaurant->organization)
+            && $user->hasRestaurantPermission('view_reports', $restaurant)
             && RestaurantScope::canAccessRestaurant($user, $restaurant);
     }
 
@@ -76,7 +76,7 @@ class RestaurantPolicy
     public function manageSettings(User $user, Restaurant $restaurant): bool
     {
         return $user->organizations()->whereKey($restaurant->organization_id)->exists()
-            && $user->hasPermission('manage_restaurants', $restaurant->organization)
+            && $user->hasRestaurantPermission('manage_restaurants', $restaurant)
             && RestaurantScope::canAccessRestaurant($user, $restaurant);
     }
 
@@ -89,8 +89,8 @@ class RestaurantPolicy
     {
         return $user->organizations()->whereKey($restaurant->organization_id)->exists()
             && RestaurantScope::canAccessRestaurant($user, $restaurant)
-            && ($user->hasPermission('manage_tables', $restaurant->organization)
-                || $user->hasPermission('close_bill', $restaurant->organization));
+            && ($user->hasRestaurantPermission('manage_tables', $restaurant)
+                || $user->hasRestaurantPermission('close_bill', $restaurant));
     }
 
     /**
@@ -101,7 +101,7 @@ class RestaurantPolicy
     {
         return $user->organizations()->whereKey($restaurant->organization_id)->exists()
             && RestaurantScope::canAccessRestaurant($user, $restaurant)
-            && $user->hasPermission('manage_floor_plan', $restaurant->organization);
+            && $user->hasRestaurantPermission('manage_floor_plan', $restaurant);
     }
 
     /**
@@ -115,7 +115,7 @@ class RestaurantPolicy
     public function viewOperations(User $user, Restaurant $restaurant): bool
     {
         return $user->organizations()->whereKey($restaurant->organization_id)->exists()
-            && $user->hasPermission('view_operations', $restaurant->organization)
+            && $user->hasRestaurantPermission('view_operations', $restaurant)
             && RestaurantScope::canAccessRestaurant($user, $restaurant);
     }
 
@@ -130,7 +130,7 @@ class RestaurantPolicy
     public function viewActivity(User $user, Restaurant $restaurant): bool
     {
         return $user->organizations()->whereKey($restaurant->organization_id)->exists()
-            && $user->hasPermission('view_activity', $restaurant->organization)
+            && $user->hasRestaurantPermission('view_activity', $restaurant)
             && RestaurantScope::canAccessRestaurant($user, $restaurant);
     }
 
@@ -143,7 +143,7 @@ class RestaurantPolicy
     public function closeDay(User $user, Restaurant $restaurant): bool
     {
         return $user->organizations()->whereKey($restaurant->organization_id)->exists()
-            && $user->hasPermission('close_daily_operation', $restaurant->organization)
+            && $user->hasRestaurantPermission('close_daily_operation', $restaurant)
             && RestaurantScope::canAccessRestaurant($user, $restaurant);
     }
 
@@ -156,7 +156,7 @@ class RestaurantPolicy
     public function viewDayCloses(User $user, Restaurant $restaurant): bool
     {
         return $user->organizations()->whereKey($restaurant->organization_id)->exists()
-            && $user->hasPermission('view_daily_closes', $restaurant->organization)
+            && $user->hasRestaurantPermission('view_daily_closes', $restaurant)
             && RestaurantScope::canAccessRestaurant($user, $restaurant);
     }
 }

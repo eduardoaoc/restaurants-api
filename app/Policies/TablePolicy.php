@@ -88,7 +88,7 @@ class TablePolicy
 
         return $this->belongsTo($user, $organization)
             && RestaurantScope::canAccessRestaurant($user, $restaurant)
-            && ($user->hasPermission('manage_tables', $organization) || $user->hasPermission('close_bill', $organization));
+            && ($user->hasRestaurantPermission('manage_tables', $restaurant) || $user->hasRestaurantPermission('close_bill', $restaurant));
     }
 
     private function canManage(User $user, Restaurant $restaurant): bool
@@ -97,7 +97,7 @@ class TablePolicy
 
         return $this->belongsTo($user, $organization)
             && RestaurantScope::canAccessRestaurant($user, $restaurant)
-            && $user->hasPermission('manage_tables', $organization);
+            && $user->hasRestaurantPermission('manage_tables', $restaurant);
     }
 
     /**
@@ -108,11 +108,11 @@ class TablePolicy
      */
     private function canManageStructure(User $user, Restaurant $restaurant): bool
     {
-        if ($user->hasPermission('manage_floor_plan', $restaurant->organization)) {
+        if ($user->hasRestaurantPermission('manage_floor_plan', $restaurant)) {
             return true;
         }
 
-        return $restaurant->settings?->waiter_table_management_enabled
+        return $restaurant->settings()->value('waiter_table_management_enabled')
             ?? RestaurantSettings::DEFAULT_WAITER_TABLE_MANAGEMENT_ENABLED;
     }
 

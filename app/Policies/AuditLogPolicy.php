@@ -4,6 +4,7 @@ namespace App\Policies;
 
 use App\Models\Organization;
 use App\Models\User;
+use App\Support\Restaurants\RestaurantScope;
 
 /**
  * Authorizes reading the audit log. There is no per-resource "view" ability
@@ -17,6 +18,7 @@ class AuditLogPolicy
     public function viewAny(User $user, Organization $organization): bool
     {
         return $user->organizations()->whereKey($organization->id)->exists()
-            && $user->hasPermission('view_audit', $organization);
+            && ($user->hasOrganizationPermission('view_audit', $organization)
+                || RestaurantScope::restaurantIdsWithAnyPermission($user, $organization, ['view_audit']) !== []);
     }
 }

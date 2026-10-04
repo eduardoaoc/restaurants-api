@@ -77,7 +77,9 @@ class AuditLogController extends Controller
         $this->authorize('viewAny', [AuditLog::class, $organization]);
 
         $user = $request->user();
-        $accessibleRestaurantIds = RestaurantScope::accessibleRestaurantIds($user, $organization);
+        $accessibleRestaurantIds = $user->hasOrganizationPermission('view_audit', $organization)
+            ? RestaurantScope::accessibleRestaurantIds($user, $organization)
+            : RestaurantScope::restaurantIdsWithAnyPermission($user, $organization, ['view_audit']);
 
         // Bloco 0: platform.* events are recorded against this same table
         // (see PlatformAuditLogger) and may carry this very

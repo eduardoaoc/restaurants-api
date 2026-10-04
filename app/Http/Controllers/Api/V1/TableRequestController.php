@@ -72,7 +72,8 @@ class TableRequestController extends Controller
 
         $this->authorize('viewAny', [TableRequest::class, $organization]);
 
-        $query = $this->tableRequestQuery($organization, $user);
+        $query = $this->tableRequestQuery($organization, $user)
+            ->whereIn('restaurant_id', RestaurantScope::restaurantIdsWithAnyPermission($user, $organization, ['handle_table_requests']));
 
         if ($request->filled('restaurant_id')) {
             $query->where('restaurant_id', (int) $request->validated('restaurant_id'));

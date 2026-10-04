@@ -3,7 +3,9 @@
 namespace Tests\Feature\Permissions;
 
 use App\Models\CategoryProduct;
+use App\Models\Organization;
 use App\Models\Restaurant;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\Concerns\InteractsWithTenants;
 use Tests\TestCase;
@@ -13,8 +15,7 @@ use Tests\TestCase;
  * found where every Carta WRITE ability (Category/RestaurantProduct/
  * ModifierGroup/ModifierOption/Menu create+update) checked organization
  * membership + the permission slug only — never RestaurantScope. Since
- * User::hasPermission() is organization-wide (it has no notion of WHICH
- * restaurant a permission was granted for), a manager whose
+ * the former helper aggregated grants across restaurants, a manager whose
  * restaurant_users/user_roles rows scope them to only Restaurant A of an
  * organization could still mutate the Carta of a sibling Restaurant B in
  * the SAME organization, simply by knowing its id.
@@ -39,7 +40,7 @@ class RestaurantScopedCatalogWriteTest extends TestCase
     }
 
     /**
-     * @return array{0: \App\Models\Organization, 1: \App\Models\User, 2: \App\Models\User, 3: Restaurant, 4: Restaurant}
+     * @return array{0: Organization, 1: User, 2: User, 3: Restaurant, 4: Restaurant}
      */
     private function twoRestaurantsWithScopedManager(): array
     {

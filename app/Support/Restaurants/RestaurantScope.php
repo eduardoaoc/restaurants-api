@@ -51,6 +51,36 @@ class RestaurantScope
             ->all();
     }
 
+    /**
+     * Restaurants reachable AND authorized for a collection operation.
+     * Uses database grants on every call, never a loaded permission collection.
+     *
+     * @param  array<int, string>  $permissions
+     * @return array<int, int>
+     */
+    public static function restaurantIdsWithAnyPermission(User $user, Organization $organization, array $permissions): array
+    {
+        $accessible = self::accessibleRestaurantIds($user, $organization);
+
+        return Restaurant::query()
+            ->where('organization_id', $organization->id)
+            ->when($accessible !== null, fn ($query) => $query->whereIn('id', $accessible))
+            ->whereExists(function ($query) use ($user, $organization, $permissions): void {
+                $query->selectRaw('1')->from('user_roles')
+                    ->where('user_roles.user_id', $user->id)
+                    ->where('user_roles.organization_id', $organization->id)
+                    ->where(fn ($grants) => $grants->whereNull('user_roles.restaurant_id')
+                        ->orWhereColumn('user_roles.restaurant_id', 'restaurants.id'))
+                    ->whereExists(function ($grants) use ($permissions): void {
+                        $grants->selectRaw('1')->from('role_permissions')
+                            ->join('permissions', 'permissions.id', '=', 'role_permissions.permission_id')
+                            ->whereColumn('role_permissions.role_id', 'user_roles.role_id')
+                            ->whereIn('permissions.slug', $permissions);
+                    });
+            })
+            ->pluck('id')->all();
+    }
+
     public static function canAccessRestaurant(User $user, Restaurant $restaurant): bool
     {
         $accessible = self::accessibleRestaurantIds($user, $restaurant->organization);

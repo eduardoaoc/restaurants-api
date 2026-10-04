@@ -106,17 +106,23 @@ class User extends Authenticatable
         return $this->hasMany(StaffReview::class, 'staff_user_id');
     }
 
-    /**
-     * Determine whether this user holds a role within the given organization
-     * that grants the given permission slug.
-     */
-    public function hasPermission(string $permissionSlug, Organization $organization): bool
+    /** Organization operations require an organization-wide assignment. */
+    public function hasOrganizationPermission(string $permissionSlug, Organization $organization): bool
     {
         return $this->userRoles()
             ->where('organization_id', $organization->id)
-            ->whereHas('role.permissions', function ($query) use ($permissionSlug) {
-                $query->where('slug', $permissionSlug);
-            })
+            ->whereNull('restaurant_id')
+            ->whereHas('role.permissions', fn ($query) => $query->where('slug', $permissionSlug))
+            ->exists();
+    }
+
+    /** Restaurant operations accept only organization-wide or target grants. */
+    public function hasRestaurantPermission(string $permissionSlug, Restaurant $restaurant): bool
+    {
+        return $this->userRoles()
+            ->where('organization_id', $restaurant->organization_id)
+            ->where(fn ($query) => $query->whereNull('restaurant_id')->orWhere('restaurant_id', $restaurant->id))
+            ->whereHas('role.permissions', fn ($query) => $query->where('slug', $permissionSlug))
             ->exists();
     }
 
@@ -159,7 +165,7 @@ class User extends Authenticatable
     /**
      * Determine whether this user holds a platform role that grants the
      * given platform permission slug. Entirely separate from
-     * hasPermission() above — a platform permission is never satisfied by
+     * tenant permission helpers above — a platform permission is never satisfied by
      * a tenant role, and vice versa.
      */
     public function hasPlatformPermission(string $permissionSlug): bool

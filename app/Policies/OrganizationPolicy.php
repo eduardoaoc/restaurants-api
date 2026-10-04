@@ -20,6 +20,6 @@ class OrganizationPolicy
      */
     public function update(User $user, Organization $organization): bool
     {
-        return $user->hasPermission('manage_organization', $organization);
+        return $user->hasOrganizationPermission('manage_organization', $organization);
     }
 }

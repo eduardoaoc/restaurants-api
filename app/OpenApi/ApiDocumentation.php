@@ -74,7 +74,7 @@ use OpenApi\Attributes as OA;
 )]
 #[OA\Schema(
     schema: 'AuthContextOrganization',
-    description: 'One organization the user belongs to. permissions here mirrors what User::hasPermission() enforces for organization-scoped actions (create/update restaurants, manage staff, ...) — restaurants[] lists only the restaurants this user can actually reach within it (see RestaurantScope), each with its own narrower permissions array.',
+    description: 'One organization the user belongs to. permissions here mirrors what User::hasOrganizationPermission() enforces for organization-scoped actions (create restaurants, organization settings, global products) — restaurants[] lists only the restaurants this user can actually reach within it (see RestaurantScope), each with its own narrower permissions array.',
     required: ['id', 'name', 'slug', 'status', 'roles', 'permissions', 'restaurants'],
     properties: [
         new OA\Property(property: 'id', type: 'integer', format: 'int64', example: 1),

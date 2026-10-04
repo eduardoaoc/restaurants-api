@@ -4,6 +4,7 @@ namespace App\Policies;
 
 use App\Models\Order;
 use App\Models\Organization;
+use App\Models\Restaurant;
 use App\Models\Table;
 use App\Models\User;
 use App\Support\Restaurants\RestaurantScope;
@@ -26,7 +27,7 @@ class OrderPolicy
      * orders list/detail — the same "OR" pattern already used by
      * TablePolicy for viewing tables.
      */
-    private const VIEW_PERMISSIONS = [
+    public const VIEW_PERMISSIONS = [
         'create_orders',
         'approve_customer_orders',
         'update_kitchen_status',
@@ -39,7 +40,7 @@ class OrderPolicy
      * queue — narrower than the full orders list, since it's specifically
      * about the confirmed/accepted/preparing/ready lifecycle.
      */
-    private const KITCHEN_VIEW_PERMISSIONS = [
+    public const KITCHEN_VIEW_PERMISSIONS = [
         'update_kitchen_status',
         'serve_orders',
         'approve_customer_orders',
@@ -47,7 +48,8 @@ class OrderPolicy
 
     public function viewAny(User $user, Organization $organization): bool
     {
-        return $this->belongsTo($user, $organization) && $this->hasAnyPermission($user, $organization, self::VIEW_PERMISSIONS);
+        return $this->belongsTo($user, $organization) && ($this->hasAnyOrganizationPermission($user, $organization, self::VIEW_PERMISSIONS)
+            || RestaurantScope::restaurantIdsWithAnyPermission($user, $organization, self::VIEW_PERMISSIONS) !== []);
     }
 
     public function view(User $user, Order $order): bool
@@ -66,7 +68,15 @@ class OrderPolicy
 
     public function viewKitchen(User $user, Organization $organization): bool
     {
-        return $this->belongsTo($user, $organization) && $this->hasAnyPermission($user, $organization, self::KITCHEN_VIEW_PERMISSIONS);
+        return $this->belongsTo($user, $organization) && ($this->hasAnyOrganizationPermission($user, $organization, self::KITCHEN_VIEW_PERMISSIONS)
+            || RestaurantScope::restaurantIdsWithAnyPermission($user, $organization, self::KITCHEN_VIEW_PERMISSIONS) !== []);
+    }
+
+    public function viewKitchenInRestaurant(User $user, Restaurant $restaurant): bool
+    {
+        return $this->belongsTo($user, $restaurant->organization)
+            && RestaurantScope::canAccessRestaurant($user, $restaurant)
+            && $this->hasAnyPermission($user, $restaurant, self::KITCHEN_VIEW_PERMISSIONS);
     }
 
     public function create(User $user, Table $table): bool
@@ -74,7 +84,7 @@ class OrderPolicy
         $organization = $table->restaurant->organization;
 
         return $this->belongsTo($user, $organization)
-            && $user->hasPermission('create_orders', $organization)
+            && $user->hasRestaurantPermission('create_orders', $table->restaurant)
             && RestaurantScope::canAccessRestaurant($user, $table->restaurant);
     }
 
@@ -136,10 +146,21 @@ class OrderPolicy
     /**
      * @param  array<int, string>  $permissions
      */
-    private function hasAnyPermission(User $user, Organization $organization, array $permissions): bool
+    private function hasAnyOrganizationPermission(User $user, Organization $organization, array $permissions): bool
     {
         foreach ($permissions as $permission) {
-            if ($user->hasPermission($permission, $organization)) {
+            if ($user->hasOrganizationPermission($permission, $organization)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function hasAnyPermission(User $user, Restaurant $restaurant, array $permissions): bool
+    {
+        foreach ($permissions as $permission) {
+            if ($user->hasRestaurantPermission($permission, $restaurant)) {
                 return true;
             }
         }
@@ -152,7 +173,7 @@ class OrderPolicy
         $organization = $order->restaurant->organization;
 
         return $this->belongsTo($user, $organization)
-            && $user->hasPermission($permission, $organization)
+            && $user->hasRestaurantPermission($permission, $order->restaurant)
             && RestaurantScope::canAccessRestaurant($user, $order->restaurant);
     }
 
@@ -164,7 +185,7 @@ class OrderPolicy
         $organization = $order->restaurant->organization;
 
         return $this->belongsTo($user, $organization)
-            && $this->hasAnyPermission($user, $organization, $permissions)
+            && $this->hasAnyPermission($user, $order->restaurant, $permissions)
             && RestaurantScope::canAccessRestaurant($user, $order->restaurant);
     }
 }

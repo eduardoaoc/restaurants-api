@@ -27,9 +27,11 @@ use App\Support\Restaurants\RestaurantScope;
  */
 class StaffShiftPolicy
 {
-    public function viewAny(User $user, Organization $organization): bool
+    public function viewAny(User $user, Restaurant $restaurant): bool
     {
-        return $this->belongsTo($user, $organization) && $user->hasPermission('manage_staff_shifts', $organization);
+        return $this->belongsTo($user, $restaurant->organization)
+            && RestaurantScope::canAccessRestaurant($user, $restaurant)
+            && $user->hasRestaurantPermission('manage_staff_shifts', $restaurant);
     }
 
     public function start(User $user, User $candidate, Restaurant $restaurant): bool
@@ -44,7 +46,7 @@ class StaffShiftPolicy
             return true;
         }
 
-        return $user->hasPermission('manage_staff_shifts', $organization);
+        return $user->hasRestaurantPermission('manage_staff_shifts', $restaurant);
     }
 
     public function end(User $user, StaffShift $shift): bool
@@ -59,7 +61,7 @@ class StaffShiftPolicy
             return true;
         }
 
-        return $user->hasPermission('manage_staff_shifts', $organization);
+        return $user->hasRestaurantPermission('manage_staff_shifts', $shift->restaurant);
     }
 
     private function belongsTo(User $user, Organization $organization): bool

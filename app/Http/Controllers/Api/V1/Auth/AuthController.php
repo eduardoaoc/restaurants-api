@@ -160,7 +160,7 @@ class AuthController extends Controller
      * organization has been chosen. Every organization/restaurant/
      * permission returned here is instead derived directly from the
      * user's own membership and role rows, scoped exactly like every
-     * other tenant endpoint (RestaurantScope, hasPermission()) — no
+     * other tenant endpoint (RestaurantScope, explicit permission helpers) — no
      * organization or restaurant belonging to another tenant is ever
      * reachable through this response.
      */

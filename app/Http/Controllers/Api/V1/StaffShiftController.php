@@ -84,7 +84,7 @@ class StaffShiftController extends Controller
         $user = $request->user();
         $restaurantModel = $this->restaurantQuery($organization, $user)->findOrFail($restaurant);
 
-        $this->authorize('viewAny', [StaffShift::class, $organization]);
+        $this->authorize('viewAny', [StaffShift::class, $restaurantModel]);
 
         $query = StaffShift::query()->where('restaurant_id', $restaurantModel->id);
 

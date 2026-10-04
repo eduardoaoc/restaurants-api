@@ -126,6 +126,6 @@ class StaffIndexTest extends TestCase
         $owner = User::factory()->create();
         $this->assignRole($owner, 'owner', $organization);
 
-        $this->assertTrue($owner->hasPermission('manage_users', $organization));
+        $this->assertTrue($owner->hasOrganizationPermission('manage_users', $organization));
     }
 }

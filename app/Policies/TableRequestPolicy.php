@@ -22,7 +22,8 @@ class TableRequestPolicy
 
     public function viewAny(User $user, Organization $organization): bool
     {
-        return $this->belongsTo($user, $organization) && $user->hasPermission(self::PERMISSION, $organization);
+        return $this->belongsTo($user, $organization) && ($user->hasOrganizationPermission(self::PERMISSION, $organization)
+            || RestaurantScope::restaurantIdsWithAnyPermission($user, $organization, [self::PERMISSION]) !== []);
     }
 
     public function view(User $user, TableRequest $tableRequest): bool
@@ -55,7 +56,7 @@ class TableRequestPolicy
         $organization = $tableRequest->restaurant->organization;
 
         return $this->belongsTo($user, $organization)
-            && $user->hasPermission(self::PERMISSION, $organization)
+            && $user->hasRestaurantPermission(self::PERMISSION, $tableRequest->restaurant)
             && RestaurantScope::canAccessRestaurant($user, $tableRequest->restaurant);
     }
 }

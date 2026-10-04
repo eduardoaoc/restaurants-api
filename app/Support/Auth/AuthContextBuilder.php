@@ -48,14 +48,8 @@ use Illuminate\Support\Facades\Gate;
  *     therefore never leaks into what is shown for Restaurant A (e.g.
  *     waiter) for a staff member linked to both, and a restaurant-scoped
  *     role (the only kind CreateStaffAction ever creates — manager
- *     included) never inflates the organization-level list either, even
- *     though User::hasPermission() itself is restaurant_id-agnostic and
- *     would return true for it at the organization scope too. This
- *     endpoint is intentionally stricter/more precise than that raw check
- *     for display purposes; it never under-reports a capability the real
- *     Policies would grant for a reachable restaurant (see restaurant-
- *     level permissions above), only the organization-wide bucket is
- *     narrowed to avoid implying a restaurant-scoped grant is universal.
+ *     included) never inflates the organization-level list either.
+ *     Enforcement uses the same organization-wide / target-restaurant rules.
  */
 class AuthContextBuilder
 {

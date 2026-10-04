@@ -32,7 +32,7 @@ class CustomerFeedbackPolicy
     private function canView(User $user, Organization $organization, Restaurant $restaurant): bool
     {
         return $user->organizations()->whereKey($organization->id)->exists()
-            && $user->hasPermission('view_customer_feedback', $organization)
+            && $user->hasRestaurantPermission('view_customer_feedback', $restaurant)
             && RestaurantScope::canAccessRestaurant($user, $restaurant);
     }
 }

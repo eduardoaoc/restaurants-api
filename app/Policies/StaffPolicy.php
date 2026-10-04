@@ -8,22 +8,10 @@ use App\Models\User;
 use App\Support\Restaurants\RestaurantScope;
 
 /**
- * Authorizes management of operational staff (manager/waiter/kitchen/cashier)
- * within the active organization. Every ability requires the acting user to
- * belong to the organization and to hold the manage_users permission there —
- * there is no role-name shortcut; owner and manager only pass because their
- * seeded role grants manage_users.
- *
- * view/update additionally require AT LEAST ONE of the target's restaurants
- * (Bloco 18: a staff member may have 1..N) to be within the requester's
- * RestaurantScope — matching StaffController::staffQuery()'s
- * whereHas('restaurants', ...) semantics exactly: a requester who can reach
- * any one of the target's restaurants can find them, so the policy must
- * agree, not silently disagree by only checking one arbitrarily-picked
- * restaurant. This is defense in depth, not the primary gate —
- * staffQuery()/restaurantQuery() already scope the query so a target with
- * zero reachable restaurants resolves as 404 via findOrFail before the
- * policy ever runs.
+ * Staff lists/details expose only restaurants with manage_users grants.
+ * Creation requires permission at every proposed restaurant. Updating global
+ * identity, organization membership or the full assignment set requires
+ * permission at every existing and proposed restaurant in this organization.
  */
 class StaffPolicy
 {
@@ -39,13 +27,18 @@ class StaffPolicy
 
     public function create(User $user, Organization $organization, Restaurant $restaurant): bool
     {
-        return $this->canManageUsers($user, $organization)
-            && RestaurantScope::canAccessRestaurant($user, $restaurant);
+        return $user->organizations()->whereKey($organization->id)->exists()
+            && $restaurant->organization_id === $organization->id
+            && RestaurantScope::canAccessRestaurant($user, $restaurant)
+            && $user->hasRestaurantPermission('manage_users', $restaurant);
     }
 
     public function update(User $user, User $staff, Organization $organization): bool
     {
-        return $this->canAccessStaff($user, $staff, $organization, 'manage_users');
+        return $this->canManageUsers($user, $organization)
+            && $staff->restaurants()->where('restaurants.organization_id', $organization->id)->exists()
+            && ! $staff->restaurants()->where('restaurants.organization_id', $organization->id)
+                ->whereNotIn('restaurants.id', RestaurantScope::restaurantIdsWithAnyPermission($user, $organization, ['manage_users']))->exists();
     }
 
     /**
@@ -89,12 +82,13 @@ class StaffPolicy
     private function canManageUsers(User $user, Organization $organization): bool
     {
         return $user->organizations()->whereKey($organization->id)->exists()
-            && $user->hasPermission('manage_users', $organization);
+            && ($user->hasOrganizationPermission('manage_users', $organization)
+                || RestaurantScope::restaurantIdsWithAnyPermission($user, $organization, ['manage_users']) !== []);
     }
 
     /**
-     * True when the requester holds $permission in the organization AND
-     * can reach at least one of the target staff member's restaurants.
+     * True when at least one target restaurant is both reachable and covered
+     * by the requester's grant for that same restaurant.
      */
     private function canAccessStaff(User $user, User $staff, Organization $organization, string $permission): bool
     {
@@ -102,23 +96,14 @@ class StaffPolicy
             return false;
         }
 
-        if (! $user->hasPermission($permission, $organization)) {
-            return false;
-        }
+        $permitted = RestaurantScope::restaurantIdsWithAnyPermission($user, $organization, [$permission]);
 
-        $staffRestaurantIds = $staff->restaurants->pluck('id');
-
-        if ($staffRestaurantIds->isEmpty()) {
-            return false;
-        }
-
-        $accessible = RestaurantScope::accessibleRestaurantIds($user, $organization);
-
-        return $accessible === null || $staffRestaurantIds->intersect($accessible)->isNotEmpty();
+        return $staff->restaurants()->where('restaurants.organization_id', $organization->id)
+            ->whereIn('restaurants.id', $permitted)->exists();
     }
 
     /**
-     * True when the requester holds $permission in the organization, can
+     * True when the requester holds $permission for the target restaurant, can
      * reach $restaurant specifically, and the target staff member holds a
      * restaurant_users row for that exact restaurant.
      */
@@ -128,7 +113,7 @@ class StaffPolicy
             return false;
         }
 
-        if (! $user->hasPermission($permission, $organization)) {
+        if (! $user->hasRestaurantPermission($permission, $restaurant)) {
             return false;
         }
 
@@ -136,6 +121,7 @@ class StaffPolicy
             return false;
         }
 
-        return $staff->restaurants->contains('id', $restaurant->id);
+        return $restaurant->organization_id === $organization->id
+            && $staff->restaurants()->whereKey($restaurant->id)->exists();
     }
 }

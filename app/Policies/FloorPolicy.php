@@ -52,15 +52,15 @@ class FloorPolicy
     {
         return $this->belongsTo($user, $restaurant->organization)
             && RestaurantScope::canAccessRestaurant($user, $restaurant)
-            && ($user->hasPermission('manage_tables', $restaurant->organization)
-                || $user->hasPermission('close_bill', $restaurant->organization));
+            && ($user->hasRestaurantPermission('manage_tables', $restaurant)
+                || $user->hasRestaurantPermission('close_bill', $restaurant));
     }
 
     private function canManage(User $user, Restaurant $restaurant): bool
     {
         return $this->belongsTo($user, $restaurant->organization)
             && RestaurantScope::canAccessRestaurant($user, $restaurant)
-            && $user->hasPermission('manage_floor_plan', $restaurant->organization);
+            && $user->hasRestaurantPermission('manage_floor_plan', $restaurant);
     }
 
     private function belongsTo(User $user, Organization $organization): bool

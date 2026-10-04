@@ -31,6 +31,6 @@ class ProductPolicy
     private function canManage(User $user, Organization $organization): bool
     {
         return $user->organizations()->whereKey($organization->id)->exists()
-            && $user->hasPermission('manage_products', $organization);
+            && $user->hasOrganizationPermission('manage_products', $organization);
     }
 }

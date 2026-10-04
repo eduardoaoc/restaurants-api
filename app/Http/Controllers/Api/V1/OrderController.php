@@ -13,6 +13,7 @@ use App\Models\Order;
 use App\Models\Organization;
 use App\Models\Table;
 use App\Models\User;
+use App\Policies\OrderPolicy;
 use App\Support\Restaurants\RestaurantScope;
 use App\Support\Tenancy\TenantContext;
 use Illuminate\Database\Eloquent\Builder;
@@ -130,7 +131,8 @@ class OrderController extends Controller
 
         $this->authorize('viewAny', [Order::class, $organization]);
 
-        $query = $this->orderQuery($organization, $user);
+        $query = $this->orderQuery($organization, $user)
+            ->whereIn('restaurant_id', RestaurantScope::restaurantIdsWithAnyPermission($user, $organization, OrderPolicy::VIEW_PERMISSIONS));
 
         if ($request->filled('restaurant_id')) {
             $query->where('restaurant_id', (int) $request->query('restaurant_id'));

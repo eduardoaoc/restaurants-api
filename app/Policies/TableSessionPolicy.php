@@ -94,7 +94,7 @@ class TableSessionPolicy
         }
 
         foreach ($permissions as $permission) {
-            if ($user->hasPermission($permission, $organization)) {
+            if ($user->hasRestaurantPermission($permission, $session->restaurant)) {
                 return true;
             }
         }
