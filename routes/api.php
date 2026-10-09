@@ -192,9 +192,11 @@ Route::prefix('v1')->group(function () {
         Route::patch('/restaurants/{restaurant}/settings', [RestaurantSettingsController::class, 'update']);
 
         Route::get('/staff', [StaffController::class, 'index']);
-        Route::post('/staff', [StaffController::class, 'store']);
+        Route::post('/staff', [StaffController::class, 'store'])
+            ->middleware('throttle:staff-writes');
         Route::get('/staff/{user}', [StaffController::class, 'show']);
-        Route::patch('/staff/{user}', [StaffController::class, 'update']);
+        Route::patch('/staff/{user}', [StaffController::class, 'update'])
+            ->middleware('throttle:staff-writes');
 
         Route::get('/me/performance', [StaffPerformanceController::class, 'me']);
         Route::get('/restaurants/{restaurant}/staff/{staff}/performance', [StaffPerformanceController::class, 'show']);

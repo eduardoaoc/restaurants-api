@@ -17,6 +17,7 @@ use App\Support\Tenancy\TenantContext;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 use OpenApi\Attributes as OA;
 
 class StaffController extends Controller
@@ -248,6 +249,20 @@ class StaffController extends Controller
             abort(403, 'You cannot deactivate your own account.');
         }
 
+        // users.email is the GLOBAL login identity, not a per-organization
+        // field: changing it here for someone who also belongs to another
+        // organization (or is a platform admin) would let this tenant
+        // rewrite — and effectively lock out — an identity it does not
+        // own. Checked only after authorize() so the answer never leaks
+        // another tenant's membership to an unauthorized caller.
+        $email = $request->validated('email');
+
+        if ($email !== null && $email !== $staff->email && $this->hasIdentityOutsideOrganization($staff, $organization)) {
+            throw ValidationException::withMessages([
+                'email' => 'The email of this staff member cannot be changed from this organization.',
+            ]);
+        }
+
         // Every restaurant_assignments entry (if sent) must itself be
         // within the requester's RestaurantScope — resolved before the
         // Action ever runs, so an out-of-scope restaurant_id yields 404
@@ -270,6 +285,17 @@ class StaffController extends Controller
                 'staff' => new StaffResource($staff),
             ],
         ]);
+    }
+
+    /**
+     * Whether the staff member's login identity reaches beyond this
+     * organization: a membership (any status) in another organization, or
+     * a platform role.
+     */
+    private function hasIdentityOutsideOrganization(User $staff, Organization $organization): bool
+    {
+        return $staff->organizations()->whereKeyNot($organization->id)->exists()
+            || $staff->isPlatformAdmin();
     }
 
     /**

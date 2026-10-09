@@ -106,6 +106,14 @@ class AppServiceProvider extends ServiceProvider
             return Limit::perMinute(20)->by('user:'.($request->user()?->id ?? $request->ip()));
         });
 
+        // Staff create/update: users.email is unique platform-wide, so a 422
+        // on a taken email inevitably reveals that the address exists in
+        // SOME organization. Removing that signal needs an invite flow;
+        // until then this bounds how fast a manager can probe addresses.
+        RateLimiter::for('staff-writes', function (Request $request) {
+            return Limit::perMinute(20)->by('user:'.($request->user()?->id ?? $request->ip()));
+        });
+
         RateLimiter::for('public-menu', function (Request $request) {
             return Limit::perMinute(60)->by($request->ip());
         });
