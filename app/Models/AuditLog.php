@@ -100,6 +100,10 @@ class AuditLog extends Model
 
     public const EVENT_PLATFORM_RESTAURANT_REACTIVATED = 'platform.restaurant.reactivated';
 
+    // Table QR token rotation (security hardening): the token values are
+    // never recorded — they are bearer secrets for the public surface.
+    public const EVENT_TABLE_PUBLIC_TOKEN_ROTATED = 'table.public_token_rotated';
+
     // Floor Plan events (Bloco 1).
     public const EVENT_FLOOR_CREATED = 'floor.created';
 
@@ -202,6 +206,7 @@ class AuditLog extends Model
         self::EVENT_PLATFORM_ORGANIZATION_PLAN_CHANGED,
         self::EVENT_PLATFORM_RESTAURANT_SUSPENDED,
         self::EVENT_PLATFORM_RESTAURANT_REACTIVATED,
+        self::EVENT_TABLE_PUBLIC_TOKEN_ROTATED,
         self::EVENT_FLOOR_CREATED,
         self::EVENT_FLOOR_UPDATED,
         self::EVENT_FLOOR_DELETED,
@@ -254,6 +259,8 @@ class AuditLog extends Model
 
     public const RESOURCE_ZONE = 'zone';
 
+    public const RESOURCE_TABLE = 'table';
+
     public const RESOURCE_STAFF_SHIFT = 'staff_shift';
 
     public const RESOURCE_WAITER_CALL = 'waiter_call';
@@ -282,6 +289,7 @@ class AuditLog extends Model
         self::RESOURCE_ORGANIZATION,
         self::RESOURCE_FLOOR,
         self::RESOURCE_ZONE,
+        self::RESOURCE_TABLE,
         self::RESOURCE_STAFF_SHIFT,
         self::RESOURCE_WAITER_CALL,
         self::RESOURCE_CUSTOMER_FEEDBACK,

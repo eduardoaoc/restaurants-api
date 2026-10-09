@@ -221,6 +221,7 @@ Route::prefix('v1')->group(function () {
         Route::get('/tables/resolve/{publicToken}', [TableController::class, 'resolve']);
         Route::get('/tables/{table}', [TableController::class, 'show']);
         Route::patch('/tables/{table}', [TableController::class, 'update']);
+        Route::post('/tables/{table}/public-token/rotate', [TableController::class, 'rotatePublicToken']);
         Route::post('/tables/{table}/open', [TableSessionController::class, 'open']);
         Route::post('/tables/{table}/close', [TableSessionController::class, 'close']);
 

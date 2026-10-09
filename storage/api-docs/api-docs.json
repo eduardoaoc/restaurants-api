@@ -8702,6 +8702,45 @@
                 ]
             }
         },
+        "/api/v1/tables/{table}/public-token/rotate": {
+            "post": {
+                "tags": [
+                    "Tables"
+                ],
+                "summary": "Rotate the public QR token of a table (invalidates the old QR)",
+                "description": "Replace the table's public QR token. The old token stops resolving\nimmediately — public menu, ordering, waiter/bill requests and staff\nQR resolution all key on it — so a leaked or photographed QR can be\nrevoked; the new QR must then be printed. Structural change: same\npermission as creating a table. The token values themselves are\nnever written to the audit log.",
+                "operationId": "tablesRotatePublicToken",
+                "parameters": [
+                    {
+                        "name": "table",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Token rotated; the response carries the new public_token"
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "Missing table structure permission"
+                    },
+                    "404": {
+                        "description": "Table not found in the active organization or the user's restaurant scope"
+                    }
+                },
+                "security": [
+                    {
+                        "sessionCookie": []
+                    }
+                ]
+            }
+        },
         "/api/v1/table-requests": {
             "get": {
                 "tags": [
@@ -10344,7 +10383,7 @@
                 "type": "object"
             },
             "AuthContextOrganization": {
-                "description": "One organization the user belongs to. permissions here mirrors what User::hasPermission() enforces for organization-scoped actions (create/update restaurants, manage staff, ...) — restaurants[] lists only the restaurants this user can actually reach within it (see RestaurantScope), each with its own narrower permissions array.",
+                "description": "One organization the user belongs to. permissions here mirrors what User::hasOrganizationPermission() enforces for organization-scoped actions (create restaurants, organization settings, global products) — restaurants[] lists only the restaurants this user can actually reach within it (see RestaurantScope), each with its own narrower permissions array.",
                 "required": [
                     "id",
                     "name",

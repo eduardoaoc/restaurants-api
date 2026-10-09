@@ -6,10 +6,12 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\Table\StoreTableRequest;
 use App\Http\Requests\Api\V1\Table\UpdateTableRequest;
 use App\Http\Resources\Api\V1\TableResource;
+use App\Models\AuditLog;
 use App\Models\Organization;
 use App\Models\Restaurant;
 use App\Models\Table;
 use App\Models\User;
+use App\Support\Audit\AuditLogger;
 use App\Support\Restaurants\RestaurantScope;
 use App\Support\Tenancy\TenantContext;
 use Illuminate\Database\Eloquent\Builder;
@@ -38,7 +40,10 @@ class TableController extends Controller
      */
     private const STRUCTURAL_FIELDS = ['name', 'number', 'capacity', ...self::LAYOUT_FIELDS];
 
-    public function __construct(private readonly TenantContext $tenantContext) {}
+    public function __construct(
+        private readonly TenantContext $tenantContext,
+        private readonly AuditLogger $auditLogger,
+    ) {}
 
     /**
      * True when the validated payload touches at least one of $fields.
@@ -388,6 +393,57 @@ class TableController extends Controller
 
         return response()->json([
             'message' => 'Table updated successfully.',
+            'data' => [
+                'table' => new TableResource($tableModel),
+            ],
+        ]);
+    }
+
+    /**
+     * Replace the table's public QR token. The old token stops resolving
+     * immediately — public menu, ordering, waiter/bill requests and staff
+     * QR resolution all key on it — so a leaked or photographed QR can be
+     * revoked; the new QR must then be printed. Structural change: same
+     * permission as creating a table. The token values themselves are
+     * never written to the audit log.
+     */
+    #[OA\Post(
+        path: '/api/v1/tables/{table}/public-token/rotate',
+        operationId: 'tablesRotatePublicToken',
+        summary: 'Rotate the public QR token of a table (invalidates the old QR)',
+        security: [['sessionCookie' => []]],
+        tags: ['Tables'],
+        parameters: [
+            new OA\Parameter(name: 'table', in: 'path', required: true, schema: new OA\Schema(type: 'integer')),
+        ],
+        responses: [
+            new OA\Response(response: 200, description: 'Token rotated; the response carries the new public_token'),
+            new OA\Response(response: 401, description: 'Unauthenticated'),
+            new OA\Response(response: 403, description: 'Missing table structure permission'),
+            new OA\Response(response: 404, description: 'Table not found in the active organization or the user\'s restaurant scope'),
+        ]
+    )]
+    public function rotatePublicToken(Request $request, int $table): JsonResponse
+    {
+        $organization = $this->activeOrganization();
+        $tableModel = $this->tableQuery($organization, $request->user())->findOrFail($table);
+
+        $this->authorize('updateStructure', $tableModel);
+
+        $tableModel->update(['public_token' => Table::generateUniquePublicToken()]);
+
+        $this->auditLogger->log(
+            organizationId: $organization->id,
+            restaurantId: $tableModel->restaurant_id,
+            actorType: AuditLog::ACTOR_USER,
+            actor: $request->user(),
+            event: AuditLog::EVENT_TABLE_PUBLIC_TOKEN_ROTATED,
+            resourceType: AuditLog::RESOURCE_TABLE,
+            resourceId: $tableModel->id,
+        );
+
+        return response()->json([
+            'message' => 'Table QR token rotated successfully.',
             'data' => [
                 'table' => new TableResource($tableModel),
             ],
