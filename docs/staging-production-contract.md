@@ -77,7 +77,9 @@ Every authenticated route (tenant, `/platform`, `/auth/me|context|logout`,
 `/broadcasting/auth`) runs `throttle:api` (300/min per user). Analytics,
 Cierre Diario preview/PDF and product media upload additionally run
 `throttle:api-heavy` (20/min per user). Public routes and the WhatsApp
-webhook keep their own limiters. Limiter state lives in `CACHE_STORE`; with
+webhook keep their own limiters. `/sanctum/csrf-cookie` is re-registered by
+`routes/web.php` (`sanctum.routes` is false) with a 60/min per-IP limit,
+and `/` has no route, so anonymous traffic cannot flood the `sessions` table. Limiter state lives in `CACHE_STORE`; with
 more than one app instance it must be a shared store (Redis), not `file`.
 
 No Supabase, hosting, Meta, production Reverb, S3 or deployment is configured here.

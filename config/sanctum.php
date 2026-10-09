@@ -41,6 +41,19 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Sanctum Routes
+    |--------------------------------------------------------------------------
+    |
+    | Disabled here so routes/web.php can register /sanctum/csrf-cookie itself
+    | with a per-IP throttle: every cookieless call starts a session, and with
+    | the database session driver each one is a new row in `sessions`.
+    |
+    */
+
+    'routes' => false,
+
+    /*
+    |--------------------------------------------------------------------------
     | Expiration Minutes
     |--------------------------------------------------------------------------
     |

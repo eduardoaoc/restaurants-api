@@ -122,6 +122,13 @@ class AppServiceProvider extends ServiceProvider
             return Limit::perMinute(20)->by('user:'.($request->user()?->id ?? $request->ip()));
         });
 
+        // /sanctum/csrf-cookie starts a session (a `sessions` row with the
+        // database driver) for every cookieless caller. Per IP, generous
+        // enough for many staff devices behind one restaurant NAT.
+        RateLimiter::for('csrf-cookie', function (Request $request) {
+            return Limit::perMinute(60)->by($request->ip());
+        });
+
         RateLimiter::for('public-menu', function (Request $request) {
             return Limit::perMinute(60)->by($request->ip());
         });
