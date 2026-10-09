@@ -63,6 +63,23 @@ local/testing. `L5_SWAGGER_ENABLED=false` explicitly disables them; setting true
 intentionally exposes all those routes, so only enable in a controlled environment.
 Generated specifications remain under storage, never copy them into public storage.
 
+## Reverse proxy and rate limits
+
+Set `TRUSTED_PROXIES` to the IPs/CIDRs of the load balancer or reverse proxy
+that terminates TLS (see `config/trustedproxy.php`). Without it, forwarded
+headers are ignored: `$request->ip()` becomes the proxy address, every
+IP-keyed limiter (`login`, `public-*`, `whatsapp-webhook`) turns into one
+bucket shared by all clients, and HTTPS is not detected. Use `*` only when
+the API is reachable exclusively through a proxy that overwrites
+`X-Forwarded-For`. Empty (the default) trusts no proxy.
+
+Every authenticated route (tenant, `/platform`, `/auth/me|context|logout`,
+`/broadcasting/auth`) runs `throttle:api` (300/min per user). Analytics,
+Cierre Diario preview/PDF and product media upload additionally run
+`throttle:api-heavy` (20/min per user). Public routes and the WhatsApp
+webhook keep their own limiters. Limiter state lives in `CACHE_STORE`; with
+more than one app instance it must be a shared store (Redis), not `file`.
+
 No Supabase, hosting, Meta, production Reverb, S3 or deployment is configured here.
 Infrastructure, secret injection, production account onboarding, migrations,
 worker supervision, backups and promotion gates remain subsequent work.
