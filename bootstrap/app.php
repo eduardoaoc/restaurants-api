@@ -71,7 +71,7 @@ return Application::configure(basePath: dirname(__DIR__))
     // docs/realtime.md.
     ->withBroadcasting(
         __DIR__.'/../routes/channels.php',
-        ['middleware' => ['api', 'auth:sanctum', 'active_user']],
+        ['middleware' => ['api', 'auth:sanctum', 'active_user', 'throttle:api']],
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->statefulApi();

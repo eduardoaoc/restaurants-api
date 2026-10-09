@@ -88,6 +88,24 @@ class AppServiceProvider extends ServiceProvider
             return Limit::perMinute(5)->by($email.'|'.$request->ip());
         });
 
+        // Every authenticated route (tenant, platform, /auth/me|context|
+        // logout, /broadcasting/auth). Keyed by user — the throttle runs
+        // after auth:sanctum, so the user is always resolved — with the IP
+        // only as a defensive fallback. Generous enough for a busy SPA
+        // (dashboards fan out several reads at once), but bounds scripted
+        // abuse from a single account.
+        RateLimiter::for('api', function (Request $request) {
+            return Limit::perMinute(300)->by('user:'.($request->user()?->id ?? $request->ip()));
+        });
+
+        // Expensive endpoints on top of `api`: analytics aggregation, the
+        // Cierre Diario preview/PDF render and product media uploads (up to
+        // 50 MB each). Separate bucket so a burst here never eats the
+        // user's general `api` allowance, and vice versa.
+        RateLimiter::for('api-heavy', function (Request $request) {
+            return Limit::perMinute(20)->by('user:'.($request->user()?->id ?? $request->ip()));
+        });
+
         RateLimiter::for('public-menu', function (Request $request) {
             return Limit::perMinute(60)->by($request->ip());
         });

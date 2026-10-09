@@ -68,12 +68,12 @@ Route::prefix('v1')->group(function () {
         // usable by the frontend as if they were still authorized (Passo
         // 2.8B). /logout stays on auth:sanctum alone: a suspended user
         // must still be able to clear their own (already-dead) session.
-        Route::middleware(['auth:sanctum', 'active_user'])->group(function () {
+        Route::middleware(['auth:sanctum', 'active_user', 'throttle:api'])->group(function () {
             Route::get('/me', [AuthController::class, 'me']);
             Route::get('/context', [AuthController::class, 'context']);
         });
 
-        Route::middleware('auth:sanctum')->group(function () {
+        Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
             Route::post('/logout', [AuthController::class, 'logout']);
         });
     });
@@ -145,7 +145,7 @@ Route::prefix('v1')->group(function () {
     // admin has no "active organization" of their own, and every target
     // organization/restaurant/user here is addressed explicitly by its
     // own id in the URL, never resolved from the actor's own membership.
-    Route::prefix('platform')->middleware(['auth:sanctum', 'active_user', 'platform_admin'])->group(function () {
+    Route::prefix('platform')->middleware(['auth:sanctum', 'active_user', 'platform_admin', 'throttle:api'])->group(function () {
         Route::get('/users', [PlatformUserController::class, 'index']);
         Route::get('/users/{user}', [PlatformUserController::class, 'show']);
         Route::patch('/users/{user}/status', [PlatformUserController::class, 'updateStatus']);
@@ -162,7 +162,7 @@ Route::prefix('v1')->group(function () {
         Route::get('/audit-logs', [PlatformAuditLogController::class, 'index']);
     });
 
-    Route::middleware(['auth:sanctum', 'active_user', 'tenant'])->group(function () {
+    Route::middleware(['auth:sanctum', 'active_user', 'tenant', 'throttle:api'])->group(function () {
         Route::get('/audit-logs', [AuditLogController::class, 'index']);
 
         Route::get('/organization', [OrganizationController::class, 'show']);
@@ -186,7 +186,8 @@ Route::prefix('v1')->group(function () {
         // Analytics (Bloco 6): historical/period read model, distinct
         // from both /dashboard above and /operations/live — see
         // RestaurantAnalyticsController.
-        Route::get('/restaurants/{restaurant}/analytics', [RestaurantAnalyticsController::class, 'show']);
+        Route::get('/restaurants/{restaurant}/analytics', [RestaurantAnalyticsController::class, 'show'])
+            ->middleware('throttle:api-heavy');
         Route::get('/restaurants/{restaurant}/settings', [RestaurantSettingsController::class, 'show']);
         Route::patch('/restaurants/{restaurant}/settings', [RestaurantSettingsController::class, 'update']);
 
@@ -240,11 +241,13 @@ Route::prefix('v1')->group(function () {
         // Cierre Diario (CARTA 9.1A): preview/close/cash movements need
         // close_daily_operation; history/detail/annotations need
         // view_daily_closes (PDF too — CARTA 9.1C). See DayCloseController.
-        Route::get('/restaurants/{restaurant}/day-close/preview', [DayCloseController::class, 'preview']);
+        Route::get('/restaurants/{restaurant}/day-close/preview', [DayCloseController::class, 'preview'])
+            ->middleware('throttle:api-heavy');
         Route::get('/restaurants/{restaurant}/day-closes', [DayCloseController::class, 'index']);
         Route::post('/restaurants/{restaurant}/day-closes', [DayCloseController::class, 'store']);
         Route::get('/day-closes/{dayClose}', [DayCloseController::class, 'show']);
-        Route::get('/day-closes/{dayClose}/pdf', [DayCloseController::class, 'pdf']);
+        Route::get('/day-closes/{dayClose}/pdf', [DayCloseController::class, 'pdf'])
+            ->middleware('throttle:api-heavy');
         Route::post('/day-closes/{dayClose}/annotations', [DayCloseController::class, 'storeAnnotation']);
         // Cierre Diario by WhatsApp (CARTA 9.1E): deliveries/resend need
         // view_daily_closes; recipient settings need manage_restaurants.
@@ -274,7 +277,8 @@ Route::prefix('v1')->group(function () {
         Route::patch('/products/{product}', [ProductController::class, 'update']);
 
         Route::post('/products/{product}/media/{type}', [ProductMediaController::class, 'store'])
-            ->whereIn('type', ['image', 'video']);
+            ->whereIn('type', ['image', 'video'])
+            ->middleware('throttle:api-heavy');
         Route::delete('/products/{product}/media/{type}', [ProductMediaController::class, 'destroy'])
             ->whereIn('type', ['image', 'video']);
 
