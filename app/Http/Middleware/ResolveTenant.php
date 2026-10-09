@@ -43,6 +43,10 @@ class ResolveTenant
 
         $organization = $user->organizations()
             ->wherePivot('status', OrganizationUser::STATUS_ACTIVE)
+            // Explicit order: without it Postgres may return any row, so a
+            // multi-organization user could land in a different tenant from
+            // one request to the next.
+            ->orderBy('organizations.id')
             ->first();
 
         if (! $organization) {

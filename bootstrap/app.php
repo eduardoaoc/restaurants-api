@@ -49,6 +49,7 @@ use App\Exceptions\WhatsApp\WhatsAppDeliveryException;
 use App\Http\Middleware\EnsurePlatformAdmin;
 use App\Http\Middleware\EnsureUserIsActive;
 use App\Http\Middleware\ResolveTenant;
+use App\Http\Middleware\SetSecurityHeaders;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -75,6 +76,7 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->statefulApi();
+        $middleware->append(SetSecurityHeaders::class);
         $middleware->alias([
             'tenant' => ResolveTenant::class,
             'active_user' => EnsureUserIsActive::class,
