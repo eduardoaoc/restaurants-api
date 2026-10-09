@@ -215,6 +215,37 @@ class AuthenticationTest extends TestCase
         $this->assertAuthenticatedAs($user, 'web');
     }
 
+    public function test_login_is_rate_limited_per_email_across_ips(): void
+    {
+        $email = 'distributed@example.com';
+        $cacheKey = md5('login'.'email:'.$email);
+
+        RateLimiter::clear($cacheKey);
+
+        try {
+            // 30 failures already spread over many IPs this hour.
+            for ($attempt = 0; $attempt < 30; $attempt++) {
+                RateLimiter::hit($cacheKey, 3600);
+            }
+
+            // A fresh IP (its own email+IP bucket is empty) is still refused.
+            $this->withServerVariables(['REMOTE_ADDR' => '203.0.113.50'])
+                ->postJson('/api/v1/auth/login', [
+                    'email' => $email,
+                    'password' => 'incorrect-password',
+                ])->assertTooManyRequests();
+
+            // Other accounts are unaffected.
+            $this->withServerVariables(['REMOTE_ADDR' => '203.0.113.50'])
+                ->postJson('/api/v1/auth/login', [
+                    'email' => 'someone-else@example.com',
+                    'password' => 'incorrect-password',
+                ])->assertUnauthorized();
+        } finally {
+            RateLimiter::clear($cacheKey);
+        }
+    }
+
     public function test_login_is_rate_limited_after_five_attempts_per_minute(): void
     {
         $email = 'rate-limit@example.com';

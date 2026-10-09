@@ -85,7 +85,15 @@ class AppServiceProvider extends ServiceProvider
             $input = $request->input('email');
             $email = is_string($input) ? strtolower(trim($input)) : '';
 
-            return Limit::perMinute(5)->by($email.'|'.$request->ip());
+            // The email+IP bucket stops a single source; the email-only bucket
+            // (any IP) stops a distributed guess against one account, which
+            // rotating IPs would otherwise multiply by 5/min per address.
+            // Trade-off: an attacker can lock a known email out for up to an
+            // hour — accepted over unbounded password guessing.
+            return array_values(array_filter([
+                Limit::perMinute(5)->by($email.'|'.$request->ip()),
+                $email !== '' ? Limit::perHour(30)->by('email:'.$email) : null,
+            ]));
         });
 
         // Every authenticated route (tenant, platform, /auth/me|context|
