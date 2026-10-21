@@ -96,6 +96,10 @@ final class RestaurantActivityType
 
     public const PAYMENT_RECORDED = 'payment.recorded';
 
+    public const TABLE_WAITER_ASSIGNED = 'table_session.waiter_assigned';
+
+    public const TABLE_ASSIGNMENT_PENDING = 'table_session.assignment_pending';
+
     public const TABLE_SESSION_OPENED = 'table_session.opened';
 
     public const TABLE_SESSION_CLOSED = 'table_session.closed';
@@ -116,6 +120,8 @@ final class RestaurantActivityType
      * @var array<string, string>
      */
     public const CATEGORY_BY_TYPE = [
+        self::TABLE_WAITER_ASSIGNED => self::CATEGORY_SERVICE,
+        self::TABLE_ASSIGNMENT_PENDING => self::CATEGORY_SERVICE,
         self::ORDER_CREATED => self::CATEGORY_ORDERS,
         self::ORDER_APPROVED => self::CATEGORY_ORDERS,
         self::ORDER_REJECTED => self::CATEGORY_ORDERS,
@@ -145,6 +151,8 @@ final class RestaurantActivityType
      * @var array<string, string>
      */
     public const TONE_BY_TYPE = [
+        self::TABLE_WAITER_ASSIGNED => self::TONE_WARNING,
+        self::TABLE_ASSIGNMENT_PENDING => self::TONE_WARNING,
         self::TABLE_SESSION_OPENED => self::TONE_NEUTRAL,
         self::ORDER_CREATED => self::TONE_NEUTRAL,
         self::ORDER_APPROVED => self::TONE_NEUTRAL,
@@ -188,6 +196,8 @@ final class RestaurantActivityType
      * @var array<string, array<int, string>>
      */
     public const METADATA_KEYS = [
+        self::TABLE_WAITER_ASSIGNED => ['recipient_user_id', 'previous_waiter_user_id', 'source'],
+        self::TABLE_ASSIGNMENT_PENDING => ['source'],
         self::ORDER_CREATED => ['origin', 'initial_status', 'item_count', 'total'],
         self::PAYMENT_RECORDED => ['payment_id', 'amount', 'method'],
         self::TABLE_SESSION_OPENED => ['guest_count'],

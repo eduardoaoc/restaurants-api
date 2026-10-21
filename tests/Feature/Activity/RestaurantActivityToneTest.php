@@ -46,6 +46,8 @@ class RestaurantActivityToneTest extends TestCase
             'waiter_request.completed' => ['waiter_request.completed', 'positive'],
             'bill_request.completed' => ['bill_request.completed', 'positive'],
             'product.marked_available' => ['product.marked_available', 'positive'],
+            'table_session.waiter_assigned' => ['table_session.waiter_assigned', 'warning'],
+            'table_session.assignment_pending' => ['table_session.assignment_pending', 'warning'],
             'waiter_request.created' => ['waiter_request.created', 'warning'],
             'bill_request.created' => ['bill_request.created', 'warning'],
             'product.marked_unavailable' => ['product.marked_unavailable', 'warning'],

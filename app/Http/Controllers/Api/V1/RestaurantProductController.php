@@ -7,6 +7,7 @@ use App\Actions\Catalog\UpdateRestaurantProductAction;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\RestaurantProduct\AttachRestaurantProductRequest;
 use App\Http\Requests\Api\V1\RestaurantProduct\UpdateRestaurantProductRequest;
+use App\Http\Requests\Api\V1\RestaurantProduct\UpdateProductAvailabilityRequest;
 use App\Http\Resources\Api\V1\RestaurantProductResource;
 use App\Models\Organization;
 use App\Models\RestaurantProduct;
@@ -69,7 +70,7 @@ class RestaurantProductController extends Controller
         $this->authorize('viewAny', [RestaurantProduct::class, $restaurantModel]);
 
         $restaurantProducts = $restaurantModel->restaurantProducts()
-            ->with('product.translations')
+            ->with(['product.translations', 'product.media'])
             ->orderBy('id')
             ->get();
 
@@ -200,7 +201,7 @@ class RestaurantProductController extends Controller
 
         $this->authorize('update', $restaurantProductModel);
 
-        $this->updateRestaurantProductAction->execute($restaurantProductModel, $request->user(), $request->validated());
+        $restaurantProductModel = $this->updateRestaurantProductAction->execute($restaurantProductModel, $request->user(), $request->validated());
 
         return response()->json([
             'message' => 'Restaurant product updated successfully.',
@@ -210,9 +211,27 @@ class RestaurantProductController extends Controller
         ]);
     }
 
-    /**
-     * Resolve the active organization from the tenant context.
-     */
+    #[OA\Patch(
+        path: '/api/v1/restaurant-products/{restaurantProduct}/availability',
+        operationId: 'restaurantProductAvailabilityUpdate',
+        summary: 'Change only restaurant product availability (manage_product_availability or manage_products)',
+        security: [['sessionCookie' => []]],
+        tags: ['Restaurant Products'],
+        parameters: [new OA\Parameter(name: 'restaurantProduct', in: 'path', required: true, schema: new OA\Schema(type: 'integer'))],
+        requestBody: new OA\RequestBody(required: true, content: new OA\JsonContent(required: ['available'], properties: [new OA\Property(property: 'available', type: 'boolean')])),
+        responses: [new OA\Response(response: 200, description: 'Updated restaurant_product in data.restaurant_product'), new OA\Response(response: 403, description: 'Permission denied'), new OA\Response(response: 404, description: 'Not found'), new OA\Response(response: 422, description: 'Invalid availability payload')],
+    )]
+    public function updateAvailability(UpdateProductAvailabilityRequest $request, int $restaurantProduct): JsonResponse
+    {
+        $organization = $this->activeOrganization();
+        $model = $this->restaurantProductQuery($organization)->findOrFail($restaurantProduct);
+        $this->authorize('updateAvailability', $model);
+        $updated = $this->updateRestaurantProductAction->execute($model, $request->user(), $request->safe()->only('available'));
+
+        return response()->json(['data' => ['restaurant_product' => new RestaurantProductResource($updated->load(['product.translations', 'product.media']))]]);
+    }
+
+    /** Resolve the active organization from the tenant context. */
     private function activeOrganization(): Organization
     {
         return Organization::query()->findOrFail($this->tenantContext->getOrganizationId());

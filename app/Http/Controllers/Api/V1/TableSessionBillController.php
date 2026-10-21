@@ -55,7 +55,7 @@ class TableSessionBillController extends Controller
         $organization = $this->activeOrganization();
         $user = $request->user();
         $session = $this->tableSessionQuery($organization, $user)
-            ->with(['table', 'orders', 'paymentRecords.recordedBy'])
+            ->with(['table', 'orders.items.modifiers', 'paymentRecords.recordedBy'])
             ->findOrFail($tableSession);
 
         $this->authorize('viewBill', $session);

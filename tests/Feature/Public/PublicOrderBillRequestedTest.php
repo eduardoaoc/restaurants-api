@@ -8,6 +8,7 @@ use App\Models\TableRequest;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\Concerns\InteractsWithOrders;
 use Tests\Concerns\InteractsWithPayments;
+use Tests\Concerns\InteractsWithPublicVisits;
 use Tests\Concerns\InteractsWithTableRequests;
 use Tests\Concerns\InteractsWithTenants;
 use Tests\TestCase;
@@ -23,6 +24,7 @@ use Tests\TestCase;
 class PublicOrderBillRequestedTest extends TestCase
 {
     use InteractsWithOrders, InteractsWithPayments, InteractsWithTableRequests, InteractsWithTenants, RefreshDatabase;
+    use InteractsWithPublicVisits;
 
     protected function setUp(): void
     {
@@ -39,17 +41,17 @@ class PublicOrderBillRequestedTest extends TestCase
         $table = $this->createTable($restaurant);
         $this->openSession($table, $owner);
 
-        $this->postJson("/api/v1/public/tables/{$table->public_token}/orders", [
+        $this->postPublicJson("/api/v1/public/tables/{$table->public_token}/orders", [
             'items' => [['restaurant_product_id' => $rp->id, 'quantity' => 1]],
         ])->assertStatus(201);
 
         $this->assertDatabaseCount('orders', 1);
         $this->advanceOrderTo(Order::query()->sole(), Order::STATUS_SERVED, $owner);
 
-        $this->postJson("/api/v1/public/tables/{$table->public_token}/requests/bill")
+        $this->postPublicJson("/api/v1/public/tables/{$table->public_token}/requests/bill")
             ->assertStatus(201);
 
-        $response = $this->postJson("/api/v1/public/tables/{$table->public_token}/orders", [
+        $response = $this->postPublicJson("/api/v1/public/tables/{$table->public_token}/orders", [
             'items' => [['restaurant_product_id' => $rp->id, 'quantity' => 1]],
         ])->assertStatus(409);
 
@@ -69,7 +71,7 @@ class PublicOrderBillRequestedTest extends TestCase
         $tableRequest = $this->createTableRequest($table, TableRequest::TYPE_REQUEST_BILL);
         $this->advanceTableRequestTo($tableRequest, TableRequest::STATUS_ACKNOWLEDGED, $owner);
 
-        $response = $this->postJson("/api/v1/public/tables/{$table->public_token}/orders", [
+        $response = $this->postPublicJson("/api/v1/public/tables/{$table->public_token}/orders", [
             'items' => [['restaurant_product_id' => $rp->id, 'quantity' => 1]],
         ])->assertStatus(409);
 
@@ -107,7 +109,7 @@ class PublicOrderBillRequestedTest extends TestCase
         $table = $this->createTable($restaurant);
         $this->openSession($table, $owner);
 
-        $this->postJson("/api/v1/public/tables/{$table->public_token}/orders", [
+        $this->postPublicJson("/api/v1/public/tables/{$table->public_token}/orders", [
             'items' => [['restaurant_product_id' => $rp->id, 'quantity' => 1]],
         ])->assertStatus(201);
 

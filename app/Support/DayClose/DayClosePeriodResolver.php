@@ -3,6 +3,7 @@
 namespace App\Support\DayClose;
 
 use App\Models\Restaurant;
+use App\Models\RestaurantDailyOperation;
 use App\Models\RestaurantDayClose;
 use Carbon\CarbonImmutable;
 
@@ -26,6 +27,14 @@ use Carbon\CarbonImmutable;
  *     close's (or business_date itself on the first close) — when it is
  *     before business_date, the period covers days nobody closed.
  *
+ * The open operational day (if any) travels with the period: its declared
+ * opening float feeds the cash section and the close finishes it. While a
+ * day is open, the close belongs to it: business_date is the operation's
+ * PERSISTED business date (fixed at opening by timezone + cutoff), never
+ * recomputed from T — passing midnight or even the next cutoff does not
+ * change it (closed_at still records the real instant). Without an open day
+ * (legacy close) the rule above applies unchanged.
+ *
  * All instants are UTC; only the business-date arithmetic uses the
  * restaurant timezone, so DST changes durations correctly (real elapsed
  * time). A cutoff falling in a DST gap is moved forward by Carbon.
@@ -43,7 +52,14 @@ class DayClosePeriodResolver
             ->orderByDesc('period_ended_at')
             ->first();
 
-        $businessDate = self::businessDateOf($endUtc, $timezone, $cutoff);
+        $dailyOperation = RestaurantDailyOperation::query()
+            ->where('restaurant_id', $restaurant->id)
+            ->where('status', RestaurantDailyOperation::STATUS_OPEN)
+            ->first();
+
+        $businessDate = $dailyOperation !== null
+            ? $dailyOperation->business_date->format('Y-m-d')
+            : self::businessDateOf($endUtc, $timezone, $cutoff);
 
         if ($previous === null) {
             $start = self::cutoffInstantUtc($businessDate, $timezone, $cutoff);
@@ -63,6 +79,7 @@ class DayClosePeriodResolver
             firstClose: $previous === null,
             previousClose: $previous,
             businessDateAlreadyClosed: $previous !== null && $businessDate <= $previous->business_date->format('Y-m-d'),
+            dailyOperation: $dailyOperation,
         );
     }
 

@@ -13,7 +13,7 @@ use Illuminate\Support\Str;
 use InvalidArgumentException;
 
 #[Fillable([
-    'restaurant_id', 'table_id', 'opened_by_user_id', 'closed_by_user_id', 'guest_count',
+    'restaurant_id', 'daily_operation_id', 'table_id', 'opened_by_user_id', 'closed_by_user_id', 'guest_count',
     'status', 'opened_at', 'closed_at', 'payment_status', 'paid_at', 'assigned_waiter_user_id',
     'feedback_token', 'voided_at', 'voided_by_user_id', 'void_reason',
 ])]
@@ -159,16 +159,9 @@ class TableSession extends Model
     }
 
     /**
-     * Backfills feedback_token for a session that predates the
-     * token-lifecycle fix (Passo 3.5): every session opened via
-     * OpenTableAction already has one, but a session that was still active
-     * across the deploy that introduced open-time generation would not.
-     * Safe to call on every resolution — a no-op once the column is set.
-     * Public-read-triggered (PublicSessionStateResource), so this is a
-     * lazy backfill by design, not a migration-time one: it only ever
-     * touches a session the moment it's actually being resolved for a
-     * customer, and never resurrects a CLOSED session (see
-     * PublicSessionStateResource, which only ever receives activeSession).
+     * Compatibility backfill for sessions created before open-time token
+     * generation. Called only by the locked POST entry action; public GETs
+     * never write or issue a new visit identity.
      */
     public function ensureFeedbackToken(): string
     {

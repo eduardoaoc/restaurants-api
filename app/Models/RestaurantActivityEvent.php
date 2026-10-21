@@ -63,6 +63,11 @@ class RestaurantActivityEvent extends Model
     /**
      * @return BelongsTo<Restaurant, $this>
      */
+    public function tableSession(): BelongsTo
+    {
+        return $this->belongsTo(TableSession::class);
+    }
+
     public function restaurant(): BelongsTo
     {
         return $this->belongsTo(Restaurant::class);

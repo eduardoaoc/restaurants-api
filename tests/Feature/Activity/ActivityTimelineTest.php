@@ -87,6 +87,7 @@ class ActivityTimelineTest extends TestCase
             RestaurantActivityType::ORDER_PREPARING,
             RestaurantActivityType::ORDER_ACCEPTED,
             RestaurantActivityType::ORDER_CREATED,
+            RestaurantActivityType::TABLE_ASSIGNMENT_PENDING,
             RestaurantActivityType::TABLE_SESSION_OPENED,
         ], array_column($response->json('data.activity'), 'type'));
 
@@ -107,7 +108,7 @@ class ActivityTimelineTest extends TestCase
         $this->assertSame('neutral', $created['tone']);
         $this->assertEquals(['origin' => 'customer_qr', 'initial_status' => $order->status, 'item_count' => 2, 'total' => (string) $order->total], $created['metadata']);
 
-        $opened = $response->json('data.activity.4');
+        $opened = $response->json('data.activity.5');
         $this->assertSame(['guest_count' => 2], $opened['metadata']);
         $this->assertNull($opened['order']);
     }
@@ -273,7 +274,7 @@ class ActivityTimelineTest extends TestCase
             $this->advanceOrderTo($order, Order::STATUS_SERVED, $owner);
         }
 
-        $this->assertSame(30, RestaurantActivityEvent::query()->count());
+        $this->assertSame(35, RestaurantActivityEvent::query()->count());
 
         $countFor = function (int $perPage) use ($owner, $restaurant): int {
             $this->as($owner);

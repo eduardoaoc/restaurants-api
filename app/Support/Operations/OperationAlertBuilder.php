@@ -43,6 +43,7 @@ class OperationAlertBuilder
         Collection $pendingWaiterCalls,
         Collection $openOrders,
         CarbonImmutable $now,
+        ?array $eligibleWaiterIds = null,
     ): array {
         $alerts = [];
         $sessionIdToTableId = $activeSessions->pluck('table_id', 'id');
@@ -58,6 +59,11 @@ class OperationAlertBuilder
             }
 
             $waiter = $usersById->get($waiterId);
+            if (! $waiter || (! $waiter->isSuspended() && $eligibleWaiterIds !== null && ! in_array($waiterId, $eligibleWaiterIds, true))) {
+                $alerts[] = self::alert("unassigned-{$session->id}", 'active_table_unassigned', 'warning', $session->table_id, $session->id, null, $ageSeconds);
+
+                continue;
+            }
 
             if ($waiter && $waiter->isSuspended()) {
                 $alerts[] = self::alert("waiter-suspended-{$session->id}", 'assigned_waiter_suspended', 'critical', $session->table_id, $session->id, $waiterId, $ageSeconds);

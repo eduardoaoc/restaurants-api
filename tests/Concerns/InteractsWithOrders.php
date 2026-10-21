@@ -27,6 +27,8 @@ trait InteractsWithOrders
      */
     protected function openSession(Table $table, User $openedBy, int $guestCount = 2): TableSession
     {
+        $this->ensureDailyOperationFixture($table->restaurant);
+
         return app(OpenTableAction::class)->execute($table, $openedBy, $guestCount);
     }
 

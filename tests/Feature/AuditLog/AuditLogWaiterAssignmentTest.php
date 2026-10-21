@@ -46,6 +46,7 @@ class AuditLogWaiterAssignmentTest extends TestCase
         $this->assertSame($session->id, $log->resource_id);
         $this->assertEquals([
             'table_id' => $table->id,
+            'source' => 'manual',
             'previous_waiter_user_id' => null,
             'new_waiter_user_id' => $waiter->id,
         ], $log->metadata);
@@ -75,6 +76,7 @@ class AuditLogWaiterAssignmentTest extends TestCase
         $this->assertNotNull($log);
         $this->assertEquals([
             'table_id' => $table->id,
+            'source' => 'manual',
             'previous_waiter_user_id' => $mateo->id,
             'new_waiter_user_id' => $lucia->id,
         ], $log->metadata);
@@ -121,6 +123,7 @@ class AuditLogWaiterAssignmentTest extends TestCase
         $this->assertSame($owner->id, $log->actor_user_id);
         $this->assertEquals([
             'table_id' => $table->id,
+            'source' => 'manual',
             'previous_waiter_user_id' => $waiter->id,
         ], $log->metadata);
     }

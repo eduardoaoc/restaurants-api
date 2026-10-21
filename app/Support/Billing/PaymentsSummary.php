@@ -3,6 +3,7 @@
 namespace App\Support\Billing;
 
 use App\Models\PaymentRecord;
+use App\Models\TableSession;
 use App\Support\Money\Money;
 use Carbon\CarbonImmutable;
 
@@ -52,6 +53,26 @@ class PaymentsSummary
      * null/division-by-zero) when there are no such sessions. Deliberately
      * NOT revenue / closed_sessions — see the Bloco 6 report.
      */
+    /**
+     * Payments of the sessions opened within one operational day — by
+     * identity (table_sessions.daily_operation_id), never by calendar date.
+     *
+     * @return array{total_cents: int, cash_cents: int, payments_count: int}
+     */
+    public static function forDailyOperation(int $dailyOperationId): array
+    {
+        $row = PaymentRecord::query()
+            ->whereIn('table_session_id', TableSession::query()->select('id')->where('daily_operation_id', $dailyOperationId))
+            ->selectRaw('COALESCE(SUM(amount), 0) AS total, COALESCE(SUM(amount) FILTER (WHERE method = ?), 0) AS cash, COUNT(*) AS payments', [PaymentRecord::METHOD_CASH])
+            ->first();
+
+        return [
+            'total_cents' => Money::decimalToCents((string) $row->total),
+            'cash_cents' => Money::decimalToCents((string) $row->cash),
+            'payments_count' => (int) $row->payments,
+        ];
+    }
+
     public static function averageTicketCents(int $totalCents, int $sessionsWithPayments): int
     {
         return $sessionsWithPayments > 0 ? (int) round($totalCents / $sessionsWithPayments) : 0;

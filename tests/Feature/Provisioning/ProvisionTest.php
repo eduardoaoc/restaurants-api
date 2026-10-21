@@ -87,7 +87,14 @@ class ProvisionTest extends TestCase
         $process = new Process(
             [PHP_BINARY, 'artisan', 'aforo:provision', '--no-interaction'],
             base_path(),
-            ['APP_ENV' => 'production', 'DB_CONNECTION' => 'sqlite', 'DB_DATABASE' => ':memory:', 'DB_URL' => ''],
+            [
+                'APP_ENV' => 'production', 'DB_CONNECTION' => 'sqlite', 'DB_DATABASE' => ':memory:', 'DB_URL' => '',
+                // Never inherit a cached configuration (APP_CONFIG_CACHE from
+                // the parent, or bootstrap/cache/config.php): it would point
+                // the child at that config's real database instead of the
+                // empty in-memory one this test relies on.
+                'APP_CONFIG_CACHE' => sys_get_temp_dir().'/aforo-provision-test-'.bin2hex(random_bytes(8)).'-no-config.php',
+            ],
         );
         $process->run();
         $this->assertFalse($process->isSuccessful());

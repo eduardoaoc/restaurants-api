@@ -15,6 +15,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Event;
 use Tests\Concerns\InteractsWithOrders;
 use Tests\Concerns\InteractsWithPayments;
+use Tests\Concerns\InteractsWithPublicVisits;
 use Tests\Concerns\InteractsWithTableRequests;
 use Tests\Concerns\InteractsWithTenants;
 use Tests\TestCase;
@@ -22,6 +23,7 @@ use Tests\TestCase;
 class PaidSessionBlocksTest extends TestCase
 {
     use InteractsWithOrders, InteractsWithPayments, InteractsWithTableRequests, InteractsWithTenants, RefreshDatabase;
+    use InteractsWithPublicVisits;
 
     protected function setUp(): void
     {
@@ -52,7 +54,7 @@ class PaidSessionBlocksTest extends TestCase
     {
         [$table, , , $rp] = $this->paidSession();
 
-        $response = $this->postJson("/api/v1/public/tables/{$table->public_token}/orders", [
+        $response = $this->postPublicJson("/api/v1/public/tables/{$table->public_token}/orders", [
             'items' => [['restaurant_product_id' => $rp->id, 'quantity' => 1]],
         ])->assertStatus(409);
 
@@ -82,7 +84,7 @@ class PaidSessionBlocksTest extends TestCase
     {
         [$table, $session] = $this->paidSession();
 
-        $this->postJson("/api/v1/public/tables/{$table->public_token}/requests/call-waiter")
+        $this->postPublicJson("/api/v1/public/tables/{$table->public_token}/requests/call-waiter")
             ->assertStatus(201)
             ->assertJson(['data' => ['type' => TableRequest::TYPE_CALL_WAITER, 'status' => TableRequest::STATUS_PENDING]]);
 
@@ -99,7 +101,7 @@ class PaidSessionBlocksTest extends TestCase
         [$table] = $this->paidSession();
         $table->restaurant->settings()->update(['waiter_call_enabled' => false]);
 
-        $this->postJson("/api/v1/public/tables/{$table->public_token}/requests/call-waiter")
+        $this->postPublicJson("/api/v1/public/tables/{$table->public_token}/requests/call-waiter")
             ->assertStatus(409)
             ->assertJson(['error' => ['code' => 'WAITER_CALL_DISABLED']]);
 
@@ -111,7 +113,7 @@ class PaidSessionBlocksTest extends TestCase
         [$table] = $this->paidSession();
         $this->createTableRequest($table, TableRequest::TYPE_CALL_WAITER);
 
-        $this->postJson("/api/v1/public/tables/{$table->public_token}/requests/call-waiter")
+        $this->postPublicJson("/api/v1/public/tables/{$table->public_token}/requests/call-waiter")
             ->assertStatus(409)
             ->assertJson(['error' => ['code' => 'TABLE_REQUEST_ALREADY_OPEN']]);
 
@@ -124,7 +126,7 @@ class PaidSessionBlocksTest extends TestCase
         $first = $this->createTableRequest($table, TableRequest::TYPE_CALL_WAITER);
         $this->advanceTableRequestTo($first, TableRequest::STATUS_COMPLETED, $owner);
 
-        $this->postJson("/api/v1/public/tables/{$table->public_token}/requests/call-waiter")
+        $this->postPublicJson("/api/v1/public/tables/{$table->public_token}/requests/call-waiter")
             ->assertStatus(201);
 
         $this->assertDatabaseCount('table_requests', 2);
@@ -134,7 +136,7 @@ class PaidSessionBlocksTest extends TestCase
     {
         [$table] = $this->paidSession();
 
-        $this->postJson("/api/v1/public/tables/{$table->public_token}/requests/bill")
+        $this->postPublicJson("/api/v1/public/tables/{$table->public_token}/requests/bill")
             ->assertStatus(409)
             ->assertJson(['error' => ['code' => 'TABLE_SESSION_ALREADY_PAID']]);
 
@@ -146,7 +148,7 @@ class PaidSessionBlocksTest extends TestCase
         [$table, $session, $owner] = $this->paidSession();
         app(CloseTableAction::class)->execute($session, $owner);
 
-        $this->postJson("/api/v1/public/tables/{$table->public_token}/requests/call-waiter")
+        $this->postPublicJson("/api/v1/public/tables/{$table->public_token}/requests/call-waiter")
             ->assertStatus(409)
             ->assertJson(['error' => ['code' => 'TABLE_SESSION_NOT_ACTIVE']]);
 
@@ -158,7 +160,7 @@ class PaidSessionBlocksTest extends TestCase
         [$table, $session, $owner] = $this->paidSession();
         app(CloseTableAction::class)->execute($session, $owner);
 
-        $this->postJson("/api/v1/public/tables/{$table->public_token}/requests/bill")
+        $this->postPublicJson("/api/v1/public/tables/{$table->public_token}/requests/bill")
             ->assertStatus(409)
             ->assertJson(['error' => ['code' => 'TABLE_SESSION_NOT_ACTIVE']]);
 
@@ -170,7 +172,7 @@ class PaidSessionBlocksTest extends TestCase
         [$table, $session] = $this->paidSession();
         Event::fake([TableRequestCreated::class]);
 
-        $this->postJson("/api/v1/public/tables/{$table->public_token}/requests/call-waiter")
+        $this->postPublicJson("/api/v1/public/tables/{$table->public_token}/requests/call-waiter")
             ->assertStatus(201);
 
         $request = TableRequest::query()->sole();
@@ -190,10 +192,10 @@ class PaidSessionBlocksTest extends TestCase
     {
         [$table, , , $rp] = $this->paidSession();
 
-        $this->postJson("/api/v1/public/tables/{$table->public_token}/requests/call-waiter")
+        $this->postPublicJson("/api/v1/public/tables/{$table->public_token}/requests/call-waiter")
             ->assertStatus(201);
 
-        $this->postJson("/api/v1/public/tables/{$table->public_token}/orders", [
+        $this->postPublicJson("/api/v1/public/tables/{$table->public_token}/orders", [
             'items' => [['restaurant_product_id' => $rp->id, 'quantity' => 1]],
         ])->assertStatus(409)->assertJson(['error' => ['code' => 'TABLE_SESSION_ALREADY_PAID']]);
 

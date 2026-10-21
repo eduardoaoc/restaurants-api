@@ -8,7 +8,6 @@ use App\Http\Requests\Api\V1\Activity\MarkRestaurantActivityReadRequest;
 use App\Http\Resources\Api\V1\RestaurantActivityEventResource;
 use App\Models\Organization;
 use App\Models\Restaurant;
-use App\Models\RestaurantActivityEvent;
 use App\Support\Activity\RestaurantActivityReadState;
 use App\Support\Restaurants\RestaurantScope;
 use App\Support\Tenancy\TenantContext;
@@ -42,11 +41,12 @@ class RestaurantActivityController extends Controller
         path: '/api/v1/restaurants/{restaurant}/activity',
         operationId: 'restaurantActivityIndex',
         summary: "List a restaurant's operational activity feed",
-        description: 'Newest first (by id). Cursor-paginated: pass meta.next_cursor back as ?cursor= to load older events — stable while new events keep arriving at the top (which offset pages would not be). New events arrive in realtime as `restaurant.activity.created` on the private `restaurant.{id}.activity` channel, carrying this exact item shape.',
+        description: 'Use ?scope=assignments for the requesting waiter\'s assignment notifications (serve_orders), or pending assignment notices (assign_waiters). The full timeline still requires view_activity. Newest first (by id). Cursor-paginated: pass meta.next_cursor back as ?cursor= to load older events — stable while new events keep arriving at the top (which offset pages would not be). New events arrive in realtime as `restaurant.activity.created` on the private `restaurant.{id}.activity` channel, carrying this exact item shape.',
         security: [['sessionCookie' => []]],
         tags: ['Activity'],
         parameters: [
             new OA\Parameter(name: 'restaurant', in: 'path', required: true, schema: new OA\Schema(type: 'integer')),
+            new OA\Parameter(name: 'scope', in: 'query', required: false, schema: new OA\Schema(type: 'string', enum: ['assignments'])),
             new OA\Parameter(name: 'category', in: 'query', required: false, schema: new OA\Schema(type: 'string', enum: ['orders', 'service', 'billing', 'tables', 'menu'])),
             new OA\Parameter(name: 'type', in: 'query', required: false, schema: new OA\Schema(ref: '#/components/schemas/RestaurantActivityType')),
             new OA\Parameter(name: 'from', in: 'query', required: false, description: 'ISO 8601 instant, inclusive (occurred_at >= from).', schema: new OA\Schema(type: 'string', format: 'date-time')),
@@ -79,7 +79,7 @@ class RestaurantActivityController extends Controller
     {
         $restaurantModel = $this->authorizedRestaurant($request, $restaurant);
 
-        $query = RestaurantActivityEvent::query()->where('restaurant_id', $restaurantModel->id);
+        $query = $this->readState->visibleQuery($restaurantModel, $request->user(), $this->assignmentsOnly($request));
 
         if ($request->filled('category')) {
             $query->where('category', $request->validated('category'));
@@ -111,7 +111,7 @@ class RestaurantActivityController extends Controller
                 'next_cursor' => $events->nextCursor()?->encode(),
                 'prev_cursor' => $events->previousCursor()?->encode(),
                 'last_read_event_id' => $lastReadEventId,
-                'unread_count' => $this->readState->unreadCount($restaurantModel, $lastReadEventId),
+                'unread_count' => $this->readState->unreadCount($restaurantModel, $lastReadEventId, $request->user(), $this->assignmentsOnly($request)),
             ],
         ]);
     }
@@ -175,8 +175,7 @@ class RestaurantActivityController extends Controller
         if ($request->has('last_event_id')) {
             $upTo = (int) $request->validated('last_event_id');
 
-            $belongsToRestaurant = RestaurantActivityEvent::query()
-                ->where('restaurant_id', $restaurantModel->id)
+            $belongsToRestaurant = $this->readState->visibleQuery($restaurantModel, $request->user(), $this->assignmentsOnly($request))
                 ->whereKey($upTo)
                 ->exists();
 
@@ -184,7 +183,7 @@ class RestaurantActivityController extends Controller
                 throw ValidationException::withMessages(['last_event_id' => 'The selected last event id is invalid.']);
             }
         } else {
-            $upTo = $this->readState->latestEventId($restaurantModel);
+            $upTo = $this->readState->latestEventId($restaurantModel, $request->user(), $this->assignmentsOnly($request));
         }
 
         if ($upTo > 0) {
@@ -203,8 +202,15 @@ class RestaurantActivityController extends Controller
 
         return [
             'last_read_event_id' => $lastReadEventId,
-            'unread_count' => $this->readState->unreadCount($restaurant, $lastReadEventId),
+            'unread_count' => $this->readState->unreadCount($restaurant, $lastReadEventId, $request->user(), $this->assignmentsOnly($request)),
         ];
+    }
+
+    private function assignmentsOnly(Request $request): bool
+    {
+        $request->validate(['scope' => ['sometimes', 'in:assignments']]);
+
+        return $request->query('scope') === 'assignments';
     }
 
     private function authorizedRestaurant(Request $request, int $restaurant): Restaurant
@@ -220,7 +226,12 @@ class RestaurantActivityController extends Controller
 
         $restaurantModel = $query->findOrFail($restaurant);
 
-        $this->authorize('viewActivity', $restaurantModel);
+        if ($this->assignmentsOnly($request)) {
+            abort_unless($request->user()->hasRestaurantPermission('serve_orders', $restaurantModel)
+                || $request->user()->hasRestaurantPermission('assign_waiters', $restaurantModel), 403);
+        } else {
+            $this->authorize('viewActivity', $restaurantModel);
+        }
 
         return $restaurantModel;
     }

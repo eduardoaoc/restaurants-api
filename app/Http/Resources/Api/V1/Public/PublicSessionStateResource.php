@@ -58,29 +58,30 @@ class PublicSessionStateResource extends JsonResource
     public function toArray(Request $request): array
     {
         return [
-            'active' => $this->session !== null,
+            'active' => $this->session?->isActive() ?? false,
             'status' => $this->session?->status,
             'bill_request' => app(ResolvePublicBillRequestStateAction::class)->execute($this->session),
-            'feedback' => $this->feedback(),
+            'feedback' => $this->feedback($request),
         ];
     }
 
     /**
      * @return array<string, mixed>
      */
-    private function feedback(): array
+    private function feedback(Request $request): array
     {
         if ($this->session === null) {
             return ['eligible' => false];
         }
 
+        if ($this->session->isPaid() && ! $request->header('X-Table-Visit')) {
+            return ['eligible' => true];
+        }
+
         return [
             'eligible' => $this->session->isPaid(),
-            // ensureFeedbackToken() lazily backfills a session that
-            // predates open-time generation (compatibility — see the
-            // method docblock); a no-op for every session opened after
-            // this fix, which already has one from OpenTableAction.
-            'token' => $this->session->ensureFeedbackToken(),
+            // Backfill happens only on POST entry; GETs remain read-only.
+            'token' => $this->session->feedback_token,
             'already_submitted' => $this->session->hasSubmittedFeedback(),
         ];
     }

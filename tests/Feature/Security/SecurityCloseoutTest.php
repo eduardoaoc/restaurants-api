@@ -11,12 +11,14 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\URL;
 use Tests\Concerns\InteractsWithOrders;
+use Tests\Concerns\InteractsWithPublicVisits;
 use Tests\Concerns\InteractsWithTenants;
 use Tests\TestCase;
 
 class SecurityCloseoutTest extends TestCase
 {
     use InteractsWithOrders, InteractsWithTenants, RefreshDatabase;
+    use InteractsWithPublicVisits;
 
     public function test_staff_update_ignores_ownership_and_platform_privilege_injection(): void
     {
@@ -64,9 +66,9 @@ class SecurityCloseoutTest extends TestCase
         $url = "/api/v1/public/tables/{$table->public_token}/orders";
         $payload = ['items' => [['restaurant_product_id' => $rp->id, 'quantity' => 1]],
             'idempotency_key' => ['nested' => ['attacker']]];
-        $this->postJson($url, $payload, ['Idempotency-Key' => str_repeat('x', 101)])->assertUnprocessable();
+        $this->postPublicJson($url, $payload, ['Idempotency-Key' => str_repeat('x', 101)])->assertUnprocessable();
         $this->assertDatabaseCount('orders', 0);
-        $this->postJson($url, $payload, ['Idempotency-Key' => '   '])->assertCreated();
+        $this->postPublicJson($url, $payload, ['Idempotency-Key' => '   '])->assertCreated();
         $this->assertDatabaseCount('orders', 1);
         $this->assertSame('   ', $table->activeSession->orders()->firstOrFail()->idempotency_key);
     }

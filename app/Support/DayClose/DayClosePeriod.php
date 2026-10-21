@@ -2,6 +2,7 @@
 
 namespace App\Support\DayClose;
 
+use App\Models\RestaurantDailyOperation;
 use App\Models\RestaurantDayClose;
 use Carbon\CarbonImmutable;
 
@@ -20,6 +21,7 @@ final class DayClosePeriod
         public readonly bool $firstClose,
         public readonly ?RestaurantDayClose $previousClose,
         public readonly bool $businessDateAlreadyClosed,
+        public readonly ?RestaurantDailyOperation $dailyOperation = null,
     ) {}
 
     public function isEmpty(): bool

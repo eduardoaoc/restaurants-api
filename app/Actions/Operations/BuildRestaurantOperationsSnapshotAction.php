@@ -15,6 +15,7 @@ use App\Models\WaiterCall;
 use App\Models\Zone;
 use App\Support\Billing\PaymentsSummary;
 use App\Support\Billing\SessionBillCalculator;
+use App\Support\DailyOperation\DailyOperationState;
 use App\Support\Money\Money;
 use App\Support\Operations\ElapsedTime;
 use App\Support\Operations\OperationAlertBuilder;
@@ -22,6 +23,7 @@ use App\Support\Operations\OperationHealthCalculator;
 use App\Support\Operations\OperationsBottleneckResolver;
 use App\Support\Operations\TableOperationalStateResolver;
 use App\Support\Restaurants\RestaurantClock;
+use App\Support\Tables\WaiterAssignmentEligibility;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
 
@@ -60,6 +62,8 @@ class BuildRestaurantOperationsSnapshotAction
         $activeShiftUserIds = $activeShifts->pluck('user_id')->unique()->values()->all();
 
         $assignedWaiterIds = $activeSessions->pluck('assigned_waiter_user_id')->filter()->unique()->values();
+        $eligibleWaiterIds = WaiterAssignmentEligibility::queryFor($restaurant)
+            ->whereIn('id', $assignedWaiterIds)->pluck('id')->all();
         $allRelevantUserIds = $assignedWaiterIds->merge($activeShiftUserIds)->unique()->values();
 
         $usersById = $allRelevantUserIds->isEmpty()
@@ -117,6 +121,7 @@ class BuildRestaurantOperationsSnapshotAction
             $restaurantUsersByUserId,
             $activeShiftUserIds,
             $now,
+            $eligibleWaiterIds,
         ))->all();
 
         [$floorViews, $unassignedTableViews] = $this->buildFloorTree($floors, $zones, $tableViews);
@@ -144,9 +149,12 @@ class BuildRestaurantOperationsSnapshotAction
             $pendingWaiterCalls,
             $openOrders,
             $now,
+            $eligibleWaiterIds,
         );
 
         $healthScore = OperationHealthCalculator::score($alerts);
+
+        $dailyOperation = $restaurant->openDailyOperation()->first();
 
         $totalTables = $tables->count();
         $occupiedTables = $activeSessions->count();
@@ -176,8 +184,18 @@ class BuildRestaurantOperationsSnapshotAction
                 ],
                 'staff' => ['active' => $activeShifts->count()],
                 'requests' => ['pending' => $pendingTableRequests->count()],
-                'sales' => ['received_today' => Money::centsToDecimal($receivedTodayCents)],
+                // received_today stays the calendar day (restaurant timezone);
+                // operation is the operational-day card: the open day, else the
+                // last closed one, else none — payments of its sessions.
+                'sales' => [
+                    'received_today' => Money::centsToDecimal($receivedTodayCents),
+                    'operation' => DailyOperationState::salesCard($restaurant->id, $dailyOperation),
+                ],
             ],
+            // Non-financial state of the operational day (no opening float).
+            'daily_operation' => $dailyOperation !== null
+                ? DailyOperationState::publicState($dailyOperation)
+                : ['status' => 'not_open'],
             'operation' => [
                 'health_score' => $healthScore,
                 'health_level' => OperationHealthCalculator::level($healthScore),
@@ -210,6 +228,7 @@ class BuildRestaurantOperationsSnapshotAction
         Collection $restaurantUsersByUserId,
         array $activeShiftUserIds,
         CarbonImmutable $now,
+        array $eligibleWaiterIds,
     ): array {
         $layout = [
             'x' => $table->layout_x,
@@ -257,6 +276,7 @@ class BuildRestaurantOperationsSnapshotAction
         $waiterId = $session->assigned_waiter_user_id;
         $waiter = $waiterId !== null ? $usersById->get($waiterId) : null;
         $isSuspended = $waiter?->isSuspended() ?? false;
+        $eligible = in_array($waiterId, $eligibleWaiterIds, true);
         $isOffShift = $waiterId !== null && ! $isSuspended && ! in_array($waiterId, $activeShiftUserIds, true);
 
         $state = TableOperationalStateResolver::resolve([
@@ -267,7 +287,7 @@ class BuildRestaurantOperationsSnapshotAction
             'has_ready_order' => $hasReady,
             'has_waiting_approval_order' => $hasWaitingApproval,
             'has_preparing_order' => $hasPreparing,
-            'is_unassigned' => $waiterId === null,
+            'is_unassigned' => ! $eligible && ! $isSuspended,
             'assigned_waiter_off_shift' => $isOffShift,
             'assigned_waiter_suspended' => $isSuspended,
         ]);
@@ -290,7 +310,7 @@ class BuildRestaurantOperationsSnapshotAction
 
         $assignedWaiterView = null;
 
-        if ($waiterId !== null) {
+        if ($waiterId !== null && $eligible) {
             $assignedWaiterView = [
                 'id' => $waiterId,
                 'name' => $waiter?->name,
@@ -307,6 +327,7 @@ class BuildRestaurantOperationsSnapshotAction
                 'elapsed_seconds' => ElapsedTime::seconds($now, $session->opened_at),
                 'guest_count' => $session->guest_count,
                 'assigned_waiter' => $assignedWaiterView,
+                'assignment_status' => $eligible ? 'assigned' : 'pending',
             ],
             'orders' => [
                 'open_count' => $sessionOpenOrders->count(),

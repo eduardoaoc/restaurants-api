@@ -264,13 +264,14 @@ use OpenApi\Attributes as OA;
         new OA\Property(property: 'id', type: 'integer', format: 'int64', example: 827),
         new OA\Property(property: 'table_id', type: 'integer', format: 'int64', example: 1),
         new OA\Property(property: 'restaurant_id', type: 'integer', format: 'int64', example: 2),
+        new OA\Property(property: 'assignment_status', type: 'string', enum: ['assigned', 'pending']),
         new OA\Property(property: 'guest_count', type: 'integer', example: 4),
         new OA\Property(property: 'status', type: 'string', example: 'occupied'),
         new OA\Property(property: 'payment_status', type: 'string', example: 'unpaid'),
         new OA\Property(property: 'opened_at', type: 'string', format: 'date-time'),
         new OA\Property(property: 'closed_at', type: 'string', format: 'date-time', nullable: true),
         new OA\Property(property: 'paid_at', type: 'string', format: 'date-time', nullable: true),
-        new OA\Property(property: 'opened_by_user_id', type: 'integer', format: 'int64', example: 5),
+        new OA\Property(property: 'opened_by_user_id', type: 'integer', format: 'int64', nullable: true, example: 5),
         new OA\Property(property: 'closed_by_user_id', type: 'integer', format: 'int64', example: 5, nullable: true),
         new OA\Property(property: 'voided_at', type: 'string', format: 'date-time', nullable: true, description: 'CARTA 9.1A: set when an EMPTY session was voided (POST /table-sessions/{id}/void) instead of served and closed. A voided session has status closed and closed_at = voided_at, but never counts as attended/closed in any metric.'),
         new OA\Property(property: 'voided_by_user_id', type: 'integer', format: 'int64', nullable: true),
@@ -1114,10 +1115,12 @@ use OpenApi\Attributes as OA;
 )]
 #[OA\Schema(
     schema: 'BillOrderSummary',
-    required: ['id', 'status', 'total', 'created_at'],
+    required: ['id', 'status', 'total', 'created_at', 'items', 'billable'],
     properties: [
         new OA\Property(property: 'id', type: 'integer', format: 'int64', example: 1042),
         new OA\Property(property: 'status', type: 'string', example: 'served'),
+        new OA\Property(property: 'billable', type: 'boolean', description: 'Whether this order contributes to the canonical session total.'),
+        new OA\Property(property: 'items', type: 'array', items: new OA\Items(ref: '#/components/schemas/OrderItem')),
         new OA\Property(property: 'total', type: 'string', example: '28.80'),
         new OA\Property(property: 'created_at', type: 'string', format: 'date-time'),
     ],
@@ -2246,7 +2249,15 @@ use OpenApi\Attributes as OA;
         ),
         new OA\Property(property: 'staff', properties: [new OA\Property(property: 'active', type: 'integer', example: 4)], type: 'object'),
         new OA\Property(property: 'requests', properties: [new OA\Property(property: 'pending', type: 'integer', example: 2)], type: 'object'),
-        new OA\Property(property: 'sales', properties: [new OA\Property(property: 'received_today', type: 'string', example: '842.50', description: 'SUM(PaymentRecord.amount) since local midnight (RestaurantSettings.timezone), never Order totals.')], type: 'object'),
+        new OA\Property(property: 'sales', properties: [
+            new OA\Property(property: 'received_today', type: 'string', example: '842.50', description: 'SUM(PaymentRecord.amount) since local midnight (RestaurantSettings.timezone), never Order totals.'),
+            new OA\Property(property: 'operation', type: 'object', description: 'Operational-day card: payments of the sessions of the open day (state=open), else of the last closed day (state=closed, closed_at), else state=none. Never includes the opening float.', properties: [
+                new OA\Property(property: 'state', type: 'string', enum: ['open', 'closed', 'none']),
+                new OA\Property(property: 'business_date', type: 'string', format: 'date', nullable: true),
+                new OA\Property(property: 'closed_at', type: 'string', format: 'date-time', nullable: true),
+                new OA\Property(property: 'received', type: 'string', example: '120.50', nullable: true),
+            ]),
+        ], type: 'object'),
     ],
     type: 'object'
 )]
@@ -2570,7 +2581,7 @@ use OpenApi\Attributes as OA;
         'waiter_request.created', 'waiter_request.acknowledged', 'waiter_request.completed',
         'bill_request.created', 'bill_request.acknowledged', 'bill_request.completed',
         'payment.recorded',
-        'table_session.opened', 'table_session.closed',
+        'table_session.opened', 'table_session.closed', 'table_session.waiter_assigned', 'table_session.assignment_pending',
         'product.marked_unavailable', 'product.marked_available',
     ],
     example: 'order.ready'
@@ -2612,6 +2623,7 @@ use OpenApi\Attributes as OA;
             type: 'object',
             nullable: true
         ),
+        new OA\Property(property: 'target_table_id', type: 'integer', nullable: true, description: 'Assignment notices only: current active table of the session; null once closed. Open using session identity to survive transfers.'),
         new OA\Property(property: 'table_session_id', type: 'integer', format: 'int64', example: 311, nullable: true),
         new OA\Property(
             property: 'order',

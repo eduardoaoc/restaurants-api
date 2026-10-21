@@ -28,6 +28,7 @@ class PublicTableRequestController extends Controller
         tags: ['Public'],
         parameters: [
             new OA\Parameter(name: 'publicToken', in: 'path', required: true, schema: new OA\Schema(type: 'string')),
+            new OA\Parameter(name: 'X-Table-Visit', in: 'header', required: true, description: 'Visit token returned by POST entry (session.feedback.token).', schema: new OA\Schema(type: 'string')),
         ],
         requestBody: new OA\RequestBody(
             required: false,
@@ -61,6 +62,7 @@ class PublicTableRequestController extends Controller
         tags: ['Public'],
         parameters: [
             new OA\Parameter(name: 'publicToken', in: 'path', required: true, schema: new OA\Schema(type: 'string')),
+            new OA\Parameter(name: 'X-Table-Visit', in: 'header', required: true, description: 'Visit token returned by POST entry (session.feedback.token).', schema: new OA\Schema(type: 'string')),
         ],
         requestBody: new OA\RequestBody(
             required: false,
@@ -83,7 +85,7 @@ class PublicTableRequestController extends Controller
 
     private function store(StorePublicTableRequestRequest $request, string $publicToken, string $type): JsonResponse
     {
-        $tableRequest = $this->createPublicTableRequest->execute($publicToken, $type, $request->validated('note'));
+        $tableRequest = $this->createPublicTableRequest->execute($publicToken, $type, $request->validated('note'), (string) $request->header('X-Table-Visit'));
 
         return response()->json([
             'data' => new PublicTableRequestResource($tableRequest),

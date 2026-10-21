@@ -60,6 +60,11 @@ abstract class RealtimeEvent implements ShouldBroadcast, ShouldDispatchAfterComm
      */
     abstract public function broadcastAs(): string;
 
+    public function broadcastQueue(): ?string
+    {
+        return config('broadcasting.queue');
+    }
+
     /**
      * @return array<string, mixed>
      */

@@ -2,6 +2,7 @@
 
 namespace App\Actions\Catalog;
 
+use App\Events\Realtime\ProductAvailabilityChanged;
 use App\Models\RestaurantProduct;
 use App\Models\User;
 use App\Support\Activity\ActivityActor;
@@ -30,9 +31,12 @@ class UpdateRestaurantProductAction
         return DB::transaction(function () use ($restaurantProduct, $actor, $data) {
             RestaurantOperationalLock::shared($restaurantProduct->restaurant_id);
 
+            // Same row lock as order creation; re-read instead of trusting a stale model.
+            $restaurantProduct = RestaurantProduct::query()->whereKey($restaurantProduct->id)->lockForUpdate()->firstOrFail();
             $restaurantProduct->update($data);
 
             if ($restaurantProduct->wasChanged('available')) {
+                ProductAvailabilityChanged::dispatch($restaurantProduct->restaurant_id, $restaurantProduct->id);
                 $this->activityRecorder->record(
                     restaurantId: $restaurantProduct->restaurant_id,
                     type: $restaurantProduct->available

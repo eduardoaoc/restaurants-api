@@ -12,6 +12,7 @@ use App\Models\TableRequest;
 use App\Models\TableSession;
 use App\Models\User;
 use App\Support\Audit\AuditLogger;
+use App\Support\Tables\WaiterAssignmentLock;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 
@@ -44,6 +45,7 @@ class TransferTableSessionAction
     public function execute(TableSession $session, Table $targetTable, User $actor): TableSession
     {
         return DB::transaction(function () use ($session, $targetTable, $actor) {
+            WaiterAssignmentLock::acquire($session->restaurant_id);
             $lockedSession = TableSession::query()->whereKey($session->id)->lockForUpdate()->first();
 
             if (! $lockedSession || ! $lockedSession->isActive()) {
@@ -52,6 +54,10 @@ class TransferTableSessionAction
 
             if ($targetTable->id === $lockedSession->table_id) {
                 throw new TableSessionConflictException('The session is already at this table.');
+            }
+
+            if ($targetTable->restaurant_id !== $lockedSession->restaurant_id) {
+                throw new TableSessionConflictException('The target table must belong to the same restaurant.');
             }
 
             $lockedTargetTable = Table::query()->whereKey($targetTable->id)->lockForUpdate()->first();
@@ -100,7 +106,7 @@ class TransferTableSessionAction
 
             TableSessionTransferred::dispatch($lockedSession->restaurant_id, $lockedSession->id, $fromTableId, $lockedTargetTable->id);
 
-            return $lockedSession->fresh();
+            return app(EnsureSessionWaiterAction::class)->execute($lockedSession->fresh(), $actor, 'transfer');
         });
     }
 }

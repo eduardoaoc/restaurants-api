@@ -62,7 +62,7 @@ class PublicMenuController extends Controller
     )]
     public function show(PublicMenuRequest $request, string $publicToken): JsonResponse
     {
-        $table = $this->resolvePublicTable->execute($publicToken);
+        $table = $this->resolvePublicTable->execute($publicToken, $request->header('X-Table-Visit'));
 
         // The allowlist only governs an EXPLICITLY requested locale (the
         // language switcher) — omitting ?locale= (Accept-Language or the
@@ -92,6 +92,6 @@ class PublicMenuController extends Controller
                 'locale' => $locale,
                 'menu' => $menu,
             ],
-        ]);
+        ])->header('Cache-Control', 'no-store');
     }
 }

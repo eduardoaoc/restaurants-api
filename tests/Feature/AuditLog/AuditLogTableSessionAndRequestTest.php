@@ -7,6 +7,7 @@ use App\Models\TableRequest;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\Concerns\InteractsWithOrders;
 use Tests\Concerns\InteractsWithPayments;
+use Tests\Concerns\InteractsWithPublicVisits;
 use Tests\Concerns\InteractsWithTableRequests;
 use Tests\Concerns\InteractsWithTenants;
 use Tests\TestCase;
@@ -14,6 +15,7 @@ use Tests\TestCase;
 class AuditLogTableSessionAndRequestTest extends TestCase
 {
     use InteractsWithOrders, InteractsWithPayments, InteractsWithTableRequests, InteractsWithTenants, RefreshDatabase;
+    use InteractsWithPublicVisits;
 
     protected function setUp(): void
     {
@@ -99,7 +101,7 @@ class AuditLogTableSessionAndRequestTest extends TestCase
 
         $this->createTableRequest($table, TableRequest::TYPE_CALL_WAITER);
 
-        $this->postJson("/api/v1/public/tables/{$table->public_token}/requests/call-waiter")
+        $this->postPublicJson("/api/v1/public/tables/{$table->public_token}/requests/call-waiter")
             ->assertStatus(409);
 
         $this->assertSame(1, AuditLog::query()->where('event', AuditLog::EVENT_TABLE_REQUEST_CREATED)->count());

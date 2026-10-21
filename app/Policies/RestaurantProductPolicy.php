@@ -13,7 +13,7 @@ class RestaurantProductPolicy
 
     public function viewAny(User $user, Restaurant $restaurant): bool
     {
-        return $this->canManage($user, $restaurant);
+        return $this->userCanAccessRestaurantWithAnyPermission($user, $restaurant, ['manage_products', 'manage_product_availability']);
     }
 
     public function create(User $user, Restaurant $restaurant): bool
@@ -24,6 +24,11 @@ class RestaurantProductPolicy
     public function update(User $user, RestaurantProduct $restaurantProduct): bool
     {
         return $this->canManage($user, $restaurantProduct->restaurant);
+    }
+
+    public function updateAvailability(User $user, RestaurantProduct $restaurantProduct): bool
+    {
+        return $this->userCanAccessRestaurantWithAnyPermission($user, $restaurantProduct->restaurant, ['manage_products', 'manage_product_availability']);
     }
 
     private function canManage(User $user, Restaurant $restaurant): bool

@@ -9,8 +9,12 @@ use App\Exceptions\TableSessionConflictException;
 use App\Models\AuditLog;
 use App\Models\TableSession;
 use App\Models\User;
+use App\Support\Activity\ActivityActor;
+use App\Support\Activity\RestaurantActivityRecorder;
+use App\Support\Activity\RestaurantActivityType;
 use App\Support\Audit\AuditLogger;
 use App\Support\Tables\WaiterAssignmentEligibility;
+use App\Support\Tables\WaiterAssignmentLock;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -29,19 +33,17 @@ class AssignWaiterAction
 {
     public function __construct(private readonly AuditLogger $auditLogger) {}
 
-    public function execute(TableSession $session, User $waiter, User $actor): TableSession
+    public function execute(TableSession $session, User $waiter, ?User $actor, string $source = 'manual'): TableSession
     {
-        return DB::transaction(function () use ($session, $waiter, $actor) {
+        return DB::transaction(function () use ($session, $waiter, $actor, $source) {
+            WaiterAssignmentLock::acquire($session->restaurant_id);
             $locked = TableSession::query()->whereKey($session->id)->lockForUpdate()->first();
 
             if (! $locked || ! $locked->isActive()) {
                 throw new TableSessionConflictException('This table session is closed and cannot be assigned a waiter.');
             }
 
-            if ($locked->assigned_waiter_user_id === $waiter->id) {
-                return $locked;
-            }
-
+            $waiter = User::query()->whereKey($waiter->id)->sharedLock()->firstOrFail();
             $restaurant = $locked->restaurant;
             $organization = $restaurant->organization;
 
@@ -51,6 +53,10 @@ class AssignWaiterAction
                 throw new WaiterAssignmentIneligibleException($ineligibilityReason);
             }
 
+            if ($locked->assigned_waiter_user_id === $waiter->id) {
+                return $locked;
+            }
+
             $previousWaiterId = $locked->assigned_waiter_user_id;
 
             $locked->update(['assigned_waiter_user_id' => $waiter->id]);
@@ -58,7 +64,7 @@ class AssignWaiterAction
             $this->auditLogger->log(
                 organizationId: $organization->id,
                 restaurantId: $locked->restaurant_id,
-                actorType: AuditLog::ACTOR_USER,
+                actorType: $actor ? AuditLog::ACTOR_USER : AuditLog::ACTOR_PUBLIC,
                 actor: $actor,
                 event: $previousWaiterId === null
                     ? AuditLog::EVENT_TABLE_SESSION_WAITER_ASSIGNED
@@ -67,9 +73,19 @@ class AssignWaiterAction
                 resourceId: $locked->id,
                 metadata: [
                     'table_id' => $locked->table_id,
+                    'source' => $source,
                     'previous_waiter_user_id' => $previousWaiterId,
                     'new_waiter_user_id' => $waiter->id,
                 ],
+            );
+
+            app(RestaurantActivityRecorder::class)->record(
+                restaurantId: $locked->restaurant_id,
+                type: RestaurantActivityType::TABLE_WAITER_ASSIGNED,
+                actor: $actor ? ActivityActor::staff($actor) : ActivityActor::customer(),
+                table: $locked->table,
+                tableSessionId: $locked->id,
+                metadata: ['recipient_user_id' => $waiter->id, 'previous_waiter_user_id' => $previousWaiterId, 'source' => $source],
             );
 
             $event = $previousWaiterId === null ? WaiterAssigned::class : WaiterReassigned::class;

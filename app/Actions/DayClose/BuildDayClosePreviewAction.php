@@ -3,6 +3,7 @@
 namespace App\Actions\DayClose;
 
 use App\Models\Restaurant;
+use App\Support\DailyOperation\DailyOperationState;
 use App\Support\DayClose\DayCloseFormat;
 use App\Support\DayClose\DayClosePeriodResolver;
 use App\Support\DayClose\DayCloseReport;
@@ -51,6 +52,9 @@ class BuildDayClosePreviewAction
 
         return [
             'period' => $period->toArray(),
+            // The open operational day this close will finish (null: a
+            // close without an opened day, e.g. the first after rollout).
+            'daily_operation' => $period->dailyOperation !== null ? DailyOperationState::publicState($period->dailyOperation) : null,
             'can_close' => $blockers === [] && ! $period->isEmpty(),
             'blockers' => $blockers,
             'warnings' => DayCloseReport::reportWarnings($live, null),

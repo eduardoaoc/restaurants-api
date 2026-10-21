@@ -146,14 +146,20 @@ class DayCloseCashTest extends TestCase
         $this->assertSame('restaurant_default', $this->dayClosePreview($restaurant, $owner)['cash']['opening_float_source']);
     }
 
+    /**
+     * "required" is only reachable by a close WITHOUT an opened day (an
+     * opened day always declares its float — see DailyOperationLifecycleTest):
+     * no sale can exist then, so the drawer only holds a pay-in.
+     */
     public function test_opening_float_required_without_previous_close_nor_default(): void
     {
         [, $owner, $restaurant] = $this->createTenant();
         $this->at('2026-10-02 18:00:00');
-        $this->servedPaidSession($restaurant, $owner, '30.00', 'cash');
+        $this->movement($restaurant, $owner, 'pay_in', '30.00', 'float-in', 'Cambio')->assertCreated();
         $this->at('2026-10-02 21:00:00');
 
         $preview = $this->dayClosePreview($restaurant, $owner);
+        $this->assertNull($preview['daily_operation']);
         $this->assertSame('required', $preview['cash']['opening_float_source']);
         $this->assertNull($preview['cash']['suggested_opening_float']);
         $this->assertNull($preview['cash']['expected_cash']);

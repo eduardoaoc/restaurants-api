@@ -3,9 +3,11 @@
 namespace App\Support\Tables;
 
 use App\Models\Organization;
+use App\Models\OrganizationUser;
 use App\Models\Restaurant;
 use App\Models\User;
 use App\Models\UserRole;
+use Illuminate\Database\Eloquent\Builder;
 
 /**
  * Centralizes who may be assigned as the responsible waiter of a table
@@ -41,6 +43,18 @@ class WaiterAssignmentEligibility
      */
     public const ELIGIBLE_ROLE_SLUG = 'waiter';
 
+    /** Batch form of the same eligibility rules, for operational snapshots. */
+    public static function queryFor(Restaurant $restaurant): Builder
+    {
+        return User::query()->where('status', '!=', User::STATUS_SUSPENDED)
+            ->whereHas('organizations', fn ($query) => $query->where('organizations.id', $restaurant->organization_id)
+                ->where('organization_users.status', OrganizationUser::STATUS_ACTIVE))
+            ->whereHas('restaurants', fn ($query) => $query->where('restaurants.id', $restaurant->id))
+            ->whereHas('userRoles', fn ($query) => $query->where('organization_id', $restaurant->organization_id)
+                ->where('restaurant_id', $restaurant->id)
+                ->whereHas('role', fn ($query) => $query->where('slug', self::ELIGIBLE_ROLE_SLUG)));
+    }
+
     /**
      * Returns null when $candidate is eligible, or a human-readable reason
      * otherwise. A reason (rather than a bool) lets callers surface a
@@ -48,7 +62,7 @@ class WaiterAssignmentEligibility
      */
     public static function ineligibilityReason(User $candidate, Organization $organization, Restaurant $restaurant): ?string
     {
-        if (! $candidate->organizations()->whereKey($organization->id)->exists()) {
+        if (! $candidate->organizations()->whereKey($organization->id)->wherePivot('status', OrganizationUser::STATUS_ACTIVE)->exists()) {
             return 'The selected user does not belong to this organization.';
         }
 

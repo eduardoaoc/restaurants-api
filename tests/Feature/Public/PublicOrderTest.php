@@ -6,12 +6,14 @@ use App\Models\Order;
 use App\Models\Restaurant;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\Concerns\InteractsWithOrders;
+use Tests\Concerns\InteractsWithPublicVisits;
 use Tests\Concerns\InteractsWithTenants;
 use Tests\TestCase;
 
 class PublicOrderTest extends TestCase
 {
     use InteractsWithOrders, InteractsWithTenants, RefreshDatabase;
+    use InteractsWithPublicVisits;
 
     protected function setUp(): void
     {
@@ -29,7 +31,7 @@ class PublicOrderTest extends TestCase
         $table = $this->createTable($restaurant);
         $this->openSession($table, $owner);
 
-        $response = $this->postJson("/api/v1/public/tables/{$table->public_token}/orders", [
+        $response = $this->postPublicJson("/api/v1/public/tables/{$table->public_token}/orders", [
             'customer_name' => 'Carlos',
             'items' => [
                 ['restaurant_product_id' => $rp->id, 'quantity' => 1],
@@ -47,7 +49,7 @@ class PublicOrderTest extends TestCase
         $table = $this->createTable($restaurant);
         $this->openSession($table, $owner);
 
-        $this->postJson("/api/v1/public/tables/{$table->public_token}/orders", [
+        $this->postPublicJson("/api/v1/public/tables/{$table->public_token}/orders", [
             'items' => [['restaurant_product_id' => $rp->id, 'quantity' => 1]],
         ])->assertStatus(201);
 
@@ -63,7 +65,7 @@ class PublicOrderTest extends TestCase
         $table = $this->createTable($restaurant);
         $this->openSession($table, $owner);
 
-        $this->postJson("/api/v1/public/tables/{$table->public_token}/orders", [
+        $this->postPublicJson("/api/v1/public/tables/{$table->public_token}/orders", [
             'items' => [['restaurant_product_id' => $rp->id, 'quantity' => 1]],
         ])->assertHeader('Content-Type', 'application/json');
     }
@@ -75,7 +77,7 @@ class PublicOrderTest extends TestCase
         [, , $restaurant, $rp] = $this->createTenantWithRestaurantProduct();
         $table = $this->createTable($restaurant);
 
-        $response = $this->postJson("/api/v1/public/tables/{$table->public_token}/orders", [
+        $response = $this->postPublicJson("/api/v1/public/tables/{$table->public_token}/orders", [
             'items' => [['restaurant_product_id' => $rp->id, 'quantity' => 1]],
         ])->assertStatus(409);
 
@@ -90,7 +92,7 @@ class PublicOrderTest extends TestCase
         $session = $this->openSession($table, $owner);
         $session->update(['status' => 'closed', 'closed_at' => now()]);
 
-        $this->postJson("/api/v1/public/tables/{$table->public_token}/orders", [
+        $this->postPublicJson("/api/v1/public/tables/{$table->public_token}/orders", [
             'items' => [['restaurant_product_id' => $rp->id, 'quantity' => 1]],
         ])->assertStatus(409)
             ->assertJson(['error' => ['code' => 'TABLE_SESSION_NOT_ACTIVE']]);
@@ -104,7 +106,7 @@ class PublicOrderTest extends TestCase
         $table = $this->createTable($restaurant);
         $table->update(['status' => 'inactive']);
 
-        $this->postJson("/api/v1/public/tables/{$table->public_token}/orders", [
+        $this->postPublicJson("/api/v1/public/tables/{$table->public_token}/orders", [
             'items' => [['restaurant_product_id' => $rp->id, 'quantity' => 1]],
         ])->assertStatus(404)
             ->assertJson(['error' => ['code' => 'PUBLIC_TABLE_NOT_FOUND']]);
@@ -116,7 +118,7 @@ class PublicOrderTest extends TestCase
         $table = $this->createTable($restaurant);
         $restaurant->update(['status' => 'inactive']);
 
-        $this->postJson("/api/v1/public/tables/{$table->public_token}/orders", [
+        $this->postPublicJson("/api/v1/public/tables/{$table->public_token}/orders", [
             'items' => [['restaurant_product_id' => $rp->id, 'quantity' => 1]],
         ])->assertStatus(404)
             ->assertJson(['error' => ['code' => 'PUBLIC_TABLE_NOT_FOUND']]);
@@ -134,7 +136,7 @@ class PublicOrderTest extends TestCase
         $tableA = $this->createTable($restaurantA);
         $this->openSession($tableA, $owner);
 
-        $response = $this->postJson("/api/v1/public/tables/{$tableA->public_token}/orders", [
+        $response = $this->postPublicJson("/api/v1/public/tables/{$tableA->public_token}/orders", [
             'items' => [['restaurant_product_id' => $rpB->id, 'quantity' => 1]],
         ])->assertStatus(422);
 
@@ -149,7 +151,7 @@ class PublicOrderTest extends TestCase
         $table = $this->createTable($restaurant);
         $this->openSession($table, $owner);
 
-        $this->postJson("/api/v1/public/tables/{$table->public_token}/orders", [
+        $this->postPublicJson("/api/v1/public/tables/{$table->public_token}/orders", [
             'items' => [['restaurant_product_id' => $rp->id, 'quantity' => 1]],
         ])->assertStatus(422)
             ->assertJson(['error' => ['code' => 'INVALID_ORDER_ITEM']]);
@@ -162,7 +164,7 @@ class PublicOrderTest extends TestCase
         $table = $this->createTable($restaurant);
         $this->openSession($table, $owner);
 
-        $this->postJson("/api/v1/public/tables/{$table->public_token}/orders", [
+        $this->postPublicJson("/api/v1/public/tables/{$table->public_token}/orders", [
             'items' => [['restaurant_product_id' => $rp->id, 'quantity' => 1]],
         ])->assertStatus(422)
             ->assertJson(['error' => ['code' => 'INVALID_ORDER_ITEM']]);
@@ -174,7 +176,7 @@ class PublicOrderTest extends TestCase
         $table = $this->createTable($restaurant);
         $this->openSession($table, $owner);
 
-        $this->postJson("/api/v1/public/tables/{$table->public_token}/orders", [
+        $this->postPublicJson("/api/v1/public/tables/{$table->public_token}/orders", [
             'items' => [],
         ])->assertStatus(422);
     }
@@ -185,11 +187,11 @@ class PublicOrderTest extends TestCase
         $table = $this->createTable($restaurant);
         $this->openSession($table, $owner);
 
-        $this->postJson("/api/v1/public/tables/{$table->public_token}/orders", [
+        $this->postPublicJson("/api/v1/public/tables/{$table->public_token}/orders", [
             'items' => [['restaurant_product_id' => $rp->id, 'quantity' => 0]],
         ])->assertStatus(422);
 
-        $this->postJson("/api/v1/public/tables/{$table->public_token}/orders", [
+        $this->postPublicJson("/api/v1/public/tables/{$table->public_token}/orders", [
             'items' => [['restaurant_product_id' => $rp->id, 'quantity' => 51]],
         ])->assertStatus(422);
     }
@@ -203,7 +205,7 @@ class PublicOrderTest extends TestCase
         $table = $this->createTable($restaurant);
         $this->openSession($table, $owner);
 
-        $response = $this->postJson("/api/v1/public/tables/{$table->public_token}/orders", [
+        $response = $this->postPublicJson("/api/v1/public/tables/{$table->public_token}/orders", [
             'restaurant_id' => 999999,
             'table_id' => 999999,
             'status' => 'confirmed',
@@ -224,7 +226,7 @@ class PublicOrderTest extends TestCase
 
     public function test_error_responses_are_json_with_stable_codes(): void
     {
-        $this->postJson('/api/v1/public/tables/unknown-token/orders', ['items' => [['restaurant_product_id' => 1, 'quantity' => 1]]])
+        $this->postPublicJson('/api/v1/public/tables/unknown-token/orders', ['items' => [['restaurant_product_id' => 1, 'quantity' => 1]]])
             ->assertStatus(404)
             ->assertHeader('Content-Type', 'application/json')
             ->assertJson(['error' => ['code' => 'PUBLIC_TABLE_NOT_FOUND', 'message' => 'Table not found.']]);

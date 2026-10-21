@@ -148,6 +148,28 @@ class RestaurantPolicy
     }
 
     /**
+     * Opening the operational day (declaring the opening float) —
+     * open_daily_operation, owner/manager by default. Deliberately separate
+     * from close_daily_operation (which the floor staff also holds).
+     */
+    public function openDay(User $user, Restaurant $restaurant): bool
+    {
+        return $user->organizations()->whereKey($restaurant->organization_id)->exists()
+            && $user->hasRestaurantPermission('open_daily_operation', $restaurant)
+            && RestaurantScope::canAccessRestaurant($user, $restaurant);
+    }
+
+    /**
+     * Knowing whether the operational day is open (no financial data):
+     * any staff member with access to this restaurant.
+     */
+    public function viewDailyOperation(User $user, Restaurant $restaurant): bool
+    {
+        return $user->organizations()->whereKey($restaurant->organization_id)->exists()
+            && RestaurantScope::canAccessRestaurant($user, $restaurant);
+    }
+
+    /**
      * Reading past Cierres Diarios (history, detail) and adding post-close
      * annotations — its own permission (view_daily_closes, owner/manager):
      * whoever can close today does not automatically see every past day's

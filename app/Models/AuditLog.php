@@ -173,6 +173,9 @@ class AuditLog extends Model
 
     public const EVENT_WHATSAPP_CONSENT_REVOKED = 'whatsapp_consent.revoked';
 
+    /** The operational day was opened with its opening float (OpenDailyOperationAction). */
+    public const EVENT_DAILY_OPERATION_OPENED = 'daily_operation.opened';
+
     /** CARTA 9.1A: a post-close note was added to a Cierre Diario. */
     public const EVENT_DAY_CLOSE_ANNOTATION_ADDED = 'day_close.annotation_added';
 
@@ -226,6 +229,7 @@ class AuditLog extends Model
         self::EVENT_TABLE_SESSION_VOIDED,
         self::EVENT_CASH_MOVEMENT_RECORDED,
         self::EVENT_DAY_CLOSE_COMPLETED,
+        self::EVENT_DAILY_OPERATION_OPENED,
         self::EVENT_DAY_CLOSE_ANNOTATION_ADDED,
         self::EVENT_DAY_CLOSE_WHATSAPP_RESEND_REQUESTED,
         self::EVENT_WHATSAPP_RECIPIENT_CREATED,
@@ -271,6 +275,8 @@ class AuditLog extends Model
 
     public const RESOURCE_DAY_CLOSE = 'day_close';
 
+    public const RESOURCE_DAILY_OPERATION = 'daily_operation';
+
     public const RESOURCE_REPORT_RECIPIENT = 'report_recipient';
 
     /**
@@ -295,6 +301,7 @@ class AuditLog extends Model
         self::RESOURCE_CUSTOMER_FEEDBACK,
         self::RESOURCE_CASH_MOVEMENT,
         self::RESOURCE_DAY_CLOSE,
+        self::RESOURCE_DAILY_OPERATION,
         self::RESOURCE_REPORT_RECIPIENT,
     ];
 

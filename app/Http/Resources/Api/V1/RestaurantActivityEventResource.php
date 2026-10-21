@@ -25,7 +25,11 @@ class RestaurantActivityEventResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
+        $assignment = in_array($this->type, [RestaurantActivityType::TABLE_WAITER_ASSIGNED, RestaurantActivityType::TABLE_ASSIGNMENT_PENDING], true);
+        $session = $assignment ? $this->tableSession : null;
+
         return [
+            $this->mergeWhen($assignment, ['target_table_id' => $session && $session->restaurant_id === $this->restaurant_id && $session->isActive() ? $session->table_id : null]),
             'id' => $this->id,
             'type' => $this->type,
             'category' => $this->category,

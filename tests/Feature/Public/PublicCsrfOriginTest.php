@@ -4,6 +4,7 @@ namespace Tests\Feature\Public;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\Concerns\InteractsWithOrders;
+use Tests\Concerns\InteractsWithPublicVisits;
 use Tests\Concerns\InteractsWithTenants;
 use Tests\TestCase;
 
@@ -26,6 +27,7 @@ use Tests\TestCase;
 class PublicCsrfOriginTest extends TestCase
 {
     use InteractsWithOrders, InteractsWithTenants, RefreshDatabase;
+    use InteractsWithPublicVisits;
 
     private const SPA_ORIGIN = 'http://localhost:5174';
 
@@ -44,7 +46,7 @@ class PublicCsrfOriginTest extends TestCase
 
         $response = $this
             ->withHeaders(['Origin' => self::SPA_ORIGIN])
-            ->postJson("/api/v1/public/tables/{$table->public_token}/orders", [
+            ->postPublicJson("/api/v1/public/tables/{$table->public_token}/orders", [
                 'items' => [['restaurant_product_id' => $rp->id, 'quantity' => 1]],
             ]);
 
@@ -65,7 +67,7 @@ class PublicCsrfOriginTest extends TestCase
 
         $response = $this
             ->withHeaders(['Origin' => self::SPA_ORIGIN])
-            ->postJson("/api/v1/public/tables/{$table->public_token}/requests/call-waiter");
+            ->postPublicJson("/api/v1/public/tables/{$table->public_token}/requests/call-waiter");
 
         $response->assertStatus(201);
         $this->assertNotSame(419, $response->getStatusCode());
@@ -81,7 +83,7 @@ class PublicCsrfOriginTest extends TestCase
 
         $response = $this
             ->withHeaders(['Origin' => self::SPA_ORIGIN])
-            ->postJson("/api/v1/public/tables/{$table->public_token}/requests/bill");
+            ->postPublicJson("/api/v1/public/tables/{$table->public_token}/requests/bill");
 
         $response->assertStatus(201);
         $this->assertNotSame(419, $response->getStatusCode());

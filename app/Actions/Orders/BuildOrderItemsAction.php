@@ -32,15 +32,19 @@ class BuildOrderItemsAction
         $modifiersTotalCents = 0;
         $restaurantDefaultLocale = $restaurant->settings?->default_locale;
 
-        foreach ($items as $rawItem) {
-            $restaurantProduct = RestaurantProduct::query()
-                ->where('id', $rawItem['restaurant_product_id'])
-                ->where('restaurant_id', $restaurant->id)
-                ->where('available', true)
-                ->with('product.translations')
-                ->first();
+        // Lock the complete set in stable order, including unavailable rows.
+        // OrderCreationService owns the transaction (9101 -> 9102 -> session -> products).
+        // A concurrent availability/price change is decided before or after this order,
+        // and every item is revalidated before any order/item is persisted.
+        $products = RestaurantProduct::query()
+            ->whereIn('id', array_column($items, 'restaurant_product_id'))
+            ->where('restaurant_id', $restaurant->id)
+            ->orderBy('id')->lockForUpdate()->with('product.translations')->get()->keyBy('id');
 
-            if (! $restaurantProduct || ! $restaurantProduct->product || $restaurantProduct->product->status !== 'active') {
+        foreach ($items as $rawItem) {
+            $restaurantProduct = $products->get($rawItem['restaurant_product_id']);
+
+            if (! $restaurantProduct || ! $restaurantProduct->available || ! $restaurantProduct->product || $restaurantProduct->product->status !== 'active') {
                 throw new InvalidOrderItemException('One of the selected products is not available.');
             }
 

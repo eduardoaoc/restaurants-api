@@ -6,6 +6,7 @@ use App\Models\Order;
 use App\Models\TableRequest;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\Concerns\InteractsWithOrders;
+use Tests\Concerns\InteractsWithPublicVisits;
 use Tests\Concerns\InteractsWithTableRequests;
 use Tests\Concerns\InteractsWithTenants;
 use Tests\TestCase;
@@ -13,6 +14,7 @@ use Tests\TestCase;
 class PublicTableRequestTest extends TestCase
 {
     use InteractsWithOrders, InteractsWithTableRequests, InteractsWithTenants, RefreshDatabase;
+    use InteractsWithPublicVisits;
 
     protected function setUp(): void
     {
@@ -29,7 +31,7 @@ class PublicTableRequestTest extends TestCase
         $table = $this->createTable($restaurant);
         $this->openSession($table, $owner);
 
-        $response = $this->postJson("/api/v1/public/tables/{$table->public_token}/requests/call-waiter", [
+        $response = $this->postPublicJson("/api/v1/public/tables/{$table->public_token}/requests/call-waiter", [
             'note' => 'Necesitamos ayuda con el menú',
         ])->assertStatus(201);
 
@@ -43,7 +45,7 @@ class PublicTableRequestTest extends TestCase
         $table = $this->createTable($restaurant);
         $this->openSession($table, $owner);
 
-        $this->postJson("/api/v1/public/tables/{$table->public_token}/requests/call-waiter")->assertStatus(201);
+        $this->postPublicJson("/api/v1/public/tables/{$table->public_token}/requests/call-waiter")->assertStatus(201);
 
         $tableRequest = TableRequest::query()->firstOrFail();
         $this->assertSame(TableRequest::TYPE_CALL_WAITER, $tableRequest->type);
@@ -57,7 +59,7 @@ class PublicTableRequestTest extends TestCase
         $table = $this->createTable($restaurant);
         $this->openSession($table, $owner);
 
-        $this->postJson("/api/v1/public/tables/{$table->public_token}/requests/call-waiter")
+        $this->postPublicJson("/api/v1/public/tables/{$table->public_token}/requests/call-waiter")
             ->assertHeader('Content-Type', 'application/json');
     }
 
@@ -66,7 +68,7 @@ class PublicTableRequestTest extends TestCase
         [, , $restaurant] = $this->createTenant();
         $table = $this->createTable($restaurant);
 
-        $response = $this->postJson("/api/v1/public/tables/{$table->public_token}/requests/call-waiter")
+        $response = $this->postPublicJson("/api/v1/public/tables/{$table->public_token}/requests/call-waiter")
             ->assertStatus(409);
 
         $response->assertJson(['error' => ['code' => 'TABLE_SESSION_NOT_ACTIVE', 'message' => 'The table session is not active.']]);
@@ -79,7 +81,7 @@ class PublicTableRequestTest extends TestCase
         $table = $this->createTable($restaurant);
         $this->openSession($table, $owner);
 
-        $this->postJson("/api/v1/public/tables/{$table->public_token}/requests/call-waiter", [
+        $this->postPublicJson("/api/v1/public/tables/{$table->public_token}/requests/call-waiter", [
             'restaurant_id' => 999999,
             'table_id' => 999999,
             'table_session_id' => 999999,
@@ -100,7 +102,7 @@ class PublicTableRequestTest extends TestCase
         $table = $this->createTable($restaurant);
         $table->update(['status' => 'inactive']);
 
-        $this->postJson("/api/v1/public/tables/{$table->public_token}/requests/call-waiter")
+        $this->postPublicJson("/api/v1/public/tables/{$table->public_token}/requests/call-waiter")
             ->assertStatus(404)
             ->assertJson(['error' => ['code' => 'PUBLIC_TABLE_NOT_FOUND']]);
     }
@@ -114,7 +116,7 @@ class PublicTableRequestTest extends TestCase
         $this->openSession($table, $owner);
         $this->createServedOrder($table, $owner);
 
-        $response = $this->postJson("/api/v1/public/tables/{$table->public_token}/requests/bill")
+        $response = $this->postPublicJson("/api/v1/public/tables/{$table->public_token}/requests/bill")
             ->assertStatus(201);
 
         $response->assertJson(['data' => ['type' => 'request_bill', 'status' => 'pending']]);
@@ -125,7 +127,7 @@ class PublicTableRequestTest extends TestCase
         [, , $restaurant] = $this->createTenant();
         $table = $this->createTable($restaurant);
 
-        $this->postJson("/api/v1/public/tables/{$table->public_token}/requests/bill")
+        $this->postPublicJson("/api/v1/public/tables/{$table->public_token}/requests/bill")
             ->assertStatus(409)
             ->assertJson(['error' => ['code' => 'TABLE_SESSION_NOT_ACTIVE']]);
     }
@@ -137,7 +139,7 @@ class PublicTableRequestTest extends TestCase
         $session = $this->openSession($table, $owner);
         $this->createServedOrder($table, $owner);
 
-        $this->postJson("/api/v1/public/tables/{$table->public_token}/requests/bill")->assertStatus(201);
+        $this->postPublicJson("/api/v1/public/tables/{$table->public_token}/requests/bill")->assertStatus(201);
 
         $this->assertTrue($session->fresh()->isActive());
     }
@@ -151,7 +153,7 @@ class PublicTableRequestTest extends TestCase
         $order = $this->advanceOrderTo($order, Order::STATUS_SERVED, $owner);
         $updatedAt = $order->updated_at;
 
-        $this->postJson("/api/v1/public/tables/{$table->public_token}/requests/bill")->assertStatus(201);
+        $this->postPublicJson("/api/v1/public/tables/{$table->public_token}/requests/bill")->assertStatus(201);
 
         $order->refresh();
         $this->assertSame(Order::STATUS_SERVED, $order->status);
@@ -167,9 +169,9 @@ class PublicTableRequestTest extends TestCase
         $table = $this->createTable($restaurant);
         $this->openSession($table, $owner);
 
-        $this->postJson("/api/v1/public/tables/{$table->public_token}/requests/call-waiter")->assertStatus(201);
+        $this->postPublicJson("/api/v1/public/tables/{$table->public_token}/requests/call-waiter")->assertStatus(201);
 
-        $response = $this->postJson("/api/v1/public/tables/{$table->public_token}/requests/call-waiter")
+        $response = $this->postPublicJson("/api/v1/public/tables/{$table->public_token}/requests/call-waiter")
             ->assertStatus(409);
 
         $response->assertJson(['error' => ['code' => 'TABLE_REQUEST_ALREADY_OPEN']]);
@@ -183,8 +185,8 @@ class PublicTableRequestTest extends TestCase
         $this->openSession($table, $owner);
         $this->createServedOrder($table, $owner);
 
-        $this->postJson("/api/v1/public/tables/{$table->public_token}/requests/bill")->assertStatus(201);
-        $this->postJson("/api/v1/public/tables/{$table->public_token}/requests/bill")->assertStatus(409);
+        $this->postPublicJson("/api/v1/public/tables/{$table->public_token}/requests/bill")->assertStatus(201);
+        $this->postPublicJson("/api/v1/public/tables/{$table->public_token}/requests/bill")->assertStatus(409);
     }
 
     public function test_call_waiter_and_request_bill_can_both_be_open_simultaneously(): void
@@ -194,8 +196,8 @@ class PublicTableRequestTest extends TestCase
         $this->openSession($table, $owner);
         $this->createServedOrder($table, $owner);
 
-        $this->postJson("/api/v1/public/tables/{$table->public_token}/requests/call-waiter")->assertStatus(201);
-        $this->postJson("/api/v1/public/tables/{$table->public_token}/requests/bill")->assertStatus(201);
+        $this->postPublicJson("/api/v1/public/tables/{$table->public_token}/requests/call-waiter")->assertStatus(201);
+        $this->postPublicJson("/api/v1/public/tables/{$table->public_token}/requests/bill")->assertStatus(201);
 
         $this->assertDatabaseCount('table_requests', 2);
     }
@@ -209,7 +211,7 @@ class PublicTableRequestTest extends TestCase
         $first = $this->createTableRequest($table, TableRequest::TYPE_CALL_WAITER);
         $this->advanceTableRequestTo($first, TableRequest::STATUS_COMPLETED, $owner);
 
-        $this->postJson("/api/v1/public/tables/{$table->public_token}/requests/call-waiter")->assertStatus(201);
+        $this->postPublicJson("/api/v1/public/tables/{$table->public_token}/requests/call-waiter")->assertStatus(201);
 
         $this->assertDatabaseCount('table_requests', 2);
     }
@@ -223,7 +225,7 @@ class PublicTableRequestTest extends TestCase
         $first = $this->createTableRequest($table, TableRequest::TYPE_CALL_WAITER);
         $this->advanceTableRequestTo($first, TableRequest::STATUS_CANCELLED, $owner);
 
-        $this->postJson("/api/v1/public/tables/{$table->public_token}/requests/call-waiter")->assertStatus(201);
+        $this->postPublicJson("/api/v1/public/tables/{$table->public_token}/requests/call-waiter")->assertStatus(201);
 
         $this->assertDatabaseCount('table_requests', 2);
     }
@@ -238,8 +240,8 @@ class PublicTableRequestTest extends TestCase
         $table = $this->createTable($restaurant);
         $this->openSession($table, $owner);
 
-        $this->postJson("/api/v1/public/tables/{$table->public_token}/requests/call-waiter")->assertStatus(201);
-        $this->postJson("/api/v1/public/tables/{$table->public_token}/requests/call-waiter")->assertStatus(409);
+        $this->postPublicJson("/api/v1/public/tables/{$table->public_token}/requests/call-waiter")->assertStatus(201);
+        $this->postPublicJson("/api/v1/public/tables/{$table->public_token}/requests/call-waiter")->assertStatus(409);
     }
 
     // --- Validation ---------------------------------------------------
@@ -250,7 +252,7 @@ class PublicTableRequestTest extends TestCase
         $table = $this->createTable($restaurant);
         $this->openSession($table, $owner);
 
-        $this->postJson("/api/v1/public/tables/{$table->public_token}/requests/call-waiter", [
+        $this->postPublicJson("/api/v1/public/tables/{$table->public_token}/requests/call-waiter", [
             'note' => str_repeat('a', 501),
         ])->assertStatus(422);
     }
@@ -263,7 +265,7 @@ class PublicTableRequestTest extends TestCase
         $table = $this->createTable($restaurant);
         $this->openSession($table, $owner);
 
-        $response = $this->postJson("/api/v1/public/tables/{$table->public_token}/requests/call-waiter")
+        $response = $this->postPublicJson("/api/v1/public/tables/{$table->public_token}/requests/call-waiter")
             ->assertStatus(201);
 
         $this->assertEqualsCanonicalizing(['id', 'type', 'status', 'created_at'], array_keys($response->json('data')));

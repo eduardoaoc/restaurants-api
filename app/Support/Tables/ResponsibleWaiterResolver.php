@@ -46,6 +46,6 @@ class ResponsibleWaiterResolver
             return null;
         }
 
-        return $waiter;
+        return WaiterAssignmentEligibility::ineligibilityReason($waiter, $restaurant->organization, $restaurant) === null ? $waiter : null;
     }
 }

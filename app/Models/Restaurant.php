@@ -114,6 +114,17 @@ class Restaurant extends Model
     }
 
     /**
+     * The currently open operational day, if any (at most one — partial
+     * unique index). See DailyOperationGuard.
+     *
+     * @return HasOne<RestaurantDailyOperation, $this>
+     */
+    public function openDailyOperation(): HasOne
+    {
+        return $this->hasOne(RestaurantDailyOperation::class)->where('status', RestaurantDailyOperation::STATUS_OPEN);
+    }
+
+    /**
      * The catalog products that have been priced/enabled for this restaurant.
      *
      * @return HasMany<RestaurantProduct, $this>

@@ -5,8 +5,11 @@ namespace Tests\Feature\Realtime;
 use App\Events\Realtime\OrderCreated;
 use App\Events\Realtime\PaymentRecorded;
 use App\Events\Realtime\TableSessionOpened;
+use Illuminate\Broadcasting\BroadcastEvent;
+use Illuminate\Broadcasting\BroadcastManager;
 use Illuminate\Broadcasting\PrivateChannel;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Queue;
 use Tests\TestCase;
 
 /**
@@ -18,6 +21,19 @@ use Tests\TestCase;
  */
 class EventPayloadContractTest extends TestCase
 {
+    public function test_broadcast_queue_override_preserves_the_connection_default_when_unset(): void
+    {
+        $event = new TableSessionOpened(7, 1, 2, 4, Carbon::now());
+        Queue::fake();
+        config(['broadcasting.queue' => null]);
+        app(BroadcastManager::class)->queue($event);
+        Queue::assertPushed(BroadcastEvent::class, fn ($job) => $job->queue === null);
+        Queue::fake();
+        config(['broadcasting.queue' => 'realtime-local']);
+        app(BroadcastManager::class)->queue($event);
+        Queue::assertPushedOn('realtime-local', BroadcastEvent::class);
+    }
+
     public function test_broadcasts_on_the_private_restaurant_channel(): void
     {
         $event = new TableSessionOpened(7, 1, 2, 4, Carbon::now());

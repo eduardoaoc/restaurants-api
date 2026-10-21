@@ -3,6 +3,7 @@
 namespace App\Http\Resources\Api\V1\Public;
 
 use App\Models\Restaurant;
+use App\Support\DailyOperation\DailyOperationGuard;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -33,6 +34,10 @@ class PublicRestaurantResource extends JsonResource
             'name' => $this->name,
             'default_locale' => $settings->default_locale,
             'enabled_locales' => $settings->enabled_locales,
+            // false while the operational day is not open: the carta stays
+            // readable, but no visit/order/request is accepted
+            // (RESTAURANT_DAY_NOT_OPEN — DailyOperationGuard).
+            'service_open' => DailyOperationGuard::isOpen($this->id),
             'capabilities' => [
                 'customer_ordering' => $settings->customer_ordering_enabled,
                 'waiter_call' => $settings->waiter_call_enabled,

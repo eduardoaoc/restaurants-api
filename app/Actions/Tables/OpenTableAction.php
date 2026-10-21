@@ -12,7 +12,9 @@ use App\Support\Activity\ActivityActor;
 use App\Support\Activity\RestaurantActivityRecorder;
 use App\Support\Activity\RestaurantActivityType;
 use App\Support\Audit\AuditLogger;
+use App\Support\DailyOperation\DailyOperationGuard;
 use App\Support\Restaurants\RestaurantOperationalLock;
+use App\Support\Tables\WaiterAssignmentLock;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 
@@ -29,20 +31,33 @@ class OpenTableAction
         private readonly RestaurantActivityRecorder $activityRecorder,
     ) {}
 
-    public function execute(Table $table, User $openedBy, int $guestCount): TableSession
+    public function execute(Table $table, ?User $openedBy, int $guestCount, bool $reuseActive = false): TableSession
     {
-        return DB::transaction(function () use ($table, $openedBy, $guestCount) {
+        return DB::transaction(function () use ($table, $openedBy, $guestCount, $reuseActive) {
             RestaurantOperationalLock::shared($table->restaurant_id);
+            WaiterAssignmentLock::acquire($table->restaurant_id);
 
-            if ($table->activeSession()->exists()) {
+            // Same row lock as transfers targeting this table. The partial
+            // unique index remains the final guard for every writer.
+            $table = Table::query()->whereKey($table->id)->lockForUpdate()->firstOrFail();
+            $active = $table->activeSession()->first();
+            if ($active) {
+                if ($reuseActive) {
+                    return $active;
+                }
                 throw new TableSessionConflictException('This table already has an active session.');
             }
+
+            // Only a NEW session needs an open operational day; reusing the
+            // active one (QR re-entry) never creates anything.
+            $operation = DailyOperationGuard::requireOpen($table->restaurant_id);
 
             try {
                 $session = TableSession::query()->create([
                     'restaurant_id' => $table->restaurant_id,
+                    'daily_operation_id' => $operation->id,
                     'table_id' => $table->id,
-                    'opened_by_user_id' => $openedBy->id,
+                    'opened_by_user_id' => $openedBy?->id,
                     'guest_count' => $guestCount,
                     'status' => 'occupied',
                     'opened_at' => now(),
@@ -62,7 +77,7 @@ class OpenTableAction
             $this->auditLogger->log(
                 organizationId: $table->restaurant->organization_id,
                 restaurantId: $table->restaurant_id,
-                actorType: AuditLog::ACTOR_USER,
+                actorType: $openedBy ? AuditLog::ACTOR_USER : AuditLog::ACTOR_PUBLIC,
                 actor: $openedBy,
                 event: AuditLog::EVENT_TABLE_SESSION_OPENED,
                 resourceType: AuditLog::RESOURCE_TABLE_SESSION,
@@ -73,7 +88,7 @@ class OpenTableAction
             $this->activityRecorder->record(
                 restaurantId: $table->restaurant_id,
                 type: RestaurantActivityType::TABLE_SESSION_OPENED,
-                actor: ActivityActor::staff($openedBy),
+                actor: $openedBy ? ActivityActor::staff($openedBy) : ActivityActor::customer(),
                 table: $table,
                 tableSessionId: $session->id,
                 metadata: ['guest_count' => $session->guest_count],
@@ -88,7 +103,9 @@ class OpenTableAction
                 $session->opened_at,
             );
 
-            return $session;
+            return app(EnsureSessionWaiterAction::class)->execute(
+                $session, $openedBy, $openedBy ? 'staff_open' : 'qr_entry', preferActor: $openedBy !== null,
+            );
         });
     }
 }

@@ -7,6 +7,7 @@ use App\Models\PrintRecord;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\Concerns\InteractsWithOrders;
 use Tests\Concerns\InteractsWithPayments;
+use Tests\Concerns\InteractsWithPublicVisits;
 use Tests\Concerns\InteractsWithTableRequests;
 use Tests\Concerns\InteractsWithTenants;
 use Tests\TestCase;
@@ -19,6 +20,7 @@ use Tests\TestCase;
 class FeatureTogglesTest extends TestCase
 {
     use InteractsWithOrders, InteractsWithPayments, InteractsWithTableRequests, InteractsWithTenants, RefreshDatabase;
+    use InteractsWithPublicVisits;
 
     protected function setUp(): void
     {
@@ -36,7 +38,7 @@ class FeatureTogglesTest extends TestCase
         $table = $this->createTable($restaurant);
         $this->openSession($table, $owner);
 
-        $response = $this->postJson("/api/v1/public/tables/{$table->public_token}/orders", [
+        $response = $this->postPublicJson("/api/v1/public/tables/{$table->public_token}/orders", [
             'items' => [['restaurant_product_id' => $rp->id, 'quantity' => 1]],
         ])->assertStatus(201);
 
@@ -58,7 +60,7 @@ class FeatureTogglesTest extends TestCase
         $table = $this->createTable($restaurant);
         $this->openSession($table, $owner);
 
-        $this->postJson("/api/v1/public/tables/{$table->public_token}/orders", [
+        $this->postPublicJson("/api/v1/public/tables/{$table->public_token}/orders", [
             'items' => [['restaurant_product_id' => $rp->id, 'quantity' => 1]],
         ])->assertStatus(201);
 
@@ -80,12 +82,12 @@ class FeatureTogglesTest extends TestCase
         $payload = ['items' => [['restaurant_product_id' => $rp->id, 'quantity' => 1]]];
         $headers = ['Idempotency-Key' => 'replay-key'];
 
-        $first = $this->postJson("/api/v1/public/tables/{$table->public_token}/orders", $payload, $headers)
+        $first = $this->postPublicJson("/api/v1/public/tables/{$table->public_token}/orders", $payload, $headers)
             ->assertStatus(201);
 
         $this->requireOrderApproval($restaurant);
 
-        $replay = $this->postJson("/api/v1/public/tables/{$table->public_token}/orders", $payload, $headers)
+        $replay = $this->postPublicJson("/api/v1/public/tables/{$table->public_token}/orders", $payload, $headers)
             ->assertStatus(200);
 
         $this->assertSame($first->json('data.id'), $replay->json('data.id'));
@@ -105,7 +107,7 @@ class FeatureTogglesTest extends TestCase
 
         $this->getJson("/api/v1/public/tables/{$table->public_token}/menu")->assertOk();
 
-        $this->postJson("/api/v1/public/tables/{$table->public_token}/orders", [
+        $this->postPublicJson("/api/v1/public/tables/{$table->public_token}/orders", [
             'items' => [['restaurant_product_id' => $rp->id, 'quantity' => 1]],
         ])
             ->assertStatus(409)
@@ -123,7 +125,7 @@ class FeatureTogglesTest extends TestCase
         $table = $this->createTable($restaurant);
         $this->openSession($table, $owner);
 
-        $this->postJson("/api/v1/public/tables/{$table->public_token}/requests/call-waiter")
+        $this->postPublicJson("/api/v1/public/tables/{$table->public_token}/requests/call-waiter")
             ->assertStatus(409)
             ->assertJson(['error' => ['code' => 'WAITER_CALL_DISABLED']]);
     }
@@ -135,7 +137,7 @@ class FeatureTogglesTest extends TestCase
         $table = $this->createTable($restaurant);
         $this->openSession($table, $owner);
 
-        $this->postJson("/api/v1/public/tables/{$table->public_token}/requests/bill")
+        $this->postPublicJson("/api/v1/public/tables/{$table->public_token}/requests/bill")
             ->assertStatus(409)
             ->assertJson(['error' => ['code' => 'BILL_REQUEST_DISABLED']]);
     }
@@ -146,7 +148,7 @@ class FeatureTogglesTest extends TestCase
         $table = $this->createTable($restaurant);
         // Feature is enabled (default) and there is no active session:
         // the original 409 TABLE_SESSION_NOT_ACTIVE contract must survive.
-        $this->postJson("/api/v1/public/tables/{$table->public_token}/requests/call-waiter")
+        $this->postPublicJson("/api/v1/public/tables/{$table->public_token}/requests/call-waiter")
             ->assertStatus(409)
             ->assertJson(['error' => ['code' => 'TABLE_SESSION_NOT_ACTIVE']]);
     }

@@ -2,9 +2,11 @@
 
 namespace App\Actions\DayClose;
 
+use App\Events\Realtime\DailyOperationChanged;
 use App\Exceptions\DayClose\DayCloseException;
 use App\Models\AuditLog;
 use App\Models\Restaurant;
+use App\Models\RestaurantDailyOperation;
 use App\Models\RestaurantDayClose;
 use App\Models\User;
 use App\Support\Activity\ActivityActor;
@@ -46,7 +48,10 @@ use Illuminate\Validation\ValidationException;
  *      greater — exactly at the threshold needs no note);
  *   9. canonical report + sha256, insert, AuditLog, activity event;
  *  10. the automatic WhatsApp delivery row, if enabled (CARTA 9.1E) —
- *      its job is dispatched only after COMMIT.
+ *      its job is dispatched only after COMMIT;
+ *  11. the open operational day (if any) is finished and linked to this
+ *      close in the same transaction — new sessions/orders waiting on the
+ *      shared lock then see no open day (DailyOperationGuard).
  *
  * Realtime goes out only after COMMIT (RestaurantActivityCreated is a
  * ShouldDispatchAfterCommit broadcast).
@@ -270,6 +275,19 @@ class CloseRestaurantDayAction
         // runs after COMMIT. Never an HTTP call here, and a WhatsApp
         // problem can never undo the close.
         $this->deliveryService->planAutomatic($dayClose);
+
+        if ($period->dailyOperation !== null) {
+            $operation = $period->dailyOperation;
+            $operation->update([
+                'status' => RestaurantDailyOperation::STATUS_CLOSED,
+                'closed_by_user_id' => $closedBy->id,
+                'closed_by_name_snapshot' => $closedBy->name,
+                'closed_at' => $closedAt,
+                'day_close_id' => $dayClose->id,
+            ]);
+
+            DailyOperationChanged::dispatch($restaurant->id, $operation->public_id, RestaurantDailyOperation::STATUS_CLOSED, $operation->business_date->format('Y-m-d'));
+        }
 
         return ['day_close' => $dayClose, 'replayed' => false];
     }

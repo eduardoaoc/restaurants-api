@@ -136,6 +136,13 @@ class AppServiceProvider extends ServiceProvider
         // Keyed by IP + publicToken (not IP alone) so many customers on the
         // same restaurant Wi-Fi don't share one bucket and lock each other
         // out of ordering.
+        RateLimiter::for('public-entry', function (Request $request) {
+            return [
+                Limit::perMinute(10)->by('entry|'.$request->ip().'|'.$request->route('publicToken')),
+                Limit::perMinute(60)->by('entry|'.$request->ip()),
+            ];
+        });
+
         RateLimiter::for('public-orders', function (Request $request) {
             $token = (string) $request->route('publicToken');
 

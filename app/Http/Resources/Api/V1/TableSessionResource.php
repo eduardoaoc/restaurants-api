@@ -3,6 +3,7 @@
 namespace App\Http\Resources\Api\V1;
 
 use App\Models\TableSession;
+use App\Support\Tables\WaiterAssignmentEligibility;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -16,7 +17,13 @@ class TableSessionResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
+        $waiter = $this->assignedWaiter;
+        $eligible = $waiter && WaiterAssignmentEligibility::ineligibilityReason(
+            $waiter, $this->restaurant->organization, $this->restaurant,
+        ) === null;
+
         return [
+            'assignment_status' => $eligible ? 'assigned' : 'pending',
             'id' => $this->id,
             'table_id' => $this->table_id,
             'restaurant_id' => $this->restaurant_id,
@@ -31,7 +38,7 @@ class TableSessionResource extends JsonResource
             'voided_at' => $this->voided_at,
             'voided_by_user_id' => $this->voided_by_user_id,
             'void_reason' => $this->void_reason,
-            'assigned_waiter' => $this->assignedWaiter ? [
+            'assigned_waiter' => $eligible ? [
                 'id' => $this->assignedWaiter->id,
                 'name' => $this->assignedWaiter->name,
             ] : null,

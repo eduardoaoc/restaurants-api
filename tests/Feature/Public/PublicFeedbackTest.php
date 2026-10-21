@@ -98,7 +98,7 @@ class PublicFeedbackTest extends TestCase
         $paid = $session->refresh();
         $this->assertSame($tokenAtOpen, $paid->feedback_token);
 
-        $this->getJson("/api/v1/public/tables/{$table->public_token}")
+        $this->getJson("/api/v1/public/tables/{$table->public_token}", ['X-Table-Visit' => $tokenAtOpen])
             ->assertOk()
             ->assertJson(['data' => ['session' => ['feedback' => ['eligible' => true, 'token' => $tokenAtOpen]]]]);
     }
@@ -188,7 +188,7 @@ class PublicFeedbackTest extends TestCase
     {
         [$table, $session] = $this->paidSession();
 
-        $response = $this->getJson("/api/v1/public/tables/{$table->public_token}")->assertOk();
+        $response = $this->getJson("/api/v1/public/tables/{$table->public_token}", ['X-Table-Visit' => $session->feedback_token])->assertOk();
 
         $response->assertJson([
             'data' => [
@@ -209,7 +209,7 @@ class PublicFeedbackTest extends TestCase
         [$table, $session, , $restaurant] = $this->paidSession();
         $this->createMenu($restaurant);
 
-        $this->getJson("/api/v1/public/tables/{$table->public_token}/menu")
+        $this->getJson("/api/v1/public/tables/{$table->public_token}/menu", ['X-Table-Visit' => $session->feedback_token])
             ->assertOk()
             ->assertJson(['data' => ['session' => ['feedback' => ['eligible' => true, 'token' => $session->feedback_token]]]]);
     }

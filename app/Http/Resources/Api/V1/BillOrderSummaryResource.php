@@ -7,8 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 /**
- * Lean order summary for the bill view — full items/modifiers aren't
- * needed here (GET /orders/{order} already provides that).
+ * Bill order with historical item/modifier snapshots.
  *
  * @mixin Order
  */
@@ -22,6 +21,8 @@ class BillOrderSummaryResource extends JsonResource
         return [
             'id' => $this->id,
             'status' => $this->status,
+            'billable' => in_array($this->status, Order::billableStatuses(), true),
+            'items' => OrderItemResource::collection($this->whenLoaded('items')),
             'total' => (string) $this->total,
             'created_at' => $this->created_at,
         ];

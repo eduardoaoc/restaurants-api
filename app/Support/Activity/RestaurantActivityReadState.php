@@ -6,6 +6,7 @@ use App\Models\Restaurant;
 use App\Models\RestaurantActivityEvent;
 use App\Models\RestaurantActivityRead;
 use App\Models\User;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -24,17 +25,33 @@ class RestaurantActivityReadState
             ->value('last_read_event_id');
     }
 
-    public function unreadCount(Restaurant $restaurant, int $lastReadEventId): int
+    public function visibleQuery(Restaurant $restaurant, User $user, bool $assignmentsOnly = false): Builder
     {
-        return RestaurantActivityEvent::query()
-            ->where('restaurant_id', $restaurant->id)
+        $query = RestaurantActivityEvent::query()->with('tableSession')->where('restaurant_id', $restaurant->id);
+        if ($assignmentsOnly) {
+            $canAssign = $user->hasRestaurantPermission('assign_waiters', $restaurant);
+            $query->where(function ($query) use ($user, $canAssign) {
+                $query->where(fn ($query) => $query->where('type', RestaurantActivityType::TABLE_WAITER_ASSIGNED)
+                    ->where('metadata->recipient_user_id', $user->id));
+                if ($canAssign) {
+                    $query->orWhere('type', RestaurantActivityType::TABLE_ASSIGNMENT_PENDING);
+                }
+            });
+        }
+
+        return $query;
+    }
+
+    public function unreadCount(Restaurant $restaurant, int $lastReadEventId, ?User $user = null, bool $assignmentsOnly = false): int
+    {
+        return ($user ? $this->visibleQuery($restaurant, $user, $assignmentsOnly) : RestaurantActivityEvent::query()->where('restaurant_id', $restaurant->id))
             ->where('id', '>', $lastReadEventId)
             ->count();
     }
 
-    public function latestEventId(Restaurant $restaurant): int
+    public function latestEventId(Restaurant $restaurant, ?User $user = null, bool $assignmentsOnly = false): int
     {
-        return (int) RestaurantActivityEvent::query()->where('restaurant_id', $restaurant->id)->max('id');
+        return (int) ($user ? $this->visibleQuery($restaurant, $user, $assignmentsOnly) : RestaurantActivityEvent::query()->where('restaurant_id', $restaurant->id))->max('id');
     }
 
     /**

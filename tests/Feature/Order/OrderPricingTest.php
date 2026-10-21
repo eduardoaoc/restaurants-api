@@ -4,12 +4,14 @@ namespace Tests\Feature\Order;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\Concerns\InteractsWithOrders;
+use Tests\Concerns\InteractsWithPublicVisits;
 use Tests\Concerns\InteractsWithTenants;
 use Tests\TestCase;
 
 class OrderPricingTest extends TestCase
 {
     use InteractsWithOrders, InteractsWithTenants, RefreshDatabase;
+    use InteractsWithPublicVisits;
 
     protected function setUp(): void
     {
@@ -31,7 +33,7 @@ class OrderPricingTest extends TestCase
         $table = $this->createTable($restaurant);
         $this->openSession($table, $owner);
 
-        $response = $this->postJson("/api/v1/public/tables/{$table->public_token}/orders", [
+        $response = $this->postPublicJson("/api/v1/public/tables/{$table->public_token}/orders", [
             'items' => [
                 [
                     'restaurant_product_id' => $rp->id,
@@ -63,7 +65,7 @@ class OrderPricingTest extends TestCase
         $table = $this->createTable($restaurant);
         $this->openSession($table, $owner);
 
-        $response = $this->postJson("/api/v1/public/tables/{$table->public_token}/orders", [
+        $response = $this->postPublicJson("/api/v1/public/tables/{$table->public_token}/orders", [
             'items' => [
                 ['restaurant_product_id' => $rpA->id, 'quantity' => 1],
                 ['restaurant_product_id' => $rpB->id, 'quantity' => 1],
@@ -82,7 +84,7 @@ class OrderPricingTest extends TestCase
         $table = $this->createTable($restaurant);
         $this->openSession($table, $owner);
 
-        $response = $this->postJson("/api/v1/public/tables/{$table->public_token}/orders", [
+        $response = $this->postPublicJson("/api/v1/public/tables/{$table->public_token}/orders", [
             'items' => [['restaurant_product_id' => $rp->id, 'quantity' => 1]],
         ])->assertStatus(201);
 
@@ -106,7 +108,7 @@ class OrderPricingTest extends TestCase
         $table = $this->createTable($restaurant);
         $this->openSession($table, $owner);
 
-        $response = $this->postJson("/api/v1/public/tables/{$table->public_token}/orders", [
+        $response = $this->postPublicJson("/api/v1/public/tables/{$table->public_token}/orders", [
             'items' => [['restaurant_product_id' => $rp->id, 'quantity' => 1, 'modifier_option_ids' => [$free->id]]],
         ])->assertStatus(201);
 

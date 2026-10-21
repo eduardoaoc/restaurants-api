@@ -3,6 +3,7 @@
 namespace App\Actions\TableRequests;
 
 use App\Actions\Public\ResolvePublicTableAction;
+use App\Actions\Tables\EnsureSessionWaiterAction;
 use App\Events\Realtime\TableRequestCreated;
 use App\Exceptions\Billing\TableSessionAlreadyPaidException;
 use App\Exceptions\Billing\TableSessionHasNoBillableOrdersException;
@@ -19,6 +20,9 @@ use App\Support\Activity\RestaurantActivityRecorder;
 use App\Support\Activity\RestaurantActivityType;
 use App\Support\Audit\AuditLogger;
 use App\Support\Billing\SessionBillCalculator;
+use App\Support\DailyOperation\DailyOperationGuard;
+use App\Support\Restaurants\RestaurantOperationalLock;
+use App\Support\Tables\WaiterAssignmentLock;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 
@@ -43,9 +47,9 @@ class CreatePublicTableRequestAction
         private readonly RestaurantActivityRecorder $activityRecorder,
     ) {}
 
-    public function execute(string $publicToken, string $type, ?string $note): TableRequest
+    public function execute(string $publicToken, string $type, ?string $note, ?string $visitToken = null): TableRequest
     {
-        $table = $this->resolvePublicTable->execute($publicToken);
+        $table = $this->resolvePublicTable->execute($publicToken, $visitToken);
 
         // Feature-enabled check before the active-session check — same
         // ordering as CreatePublicOrderAction, see report.
@@ -61,14 +65,20 @@ class CreatePublicTableRequestAction
 
         $session = $table->activeSession;
 
-        if (! $session) {
+        if (! $session || ! $session->isActive()) {
             throw new TableSessionNotActiveException;
         }
 
         return DB::transaction(function () use ($table, $session, $type, $note) {
+            // Operational lock first (deadlock rule), then the day gate: no
+            // new public request once the Cierre Diario has closed the day.
+            RestaurantOperationalLock::shared($table->restaurant_id);
+            WaiterAssignmentLock::acquire($table->restaurant_id);
+            DailyOperationGuard::requireOpen($table->restaurant_id);
             $lockedSession = TableSession::query()->whereKey($session->id)->lockForUpdate()->first();
 
-            if (! $lockedSession || ! $lockedSession->isActive()) {
+            if (! $lockedSession || ! $lockedSession->isActive()
+                || $lockedSession->table_id !== $table->id || $lockedSession->restaurant_id !== $table->restaurant_id) {
                 throw new TableSessionNotActiveException;
             }
 
@@ -96,6 +106,8 @@ class CreatePublicTableRequestAction
                     throw new TableSessionHasNoBillableOrdersException;
                 }
             }
+
+            $lockedSession = app(EnsureSessionWaiterAction::class)->execute($lockedSession, source: 'table_request');
 
             $hasOpenRequestOfType = TableRequest::query()
                 ->where('table_session_id', $lockedSession->id)

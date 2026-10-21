@@ -234,7 +234,7 @@ class PublicTableResolutionTest extends TestCase
             array_keys($response->json('data'))
         );
         $this->assertEqualsCanonicalizing(
-            ['id', 'name', 'default_locale', 'enabled_locales', 'capabilities'],
+            ['id', 'name', 'default_locale', 'enabled_locales', 'service_open', 'capabilities'],
             array_keys($response->json('data.restaurant'))
         );
         $this->assertEqualsCanonicalizing(['id', 'name', 'number'], array_keys($response->json('data.table')));

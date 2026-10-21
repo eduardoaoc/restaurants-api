@@ -104,6 +104,8 @@ class OrderController extends Controller
             new OA\Parameter(name: 'restaurant_id', in: 'query', required: false, schema: new OA\Schema(type: 'integer')),
             new OA\Parameter(name: 'table_id', in: 'query', required: false, schema: new OA\Schema(type: 'integer')),
             new OA\Parameter(name: 'table_session_id', in: 'query', required: false, description: 'Restrict to one table session\'s own orders (Bloco 4) — narrower than table_id, which spans every historical session of that table.', schema: new OA\Schema(type: 'integer')),
+            new OA\Parameter(name: 'per_page', in: 'query', required: false, description: 'Opt-in session history keyset pagination; requires restaurant_id and table_session_id. Returns meta.next_before_id.', schema: new OA\Schema(type: 'integer', minimum: 1, maximum: 100)),
+            new OA\Parameter(name: 'before_id', in: 'query', required: false, schema: new OA\Schema(type: 'integer', minimum: 1)),
             new OA\Parameter(name: 'status', in: 'query', required: false, schema: new OA\Schema(type: 'string', example: 'waiting_approval')),
         ],
         responses: [
@@ -147,8 +149,30 @@ class OrderController extends Controller
             $query->where('status', $request->query('status'));
         }
 
+        // Opt-in keyset pagination keeps the existing queue contract intact.
+        // Session history callers must send both context filters.
+        if ($request->has('per_page') || $request->has('before_id')) {
+            $data = $request->validate([
+                'restaurant_id' => ['required', 'integer', 'min:1'],
+                'table_session_id' => ['required', 'integer', 'min:1'],
+                'per_page' => ['sometimes', 'integer', 'min:1', 'max:100'],
+                'before_id' => ['sometimes', 'integer', 'min:1'],
+            ]);
+            if (isset($data['before_id'])) {
+                $query->where('id', '<', $data['before_id']);
+            }
+            $limit = (int) ($data['per_page'] ?? 20);
+            $rows = $query->with(['restaurant', 'table', 'items.modifiers'])
+                ->orderByDesc('id')->limit($limit + 1)->get();
+            $orders = $rows->take($limit)->values();
+
+            return response()->json(['data' => ['orders' => OrderResource::collection($orders)], 'meta' => [
+                'next_before_id' => $rows->count() > $limit ? $orders->last()->id : null,
+            ]]);
+        }
+
         $orders = $query->with(['restaurant', 'table', 'items.modifiers'])
-            ->orderByDesc('created_at')
+            ->orderByDesc('created_at')->orderByDesc('id')
             ->get();
 
         return response()->json([

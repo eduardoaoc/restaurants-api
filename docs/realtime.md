@@ -218,6 +218,8 @@ shared envelope and appends the event's own small, explicit payload
 | `waiter_call.acknowledged`     | `AcknowledgeWaiterCallAction`                                     | same fields                                                                               |
 | `payment.recorded`             | `RecordPaymentAction` (never on an idempotency replay)            | `table_session_id`, `table_id`, `payment_id`, `amount`, `payment_method`, `recorded_at`   |
 | `floor_plan.updated`           | `UpdateFloorPlanLayoutAction` (one event per bulk save)           | `tables_updated_count`, `table_ids`                                                      |
+| `product.availability_changed` | `UpdateRestaurantProductAction` (only when `available` actually changes; after commit) | `restaurant_product_id` — invalidation only; clients refetch through their existing reads |
+| `daily_operation.changed`      | `OpenDailyOperationAction` (open) and `CloseRestaurantDayAction` (closes the open day); after commit | `daily_operation_id` (public uuid), `status` (`open`/`closed`), `business_date` — no opening float |
 | `order.ready.attention`        | `TransitionOrderStatusAction::markReady()` (CARTA 7.1A) — on `private-user.{waiterId}` only, to the session's responsible waiter; nothing when there is none | `order` {`id`, `reference`}, `table` {`id`, `name`}, `table_session_id`, `ready_at` |
 | `restaurant.activity.created`  | `RestaurantActivityRecorder` (every activity-feed write, CARTA 6.1A) — on `private-restaurant.{id}.activity`, not `restaurant.{id}` | `activity` — exactly one item of `GET /restaurants/{id}/activity` |
 

@@ -20,6 +20,7 @@ use InvalidArgumentException;
 use RuntimeException;
 use Tests\Concerns\InteractsWithOrders;
 use Tests\Concerns\InteractsWithPayments;
+use Tests\Concerns\InteractsWithPublicVisits;
 use Tests\Concerns\InteractsWithTableRequests;
 use Tests\Concerns\InteractsWithTenants;
 use Tests\TestCase;
@@ -34,6 +35,7 @@ use Tests\TestCase;
 class ActivityRecordingTest extends TestCase
 {
     use InteractsWithOrders, InteractsWithPayments, InteractsWithTableRequests, InteractsWithTenants, RefreshDatabase;
+    use InteractsWithPublicVisits;
 
     protected function setUp(): void
     {
@@ -263,8 +265,8 @@ class ActivityRecordingTest extends TestCase
         $this->openSession($table, $owner);
         $payload = ['items' => [['restaurant_product_id' => $rp->id, 'quantity' => 1]]];
 
-        $this->withHeader('Idempotency-Key', 'retry-1')->postJson("/api/v1/public/tables/{$table->public_token}/orders", $payload)->assertCreated();
-        $this->withHeader('Idempotency-Key', 'retry-1')->postJson("/api/v1/public/tables/{$table->public_token}/orders", $payload)->assertOk();
+        $this->withHeader('Idempotency-Key', 'retry-1')->postPublicJson("/api/v1/public/tables/{$table->public_token}/orders", $payload)->assertCreated();
+        $this->withHeader('Idempotency-Key', 'retry-1')->postPublicJson("/api/v1/public/tables/{$table->public_token}/orders", $payload)->assertOk();
 
         $this->assertSame(1, $this->eventCount(RestaurantActivityType::ORDER_CREATED));
     }
@@ -408,6 +410,7 @@ class ActivityRecordingTest extends TestCase
 
         $this->assertSame([
             RestaurantActivityType::TABLE_SESSION_OPENED,
+            RestaurantActivityType::TABLE_ASSIGNMENT_PENDING,
             RestaurantActivityType::ORDER_CREATED,
             RestaurantActivityType::ORDER_ACCEPTED,
             RestaurantActivityType::ORDER_PREPARING,

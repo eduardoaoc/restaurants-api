@@ -17,6 +17,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Testing\TestResponse;
 use Tests\Concerns\InteractsWithOrders;
 use Tests\Concerns\InteractsWithPayments;
+use Tests\Concerns\InteractsWithPublicVisits;
 use Tests\Concerns\InteractsWithTableRequests;
 use Tests\Concerns\InteractsWithTenants;
 use Tests\TestCase;
@@ -30,6 +31,7 @@ use Tests\TestCase;
 class PublicBillRequestEligibilityTest extends TestCase
 {
     use InteractsWithOrders, InteractsWithPayments, InteractsWithTableRequests, InteractsWithTenants, RefreshDatabase;
+    use InteractsWithPublicVisits;
 
     protected function setUp(): void
     {
@@ -73,7 +75,7 @@ class PublicBillRequestEligibilityTest extends TestCase
 
     private function requestBill(Table $table): TestResponse
     {
-        return $this->postJson("/api/v1/public/tables/{$table->public_token}/requests/bill");
+        return $this->postPublicJson("/api/v1/public/tables/{$table->public_token}/requests/bill");
     }
 
     private function assertRejected(TestResponse $response, string $code): void
@@ -272,7 +274,7 @@ class PublicBillRequestEligibilityTest extends TestCase
     {
         [$table] = $this->activeSession();
 
-        $this->postJson("/api/v1/public/tables/{$table->public_token}/requests/call-waiter")
+        $this->postPublicJson("/api/v1/public/tables/{$table->public_token}/requests/call-waiter")
             ->assertStatus(201)
             ->assertJson(['data' => ['type' => TableRequest::TYPE_CALL_WAITER]]);
     }
@@ -282,7 +284,7 @@ class PublicBillRequestEligibilityTest extends TestCase
         [$table, , $owner, $rp] = $this->activeSession();
         $this->orderAt($table, $owner, $rp, Order::STATUS_PREPARING);
 
-        $this->postJson("/api/v1/public/tables/{$table->public_token}/requests/call-waiter")
+        $this->postPublicJson("/api/v1/public/tables/{$table->public_token}/requests/call-waiter")
             ->assertStatus(201);
     }
 
@@ -292,7 +294,7 @@ class PublicBillRequestEligibilityTest extends TestCase
         $this->orderAt($table, $owner, $rp, Order::STATUS_SERVED);
         $this->payInFull($session, $owner);
 
-        $this->postJson("/api/v1/public/tables/{$table->public_token}/requests/call-waiter")
+        $this->postPublicJson("/api/v1/public/tables/{$table->public_token}/requests/call-waiter")
             ->assertStatus(201);
     }
 }

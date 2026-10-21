@@ -10,6 +10,7 @@ use App\Models\Role;
 use App\Models\User;
 use App\Models\UserRole;
 use App\Support\Audit\AuditLogger;
+use App\Support\Tables\WaiterAssignmentLock;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -55,6 +56,11 @@ class UpdateStaffAction
     public function execute(Organization $organization, User $staff, array $data, User $actor): User
     {
         return DB::transaction(function () use ($organization, $staff, $data, $actor) {
+            $restaurantIds = $organization->restaurants()->orderBy('id')->pluck('id');
+            foreach ($restaurantIds as $restaurantId) {
+                WaiterAssignmentLock::acquire($restaurantId);
+            }
+
             $originalName = $staff->name;
 
             $staff->fill(array_intersect_key($data, array_flip(['name', 'email'])));

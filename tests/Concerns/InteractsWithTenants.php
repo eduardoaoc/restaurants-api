@@ -27,6 +27,8 @@ use Database\Seeders\RoleSeeder;
 
 trait InteractsWithTenants
 {
+    use InteractsWithDailyOperations;
+
     /**
      * Seed the roles/permissions catalog used to authorize requests.
      */
@@ -164,6 +166,8 @@ trait InteractsWithTenants
      */
     protected function createTable(Restaurant $restaurant, ?string $name = null, ?int $number = null): Table
     {
+        $this->ensureDailyOperationFixture($restaurant);
+
         return $restaurant->tables()->create([
             'name' => $name ?? 'Mesa '.uniqid(),
             'number' => $number,

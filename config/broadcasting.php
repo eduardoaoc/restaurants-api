@@ -17,6 +17,10 @@ return [
 
     'default' => env('BROADCAST_CONNECTION', 'null'),
 
+    // Optional dedicated queue for operational broadcasts. An unset value
+    // preserves the queue connection's existing default.
+    'queue' => env('BROADCAST_QUEUE'),
+
     /*
     |--------------------------------------------------------------------------
     | Broadcast Connections

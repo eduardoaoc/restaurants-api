@@ -4,6 +4,7 @@ namespace App\Events\Realtime;
 
 use App\Http\Resources\Api\V1\RestaurantActivityEventResource;
 use App\Models\RestaurantActivityEvent;
+use App\Support\Activity\RestaurantActivityType;
 use Illuminate\Broadcasting\PrivateChannel;
 
 /**
@@ -38,7 +39,12 @@ class RestaurantActivityCreated extends RealtimeEvent
      */
     public function broadcastOn(): array
     {
-        return [new PrivateChannel("restaurant.{$this->restaurantId}.activity")];
+        $channels = [new PrivateChannel("restaurant.{$this->restaurantId}.activity")];
+        if ($this->activity['type'] === RestaurantActivityType::TABLE_WAITER_ASSIGNED) {
+            $channels[] = new PrivateChannel('user.'.$this->activity['metadata']['recipient_user_id']);
+        }
+
+        return $channels;
     }
 
     public function broadcastAs(): string

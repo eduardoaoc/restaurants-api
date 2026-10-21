@@ -3,6 +3,7 @@
 namespace App\Actions\Orders;
 
 use App\Actions\Public\ResolvePublicTableAction;
+use App\Exceptions\Billing\TableSessionAlreadyPaidException;
 use App\Exceptions\Orders\IdempotencyKeyReusedException;
 use App\Exceptions\Orders\TableSessionNotActiveException;
 use App\Exceptions\Public\CustomerOrderingDisabledException;
@@ -37,9 +38,9 @@ class CreatePublicOrderAction
      * @param  array{customer_name?: ?string, note?: ?string, items: array<int, array<string, mixed>>, idempotency_key?: ?string}  $data
      * @return array{order: Order, replayed: bool}
      */
-    public function execute(string $publicToken, array $data, string $locale): array
+    public function execute(string $publicToken, array $data, string $locale, ?string $visitToken = null): array
     {
-        $table = $this->resolvePublicTable->execute($publicToken);
+        $table = $this->resolvePublicTable->execute($publicToken, $visitToken);
 
         $idempotencyKey = $data['idempotency_key'] ?? null;
         $payloadHash = $idempotencyKey !== null ? $this->payloadHash($data) : null;
@@ -66,7 +67,11 @@ class CreatePublicOrderAction
 
         $session = $table->activeSession;
 
-        if (! $session) {
+        if ($session?->isPaid()) {
+            throw new TableSessionAlreadyPaidException;
+        }
+
+        if (! $session || ! $session->isActive()) {
             throw new TableSessionNotActiveException;
         }
 
@@ -101,7 +106,7 @@ class CreatePublicOrderAction
             return $this->replayOrConflict($existing, $payloadHash);
         }
 
-        return ['order' => $order, 'replayed' => false];
+        return ['order' => $order, 'replayed' => ! $order->wasRecentlyCreated];
     }
 
     /**
@@ -136,6 +141,7 @@ class CreatePublicOrderAction
             ->where('table_id', $table->id)
             ->where('origin', Order::ORIGIN_CUSTOMER_QR)
             ->where('idempotency_key', $idempotencyKey)
+            ->when($table->activeSession, fn ($query, $session) => $query->where('table_session_id', $session->id))
             ->latest('id')
             ->first();
 

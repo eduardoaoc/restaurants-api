@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\V1\CategoryController;
 use App\Http\Controllers\Api\V1\CategoryProductController;
 use App\Http\Controllers\Api\V1\CustomerFeedbackController;
 use App\Http\Controllers\Api\V1\CustomerFeedbackSummaryController;
+use App\Http\Controllers\Api\V1\DailyOperationController;
 use App\Http\Controllers\Api\V1\DayCloseController;
 use App\Http\Controllers\Api\V1\DayCloseDeliveryController;
 use App\Http\Controllers\Api\V1\DayCloseWhatsAppSettingsController;
@@ -102,6 +103,10 @@ Route::prefix('v1')->group(function () {
                 Route::get('/tables/{publicToken}/menu', [PublicMenuController::class, 'show']);
             });
 
+            Route::post('/tables/{publicToken}/enter', [PublicTableController::class, 'enter'])
+                ->middleware('throttle:public-entry');
+
+            Route::get('/tables/{publicToken}/orders', [PublicOrderController::class, 'index'])->middleware('throttle:public-menu');
             Route::post('/tables/{publicToken}/orders', [PublicOrderController::class, 'store'])
                 ->middleware('throttle:public-orders');
 
@@ -241,6 +246,11 @@ Route::prefix('v1')->group(function () {
         Route::patch('/zones/{zone}', [ZoneController::class, 'update']);
         Route::delete('/zones/{zone}', [ZoneController::class, 'destroy']);
 
+        // Operational day: state for any staff of the restaurant; opening
+        // needs open_daily_operation. The close is the Cierre Diario below.
+        Route::get('/restaurants/{restaurant}/daily-operation', [DailyOperationController::class, 'show']);
+        Route::post('/restaurants/{restaurant}/daily-operations', [DailyOperationController::class, 'store']);
+
         // Cierre Diario (CARTA 9.1A): preview/close/cash movements need
         // close_daily_operation; history/detail/annotations need
         // view_daily_closes (PDF too — CARTA 9.1C). See DayCloseController.
@@ -287,6 +297,7 @@ Route::prefix('v1')->group(function () {
 
         Route::get('/restaurants/{restaurant}/products', [RestaurantProductController::class, 'index']);
         Route::post('/restaurants/{restaurant}/products', [RestaurantProductController::class, 'store']);
+        Route::patch('/restaurant-products/{restaurantProduct}/availability', [RestaurantProductController::class, 'updateAvailability']);
         Route::patch('/restaurant-products/{restaurantProduct}', [RestaurantProductController::class, 'update']);
 
         Route::get('/categories/{category}/products', [CategoryProductController::class, 'index']);

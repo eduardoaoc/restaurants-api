@@ -6,12 +6,14 @@ use App\Models\Order;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\Concerns\InteractsWithOrders;
+use Tests\Concerns\InteractsWithPublicVisits;
 use Tests\Concerns\InteractsWithTenants;
 use Tests\TestCase;
 
 class PublicAbuseTest extends TestCase
 {
     use InteractsWithOrders, InteractsWithTenants, RefreshDatabase;
+    use InteractsWithPublicVisits;
 
     protected function setUp(): void
     {
@@ -45,7 +47,7 @@ class PublicAbuseTest extends TestCase
         [, $owner, $restaurant, $rp] = $this->createTenantWithRestaurantProduct();
         $table = $this->createTable($restaurant);
         $this->openSession($table, $owner);
-        $this->postJson("/api/v1/public/tables/{$table->public_token}/orders", ['items' => [['restaurant_product_id' => $rp->id, 'quantity' => $quantity]]])->assertUnprocessable();
+        $this->postPublicJson("/api/v1/public/tables/{$table->public_token}/orders", ['items' => [['restaurant_product_id' => $rp->id, 'quantity' => $quantity]]])->assertUnprocessable();
         $this->assertDatabaseCount('orders', 0);
     }
 
@@ -57,17 +59,17 @@ class PublicAbuseTest extends TestCase
         $this->openSession($table, $owner);
         $url = "/api/v1/public/tables/{$table->public_token}/orders";
         foreach ([999999, $foreign->id] as $id) {
-            $this->postJson($url, ['items' => [['restaurant_product_id' => $id, 'quantity' => 1]]])->assertUnprocessable();
+            $this->postPublicJson($url, ['items' => [['restaurant_product_id' => $id, 'quantity' => 1]]])->assertUnprocessable();
         }
         $foreignOption = $this->createModifierOption($this->createModifierGroup($foreign));
         foreach ([999999, $foreignOption->id] as $id) {
-            $this->postJson($url, ['items' => [['restaurant_product_id' => $rp->id, 'quantity' => 1, 'modifier_option_ids' => [$id]]]])->assertUnprocessable();
+            $this->postPublicJson($url, ['items' => [['restaurant_product_id' => $rp->id, 'quantity' => 1, 'modifier_option_ids' => [$id]]]])->assertUnprocessable();
         }
         $rp->update(['available' => false]);
-        $this->postJson($url, ['items' => [['restaurant_product_id' => $rp->id, 'quantity' => 1]]])->assertUnprocessable();
+        $this->postPublicJson($url, ['items' => [['restaurant_product_id' => $rp->id, 'quantity' => 1]]])->assertUnprocessable();
         $rp->update(['available' => true]);
         $rp->product->update(['status' => 'inactive']);
-        $this->postJson($url, ['items' => [['restaurant_product_id' => $rp->id, 'quantity' => 1]]])->assertUnprocessable();
+        $this->postPublicJson($url, ['items' => [['restaurant_product_id' => $rp->id, 'quantity' => 1]]])->assertUnprocessable();
         $this->assertDatabaseCount('orders', 0);
     }
 
@@ -79,8 +81,8 @@ class PublicAbuseTest extends TestCase
         $payload = ['price' => '0.01', 'total' => '0.01', 'status' => 'served', 'restaurant_id' => 999999, 'session_id' => 999999, 'table_session_id' => 999999, 'created_by' => $owner->id,
             'items' => [['restaurant_product_id' => $rp->id, 'quantity' => 2, 'price' => '0.01', 'unit_price_snapshot' => '0.01']]];
         $url = "/api/v1/public/tables/{$table->public_token}/orders";
-        $first = $this->postJson($url, $payload, ['Idempotency-Key' => 'same'])->assertCreated();
-        $this->postJson($url, $payload, ['Idempotency-Key' => 'same'])->assertOk()->assertJsonPath('data.order.id', $first->json('data.order.id'));
+        $first = $this->postPublicJson($url, $payload, ['Idempotency-Key' => 'same'])->assertCreated();
+        $this->postPublicJson($url, $payload, ['Idempotency-Key' => 'same'])->assertOk()->assertJsonPath('data.order.id', $first->json('data.order.id'));
         $order = Order::query()->sole();
         $this->assertSame('20.00', $order->total);
         $this->assertSame(Order::STATUS_CONFIRMED, $order->status);

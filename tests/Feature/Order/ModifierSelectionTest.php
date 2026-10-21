@@ -4,12 +4,14 @@ namespace Tests\Feature\Order;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\Concerns\InteractsWithOrders;
+use Tests\Concerns\InteractsWithPublicVisits;
 use Tests\Concerns\InteractsWithTenants;
 use Tests\TestCase;
 
 class ModifierSelectionTest extends TestCase
 {
     use InteractsWithOrders, InteractsWithTenants, RefreshDatabase;
+    use InteractsWithPublicVisits;
 
     protected function setUp(): void
     {
@@ -20,7 +22,7 @@ class ModifierSelectionTest extends TestCase
 
     private function order(string $publicToken, array $modifierOptionIds, int $restaurantProductId)
     {
-        return $this->postJson("/api/v1/public/tables/{$publicToken}/orders", [
+        return $this->postPublicJson("/api/v1/public/tables/{$publicToken}/orders", [
             'items' => [[
                 'restaurant_product_id' => $restaurantProductId,
                 'quantity' => 1,

@@ -4,12 +4,14 @@ namespace Tests\Feature\Public;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\Concerns\InteractsWithOrders;
+use Tests\Concerns\InteractsWithPublicVisits;
 use Tests\Concerns\InteractsWithTenants;
 use Tests\TestCase;
 
 class PublicOrderRateLimitTest extends TestCase
 {
     use InteractsWithOrders, InteractsWithTenants, RefreshDatabase;
+    use InteractsWithPublicVisits;
 
     protected function setUp(): void
     {
@@ -27,10 +29,10 @@ class PublicOrderRateLimitTest extends TestCase
         $payload = ['items' => [['restaurant_product_id' => $rp->id, 'quantity' => 1]]];
 
         for ($i = 0; $i < 10; $i++) {
-            $this->postJson("/api/v1/public/tables/{$table->public_token}/orders", $payload)->assertStatus(201);
+            $this->postPublicJson("/api/v1/public/tables/{$table->public_token}/orders", $payload)->assertStatus(201);
         }
 
-        $response = $this->postJson("/api/v1/public/tables/{$table->public_token}/orders", $payload)
+        $response = $this->postPublicJson("/api/v1/public/tables/{$table->public_token}/orders", $payload)
             ->assertStatus(429);
 
         $response->assertJson(['error' => ['code' => 'RATE_LIMIT_EXCEEDED', 'message' => 'Too many requests.']]);
@@ -49,7 +51,7 @@ class PublicOrderRateLimitTest extends TestCase
         }
         $this->getJson("/api/v1/public/tables/{$table->public_token}")->assertStatus(429);
 
-        $this->postJson(
+        $this->postPublicJson(
             "/api/v1/public/tables/{$table->public_token}/orders",
             ['items' => [['restaurant_product_id' => $rp->id, 'quantity' => 1]]]
         )->assertStatus(201);

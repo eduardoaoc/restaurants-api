@@ -11,6 +11,7 @@ use App\Models\StaffShift;
 use App\Models\User;
 use App\Support\Audit\AuditLogger;
 use App\Support\Staff\StaffShiftEligibility;
+use App\Support\Tables\WaiterAssignmentLock;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 
@@ -29,6 +30,7 @@ class StartStaffShiftAction
     public function execute(Restaurant $restaurant, User $candidate, User $actor): StaffShift
     {
         return DB::transaction(function () use ($restaurant, $candidate, $actor) {
+            WaiterAssignmentLock::acquire($restaurant->id);
             $organization = $restaurant->organization;
 
             $ineligibilityReason = StaffShiftEligibility::ineligibilityReason($candidate, $organization, $restaurant);

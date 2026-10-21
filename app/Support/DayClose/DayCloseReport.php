@@ -19,6 +19,8 @@ class DayCloseReport
 {
     public const REPORT_SCHEMA_VERSION = 1;
 
+    public const OPENING_FLOAT_SOURCE_DAILY_OPERATION = 'daily_operation';
+
     public const OPENING_FLOAT_SOURCE_PREVIOUS_CLOSE = 'previous_close';
 
     public const OPENING_FLOAT_SOURCE_RESTAURANT_DEFAULT = 'restaurant_default';
@@ -66,13 +68,30 @@ class DayCloseReport
     }
 
     /**
-     * Opening float precedence: the previous close's cash_left_for_next_day
-     * when not null, else RestaurantSettings.default_opening_float, else
-     * the closer must state it.
+     * Opening float precedence: the float declared when the open
+     * operational day was opened; else the previous close's
+     * cash_left_for_next_day when not null, else
+     * RestaurantSettings.default_opening_float, else the closer must state
+     * it (only reachable for a close without an opened day).
      *
      * @return array{cents: ?int, source: string}
      */
     public function openingFloat(Restaurant $restaurant, DayClosePeriod $period): array
+    {
+        if ($period->dailyOperation !== null) {
+            return ['cents' => Money::decimalToCents((string) $period->dailyOperation->opening_float), 'source' => self::OPENING_FLOAT_SOURCE_DAILY_OPERATION];
+        }
+
+        return $this->suggestedOpeningFloat($restaurant, $period);
+    }
+
+    /**
+     * The pre-existing precedence without an opened day — also what the
+     * opening form suggests.
+     *
+     * @return array{cents: ?int, source: string}
+     */
+    public function suggestedOpeningFloat(Restaurant $restaurant, DayClosePeriod $period): array
     {
         $previousLeft = $period->previousClose?->cash_left_for_next_day;
 

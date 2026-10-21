@@ -215,7 +215,7 @@ class BillTest extends TestCase
         $this->assertSame($session->id, $json['table_session_id']);
         $this->assertEqualsCanonicalizing(['id', 'name'], array_keys($json['table']));
         $this->assertCount(1, $json['orders']);
-        $this->assertEqualsCanonicalizing(['id', 'status', 'total', 'created_at'], array_keys($json['orders'][0]));
+        $this->assertEqualsCanonicalizing(['id', 'status', 'total', 'created_at', 'items', 'billable'], array_keys($json['orders'][0]));
         $this->assertCount(1, $json['payments']);
         $this->assertEqualsCanonicalizing(
             ['id', 'method', 'amount', 'currency', 'reference', 'note', 'recorded_at', 'recorded_by'],

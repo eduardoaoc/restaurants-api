@@ -8,6 +8,7 @@ use App\Models\AuditLog;
 use App\Models\TableSession;
 use App\Models\User;
 use App\Support\Audit\AuditLogger;
+use App\Support\Tables\WaiterAssignmentLock;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -23,9 +24,10 @@ class UnassignWaiterAction
 {
     public function __construct(private readonly AuditLogger $auditLogger) {}
 
-    public function execute(TableSession $session, User $actor): TableSession
+    public function execute(TableSession $session, ?User $actor, string $source = 'manual'): TableSession
     {
-        return DB::transaction(function () use ($session, $actor) {
+        return DB::transaction(function () use ($session, $actor, $source) {
+            WaiterAssignmentLock::acquire($session->restaurant_id);
             $locked = TableSession::query()->whereKey($session->id)->lockForUpdate()->first();
 
             if (! $locked || ! $locked->isActive()) {
@@ -43,16 +45,19 @@ class UnassignWaiterAction
             $this->auditLogger->log(
                 organizationId: $locked->restaurant->organization_id,
                 restaurantId: $locked->restaurant_id,
-                actorType: AuditLog::ACTOR_USER,
+                actorType: $actor ? AuditLog::ACTOR_USER : AuditLog::ACTOR_PUBLIC,
                 actor: $actor,
                 event: AuditLog::EVENT_TABLE_SESSION_WAITER_UNASSIGNED,
                 resourceType: AuditLog::RESOURCE_TABLE_SESSION,
                 resourceId: $locked->id,
                 metadata: [
                     'table_id' => $locked->table_id,
+                    'source' => $source,
                     'previous_waiter_user_id' => $previousWaiterId,
                 ],
             );
+
+            app(EnsureSessionWaiterAction::class)->recordPending($locked, $actor, $source);
 
             WaiterUnassigned::dispatch($locked->restaurant_id, $locked->id, $locked->table_id, $previousWaiterId, null);
 

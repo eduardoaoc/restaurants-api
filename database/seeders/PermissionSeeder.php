@@ -18,6 +18,7 @@ class PermissionSeeder extends Seeder
         'manage_users' => 'Manage users',
         'manage_menu' => 'Manage menu',
         'manage_products' => 'Manage products',
+        'manage_product_availability' => 'Change product availability in a restaurant',
         'manage_tables' => 'Manage tables',
         'manage_floor_plan' => 'Manage floor plan (floors, zones, table layout)',
         'assign_waiters' => 'Assign, reassign, or unassign the waiter responsible for a table session',
@@ -36,6 +37,7 @@ class PermissionSeeder extends Seeder
         'view_audit' => 'View audit log',
         'manage_staff_reviews' => 'Manage staff reviews',
         'view_customer_feedback' => "View customers' post-visit feedback in detail",
+        'open_daily_operation' => 'Open the operational day (declare the opening float)',
         'close_daily_operation' => 'Run the Cierre Diario (preview, cash movements, close the business day)',
         'view_daily_closes' => 'View past Cierres Diarios (history, detail) and add post-close annotations',
     ];

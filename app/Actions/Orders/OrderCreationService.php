@@ -2,9 +2,11 @@
 
 namespace App\Actions\Orders;
 
+use App\Actions\Tables\EnsureSessionWaiterAction;
 use App\Events\Realtime\OrderCreated;
 use App\Exceptions\Billing\TableSessionAlreadyPaidException;
 use App\Exceptions\Orders\OrderCreationConflictException;
+use App\Exceptions\Orders\IdempotencyKeyReusedException;
 use App\Exceptions\Public\TableSessionBillRequestedException;
 use App\Models\AuditLog;
 use App\Models\Order;
@@ -15,8 +17,10 @@ use App\Support\Activity\ActivityActor;
 use App\Support\Activity\RestaurantActivityRecorder;
 use App\Support\Activity\RestaurantActivityType;
 use App\Support\Audit\AuditLogger;
+use App\Support\DailyOperation\DailyOperationGuard;
 use App\Support\Money\Money;
 use App\Support\Restaurants\RestaurantOperationalLock;
+use App\Support\Tables\WaiterAssignmentLock;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -71,10 +75,30 @@ class OrderCreationService
             $requiresApproval, $blockIfBillRequested,
         ) {
             RestaurantOperationalLock::shared($table->restaurant_id);
+            WaiterAssignmentLock::acquire($table->restaurant_id);
+
+            // A simultaneous successful request may have committed while this
+            // request waited on 9102. Replay precedes availability/session gates.
+            if ($idempotencyKey !== null) {
+                $existing = Order::query()->where('table_id', $table->id)
+                    ->where('table_session_id', $tableSessionId)->where('origin', $origin)
+                    ->where('idempotency_key', $idempotencyKey)->first();
+                if ($existing) {
+                    if ($existing->idempotency_payload_hash !== $idempotencyPayloadHash) {
+                        throw new IdempotencyKeyReusedException;
+                    }
+                    return $existing->load('items.modifiers');
+                }
+            }
+
+            // After the replay above: a legitimate retry still recovers its
+            // order, but no NEW order is written without an open day.
+            DailyOperationGuard::requireOpen($table->restaurant_id);
 
             $session = TableSession::query()->whereKey($tableSessionId)->lockForUpdate()->first();
 
-            if (! $session || ! $session->isActive()) {
+            if (! $session || ! $session->isActive()
+                || $session->table_id !== $table->id || $session->restaurant_id !== $table->restaurant_id) {
                 throw new OrderCreationConflictException('The table session is no longer active.');
             }
 
@@ -90,6 +114,8 @@ class OrderCreationService
             if ($blockIfBillRequested && $session->hasOpenBillRequest()) {
                 throw new TableSessionBillRequestedException;
             }
+
+            $session = app(EnsureSessionWaiterAction::class)->execute($session, $createdBy, 'order');
 
             $built = $this->buildOrderItems->execute($table->restaurant, $items, $locale);
 

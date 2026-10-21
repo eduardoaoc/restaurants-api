@@ -9,6 +9,7 @@ use App\Exceptions\Billing\TableSessionClosedException;
 use App\Exceptions\Billing\TableSessionHasNoBillableOrdersException;
 use App\Exceptions\Billing\TableSessionHasOpenOrdersException;
 use App\Exceptions\Billing\TableSessionNotPaidException;
+use App\Exceptions\DailyOperation\DailyOperationException;
 use App\Exceptions\DayClose\DayCloseException;
 use App\Exceptions\FloorPlan\FloorHasZonesException;
 use App\Exceptions\FloorPlan\ZoneHasTablesException;
@@ -28,6 +29,7 @@ use App\Exceptions\Public\FeedbackTokenNotFoundException;
 use App\Exceptions\Public\InvalidPublicLocaleException;
 use App\Exceptions\Public\PublicMenuNotAvailableException;
 use App\Exceptions\Public\PublicTableNotFoundException;
+use App\Exceptions\Public\PublicVisitInvalidException;
 use App\Exceptions\Public\TableSessionBillRequestedException;
 use App\Exceptions\Public\TableSessionNotPaidForFeedbackException;
 use App\Exceptions\Public\TableSessionNotPaidForVisitException;
@@ -111,6 +113,11 @@ return Application::configure(basePath: dirname(__DIR__))
         });
         $exceptions->render(function (WaiterCallConflictException $e, Request $request) {
             return response()->json(['message' => $e->getMessage()], 409);
+        });
+        $exceptions->render(function (PublicVisitInvalidException $e, Request $request) {
+            return response()->json([
+                'error' => ['code' => 'PUBLIC_VISIT_INVALID', 'message' => 'This visit is no longer available. Please scan the table QR again.'],
+            ], 409);
         });
         $exceptions->render(function (PublicTableNotFoundException $e, Request $request) {
             return response()->json([
@@ -294,6 +301,9 @@ return Application::configure(basePath: dirname(__DIR__))
             ], 409);
         });
         $exceptions->render(function (DayCloseException $e, Request $request) {
+            return response()->json(['error' => $e->toResponseError()], $e->status);
+        });
+        $exceptions->render(function (DailyOperationException $e, Request $request) {
             return response()->json(['error' => $e->toResponseError()], $e->status);
         });
         $exceptions->render(function (WhatsAppDeliveryException $e, Request $request) {

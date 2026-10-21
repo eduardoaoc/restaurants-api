@@ -8,6 +8,7 @@ use App\Models\AuditLog;
 use App\Models\StaffShift;
 use App\Models\User;
 use App\Support\Audit\AuditLogger;
+use App\Support\Tables\WaiterAssignmentLock;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -24,6 +25,7 @@ class EndStaffShiftAction
     public function execute(StaffShift $shift, User $actor): StaffShift
     {
         return DB::transaction(function () use ($shift, $actor) {
+            WaiterAssignmentLock::acquire($shift->restaurant_id);
             $locked = StaffShift::query()->whereKey($shift->id)->lockForUpdate()->first();
 
             if (! $locked || ! $locked->isActive()) {

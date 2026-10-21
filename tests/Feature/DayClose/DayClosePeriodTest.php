@@ -34,8 +34,10 @@ class DayClosePeriodTest extends TestCase
         $this->setDefaultOpeningFloat($restaurant, '0.00');
 
         // Activity before 06:00 Madrid (04:00Z) is outside the closing system.
+        // No sale can exist without an opened day, so the pre-cutoff activity
+        // is a drawer pay-in; the day itself is opened (fixture) at 14:00.
         $this->at('2026-10-02 03:00:00');
-        $this->servedPaidSession($restaurant, $owner, '99.00');
+        $this->payIn($restaurant, $owner, '99.00', 'before-cutoff');
         $this->at('2026-10-02 12:00:00');
         $this->servedPaidSession($restaurant, $owner, '10.00');
         $this->at('2026-10-02 21:00:00');
@@ -51,6 +53,7 @@ class DayClosePeriodTest extends TestCase
             'covers_multiple_business_days' => false,
         ], $preview['period']);
         $this->assertSame('10.00', $preview['financial']['total_received']);
+        $this->assertSame('0.00', $preview['cash']['cash_pay_ins']);
 
         $this->closeDay($restaurant, $owner)->assertCreated()
             ->assertJsonPath('data.period_started_at', '2026-10-02T04:00:00Z')
@@ -65,8 +68,10 @@ class DayClosePeriodTest extends TestCase
         $this->at('2026-10-02 21:00:00');
         $first = $this->closeDay($restaurant, $owner)->assertCreated()->json('data');
 
-        // A payment one second after the first close belongs to the second.
-        $this->at('2026-10-02 21:00:01');
+        // Nothing operates between a close and the next opened day (10-02 is
+        // closed until the 06:00 Madrid cutoff): the first payment after the
+        // close, one second after that cutoff, belongs to the second close.
+        $this->at('2026-10-03 04:00:01');
         $this->servedPaidSession($restaurant, $owner, '7.00');
         $this->at('2026-10-03 21:30:00');
 
@@ -149,6 +154,11 @@ class DayClosePeriodTest extends TestCase
         $this->closeDay($restaurant, $owner)->assertCreated()->assertJsonPath('data.total_received', '20.00');
     }
 
+    private function payIn($restaurant, $user, string $amount, string $key): void
+    {
+        $this->as($user)->postJson("/api/v1/restaurants/{$restaurant->id}/cash-movements", ['type' => 'pay_in', 'amount' => $amount, 'reason' => 'Cambio'], ['Idempotency-Key' => $key])->assertCreated();
+    }
+
     public function test_missed_days_are_covered_by_the_next_close(): void
     {
         [, $owner, $restaurant] = $this->createTenant();
@@ -156,8 +166,11 @@ class DayClosePeriodTest extends TestCase
         $this->at('2026-10-02 21:00:00');
         $this->closeDay($restaurant, $owner)->assertCreated();
 
+        // Nobody opened 10-03 (only a drawer pay-in happened); the day opened
+        // on 10-04 closes both: an open day keeps its own date, so a missed
+        // day is a gap BEFORE the opened one.
         $this->at('2026-10-03 19:00:00');
-        $this->servedPaidSession($restaurant, $owner, '11.00');
+        $this->payIn($restaurant, $owner, '11.00', 'missed-day');
         $this->at('2026-10-04 19:00:00');
         $this->servedPaidSession($restaurant, $owner, '12.00');
         $this->at('2026-10-04 21:00:00');
@@ -165,7 +178,8 @@ class DayClosePeriodTest extends TestCase
         $response = $this->closeDay($restaurant, $owner)->assertCreated()
             ->assertJsonPath('data.business_date', '2026-10-04')
             ->assertJsonPath('data.business_date_from', '2026-10-03')
-            ->assertJsonPath('data.total_received', '23.00')
+            ->assertJsonPath('data.total_received', '12.00')
+            ->assertJsonPath('data.cash_pay_ins', '11.00')
             ->assertJsonPath('data.report.summary.covers_multiple_business_days', true);
 
         $this->assertSame('2026-10-02T21:00:00Z', $response->json('data.period_started_at'));
