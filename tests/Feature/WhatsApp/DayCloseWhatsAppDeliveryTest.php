@@ -382,4 +382,74 @@ class DayCloseWhatsAppDeliveryTest extends TestCase
                 && $params->every(fn ($text) => $text !== '' && ! str_contains($text, "\n") && ! str_contains($text, "\t") && $text !== 'null');
         });
     }
+
+    public function test_the_delivery_job_goes_to_the_configured_whatsapp_queue(): void
+    {
+        Queue::fake();
+        [$restaurant, $owner] = $this->restaurantWithSales();
+
+        config(['whatsapp.queue' => 'whatsapp']);
+        $this->closeDay($restaurant, $owner)->assertCreated();
+
+        $delivery = RestaurantDayCloseDelivery::query()->sole();
+        Queue::assertPushedOn('whatsapp', SendDayCloseWhatsApp::class, fn (SendDayCloseWhatsApp $job) => $job->deliveryId === $delivery->id);
+    }
+
+    public function test_without_a_configured_queue_the_job_keeps_the_connection_default(): void
+    {
+        Queue::fake();
+        [$restaurant, $owner] = $this->restaurantWithSales();
+
+        config(['whatsapp.queue' => null]);
+        $this->closeDay($restaurant, $owner)->assertCreated();
+
+        Queue::assertPushed(SendDayCloseWhatsApp::class, fn (SendDayCloseWhatsApp $job) => $job->queue === null);
+    }
+
+    public function test_job_timeout_stays_below_retry_after_and_fails_instead_of_retrying(): void
+    {
+        $job = new SendDayCloseWhatsApp(1);
+
+        $this->assertTrue($job->failOnTimeout);
+        $this->assertGreaterThan(10 + 5, $job->timeout, 'above the HTTP connect + total timeouts');
+        $this->assertLessThan((int) config('queue.connections.database.retry_after'), $job->timeout);
+        $this->assertLessThan((int) config('queue.connections.redis.retry_after'), $job->timeout);
+    }
+
+    public function test_a_job_that_timed_out_mid_call_is_failed_and_never_sent_again(): void
+    {
+        Queue::fake();
+        Http::fake([self::WA_MESSAGES_URL => Http::response($this->metaAccepted())]);
+        [$restaurant, $owner] = $this->restaurantWithSales();
+        $this->closeDay($restaurant, $owner)->assertCreated();
+        $delivery = RestaurantDayCloseDelivery::query()->sole();
+
+        // The worker claimed it and was killed by the timeout during the
+        // HTTP call: Meta may or may not have the message.
+        $delivery->update(['sending_started_at' => now(), 'attempts' => 1]);
+        (new SendDayCloseWhatsApp($delivery->id))->failed(new \RuntimeException('timed out'));
+
+        $delivery->refresh();
+        $this->assertSame('failed', $delivery->status);
+        $this->assertSame('job_failed', $delivery->failure_code);
+        $this->assertNull($delivery->sending_started_at);
+
+        $this->runJob($delivery->id);
+        Http::assertNothingSent();
+        $this->assertSame('failed', $delivery->refresh()->status);
+    }
+
+    public function test_a_late_failed_callback_never_downgrades_an_accepted_delivery(): void
+    {
+        Http::fake([self::WA_MESSAGES_URL => Http::response($this->metaAccepted())]);
+        [$restaurant, $owner] = $this->restaurantWithSales();
+        $this->closeDay($restaurant, $owner)->assertCreated();
+        $delivery = RestaurantDayCloseDelivery::query()->sole();
+        $this->assertSame('accepted', $delivery->status);
+
+        (new SendDayCloseWhatsApp($delivery->id))->failed(new \RuntimeException('late'));
+
+        $this->assertSame('accepted', $delivery->refresh()->status);
+        Http::assertSentCount(1);
+    }
 }

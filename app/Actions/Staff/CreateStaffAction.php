@@ -47,29 +47,7 @@ class CreateStaffAction
                 'password' => $data['password'],
             ]);
 
-            $organization->users()->attach($user->id);
-
-            $role = Role::query()->where('slug', $data['role'])->firstOrFail();
-
-            $restaurantIds = [];
-
-            foreach ($data['restaurant_assignments'] as $assignment) {
-                // Scoped lookup: the restaurant must belong to this
-                // organization, even if a caller bypasses request-level
-                // validation.
-                $restaurant = $organization->restaurants()->findOrFail($assignment['restaurant_id']);
-
-                $restaurant->users()->attach($user->id, ['sub_id' => $assignment['sub_id']]);
-
-                UserRole::query()->create([
-                    'user_id' => $user->id,
-                    'role_id' => $role->id,
-                    'organization_id' => $organization->id,
-                    'restaurant_id' => $restaurant->id,
-                ]);
-
-                $restaurantIds[] = $restaurant->id;
-            }
+            $restaurantIds = $this->attach($organization, $user, $data['role'], $data['restaurant_assignments']);
 
             $this->auditLogger->log(
                 organizationId: $organization->id,
@@ -89,5 +67,43 @@ class CreateStaffAction
 
             return $user;
         });
+    }
+
+    /**
+     * Wires organization_users + one restaurant_users/user_roles pair per
+     * assignment for an EXISTING user. Must run inside the caller's
+     * transaction; no audit of its own. Reused by AcceptInvitationAction so
+     * an invited staff member ends up linked exactly like one created here.
+     *
+     * @param  array<int, array{restaurant_id: int, sub_id: string}>  $assignments
+     * @return array<int, int> restaurant ids, in assignment order
+     */
+    public function attach(Organization $organization, User $user, string $roleSlug, array $assignments): array
+    {
+        $organization->users()->attach($user->id);
+
+        $role = Role::query()->where('slug', $roleSlug)->firstOrFail();
+
+        $restaurantIds = [];
+
+        foreach ($assignments as $assignment) {
+            // Scoped lookup: the restaurant must belong to this
+            // organization, even if a caller bypasses request-level
+            // validation.
+            $restaurant = $organization->restaurants()->findOrFail($assignment['restaurant_id']);
+
+            $restaurant->users()->attach($user->id, ['sub_id' => $assignment['sub_id']]);
+
+            UserRole::query()->create([
+                'user_id' => $user->id,
+                'role_id' => $role->id,
+                'organization_id' => $organization->id,
+                'restaurant_id' => $restaurant->id,
+            ]);
+
+            $restaurantIds[] = $restaurant->id;
+        }
+
+        return $restaurantIds;
     }
 }

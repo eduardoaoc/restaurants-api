@@ -88,7 +88,10 @@ class DayCloseNoForceTest extends TestCase
         $this->assertFalse(Schema::hasColumn('restaurant_day_closes', 'force_reason'));
         $this->assertFalse(defined(AuditLog::class.'::EVENT_DAY_CLOSE_FORCED'));
 
-        $docs = (string) file_get_contents(storage_path('api-docs/api-docs.json'));
+        // The versioned, generated OpenAPI file (php artisan l5-swagger:generate)
+        // — read from the repository, not storage_path(): test runs use an
+        // isolated LARAVEL_STORAGE_PATH that does not hold generated docs.
+        $docs = (string) file_get_contents(base_path('storage/api-docs/api-docs.json'));
         foreach (['force_daily_close', 'force_reason', 'ignored_blockers', 'day_close.forced'] as $term) {
             $this->assertStringNotContainsString($term, $docs, $term);
         }

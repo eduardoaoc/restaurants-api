@@ -13,6 +13,7 @@ use App\Exceptions\DailyOperation\DailyOperationException;
 use App\Exceptions\DayClose\DayCloseException;
 use App\Exceptions\FloorPlan\FloorHasZonesException;
 use App\Exceptions\FloorPlan\ZoneHasTablesException;
+use App\Exceptions\Invitations\InvitationException;
 use App\Exceptions\Orders\IdempotencyKeyReusedException;
 use App\Exceptions\Orders\InvalidModifierSelectionException;
 use App\Exceptions\Orders\InvalidOrderItemException;
@@ -305,6 +306,11 @@ return Application::configure(basePath: dirname(__DIR__))
         });
         $exceptions->render(function (DailyOperationException $e, Request $request) {
             return response()->json(['error' => $e->toResponseError()], $e->status);
+        });
+        $exceptions->render(function (InvitationException $e, Request $request) {
+            $response = response()->json(['error' => $e->toResponseError()], $e->status);
+
+            return isset($e->details['retry_after']) ? $response->header('Retry-After', (string) $e->details['retry_after']) : $response;
         });
         $exceptions->render(function (WhatsAppDeliveryException $e, Request $request) {
             return response()->json(['error' => $e->toResponseError()], $e->status);

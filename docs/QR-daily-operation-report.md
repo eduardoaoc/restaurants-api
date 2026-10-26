@@ -246,6 +246,16 @@ Ordem proposta (para a etapa própria):
    (Malvarrosa desde 2026-10-08; Ruzafa desde 2026-10-02) — esperado pelo
    encadeamento existente.
 
+### Adendo 2026-10-22 (onboarding/convites) — nada executado
+
+Leitura (`migrate:status`): além da `2026_10_22_000001`, ficaram pendentes
+`2026_10_23_000001_create_invitations_table` e
+`2026_10_23_000002_add_onboarding_idempotency_to_restaurants_table`. Na etapa
+própria, aplicar também essas duas com `--path` (após a diária) antes de
+`aforo:provision`, que agora também cria `create_platform_restaurants` para
+`super_admin`. Convites precisam de `AFORO_WEB_URL` e worker de fila. Detalhes:
+`docs/onboarding-invitations-report.md` §9.
+
 ## Frontend
 
 - `DayCloseView` (Cierre diario): card "Día operativo" no topo. Sem dia

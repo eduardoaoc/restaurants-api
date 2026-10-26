@@ -179,6 +179,21 @@ class AuditLog extends Model
     /** CARTA 9.1A: a post-close note was added to a Cierre Diario. */
     public const EVENT_DAY_CLOSE_ANNOTATION_ADDED = 'day_close.annotation_added';
 
+    /** A platform admin onboarded a restaurant (OnboardRestaurantAction). */
+    public const EVENT_PLATFORM_RESTAURANT_ONBOARDED = 'platform.restaurant.onboarded';
+
+    /** Invitation lifecycle (owner and staff). Never carries the token, its hash or the e-mail. */
+    public const EVENT_INVITATION_CREATED = 'invitation.created';
+
+    public const EVENT_INVITATION_RESENT = 'invitation.resent';
+
+    public const EVENT_INVITATION_REVOKED = 'invitation.revoked';
+
+    public const EVENT_INVITATION_ACCEPTED = 'invitation.accepted';
+
+    /** Password changed through the reset link. Never carries the token or the password. */
+    public const EVENT_AUTH_PASSWORD_RESET = 'auth.password_reset';
+
     /**
      * @var array<int, string>
      */
@@ -237,6 +252,12 @@ class AuditLog extends Model
         self::EVENT_WHATSAPP_RECIPIENT_DISABLED,
         self::EVENT_WHATSAPP_CONSENT_RECORDED,
         self::EVENT_WHATSAPP_CONSENT_REVOKED,
+        self::EVENT_PLATFORM_RESTAURANT_ONBOARDED,
+        self::EVENT_INVITATION_CREATED,
+        self::EVENT_INVITATION_RESENT,
+        self::EVENT_INVITATION_REVOKED,
+        self::EVENT_INVITATION_ACCEPTED,
+        self::EVENT_AUTH_PASSWORD_RESET,
     ];
 
     public const RESOURCE_STAFF = 'staff';
@@ -279,6 +300,8 @@ class AuditLog extends Model
 
     public const RESOURCE_REPORT_RECIPIENT = 'report_recipient';
 
+    public const RESOURCE_INVITATION = 'invitation';
+
     /**
      * @var array<int, string>
      */
@@ -303,6 +326,7 @@ class AuditLog extends Model
         self::RESOURCE_DAY_CLOSE,
         self::RESOURCE_DAILY_OPERATION,
         self::RESOURCE_REPORT_RECIPIENT,
+        self::RESOURCE_INVITATION,
     ];
 
     /**

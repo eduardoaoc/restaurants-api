@@ -326,6 +326,56 @@
                 ]
             }
         },
+        "/api/v1/auth/active-organization": {
+            "put": {
+                "tags": [
+                    "Authentication"
+                ],
+                "summary": "Select the active organization of the session",
+                "description": "Choose which organization this session operates on (users with more\nthan one active membership). Only an organization where the user's\nown membership is active is accepted; anything else is 404, so the\nanswer never reveals other organizations.",
+                "operationId": "authSelectActiveOrganization",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "organization_id"
+                                ],
+                                "properties": {
+                                    "organization_id": {
+                                        "type": "integer"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Active organization selected"
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "404": {
+                        "description": "Organization not found"
+                    },
+                    "409": {
+                        "description": "ORGANIZATION_SUSPENDED"
+                    },
+                    "422": {
+                        "description": "Validation error"
+                    }
+                },
+                "security": [
+                    {
+                        "sessionCookie": []
+                    }
+                ]
+            }
+        },
         "/api/v1/auth/logout": {
             "post": {
                 "tags": [
@@ -347,6 +397,185 @@
                         "sessionCookie": []
                     }
                 ]
+            }
+        },
+        "/api/v1/auth/forgot-password": {
+            "post": {
+                "tags": [
+                    "Authentication"
+                ],
+                "summary": "Request a password reset link (never reveals whether the account exists)",
+                "operationId": "authForgotPassword",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "email"
+                                ],
+                                "properties": {
+                                    "email": {
+                                        "type": "string",
+                                        "format": "email",
+                                        "example": "person@example.com"
+                                    },
+                                    "locale": {
+                                        "type": "string",
+                                        "enum": [
+                                            "es-ES",
+                                            "ca-ES-valencia",
+                                            "en-GB"
+                                        ]
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Always the same generic message",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation error (malformed e-mail)"
+                    },
+                    "429": {
+                        "description": "Too many requests"
+                    }
+                }
+            }
+        },
+        "/api/v1/auth/reset-password/preview": {
+            "post": {
+                "tags": [
+                    "Authentication"
+                ],
+                "summary": "Check a reset link without consuming it",
+                "operationId": "authResetPasswordPreview",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "email",
+                                    "token"
+                                ],
+                                "properties": {
+                                    "email": {
+                                        "type": "string",
+                                        "format": "email",
+                                        "example": "person@example.com"
+                                    },
+                                    "token": {
+                                        "type": "string",
+                                        "example": "token-from-the-e-mail-link"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Usable",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "properties": {
+                                                "valid": {
+                                                    "type": "boolean",
+                                                    "example": true
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "PASSWORD_RESET_INVALID (invalid, expired or already used — indistinguishable on purpose)"
+                    },
+                    "429": {
+                        "description": "Too many requests"
+                    }
+                }
+            }
+        },
+        "/api/v1/auth/reset-password": {
+            "post": {
+                "tags": [
+                    "Authentication"
+                ],
+                "summary": "Set a new password with a valid reset link (does not sign in)",
+                "operationId": "authResetPassword",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "email",
+                                    "token",
+                                    "password",
+                                    "password_confirmation"
+                                ],
+                                "properties": {
+                                    "email": {
+                                        "type": "string",
+                                        "format": "email",
+                                        "example": "person@example.com"
+                                    },
+                                    "token": {
+                                        "type": "string",
+                                        "example": "token-from-the-e-mail-link"
+                                    },
+                                    "password": {
+                                        "type": "string",
+                                        "format": "password",
+                                        "minLength": 8
+                                    },
+                                    "password_confirmation": {
+                                        "type": "string",
+                                        "format": "password"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Password changed; every reset token and server-side session of the account revoked"
+                    },
+                    "422": {
+                        "description": "Validation error or PASSWORD_RESET_INVALID"
+                    },
+                    "429": {
+                        "description": "Too many requests"
+                    }
+                }
             }
         },
         "/api/v1/table-sessions/{tableSession}/receipt": {
@@ -1444,6 +1673,110 @@
                     },
                     "404": {
                         "description": "Restaurant not found, outside scope, or the staff member has no link to it"
+                    }
+                },
+                "security": [
+                    {
+                        "sessionCookie": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/restaurants/{restaurant}/daily-operation": {
+            "get": {
+                "tags": [
+                    "Daily operation"
+                ],
+                "summary": "Operational day state (open/not_open); cash block only for open/close holders",
+                "operationId": "dailyOperationShow",
+                "parameters": [
+                    {
+                        "name": "restaurant",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "State in data"
+                    },
+                    "403": {
+                        "description": "No access"
+                    },
+                    "404": {
+                        "description": "Not found"
+                    }
+                },
+                "security": [
+                    {
+                        "sessionCookie": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/restaurants/{restaurant}/daily-operations": {
+            "post": {
+                "tags": [
+                    "Daily operation"
+                ],
+                "summary": "Open the operational day with its opening float (open_daily_operation). Idempotent by Idempotency-Key.",
+                "operationId": "dailyOperationOpen",
+                "parameters": [
+                    {
+                        "name": "restaurant",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "Idempotency-Key",
+                        "in": "header",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "maxLength": 100
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "opening_float"
+                                ],
+                                "properties": {
+                                    "opening_float": {
+                                        "type": "string",
+                                        "example": "150.00"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Opened; state in data"
+                    },
+                    "200": {
+                        "description": "Idempotent replay"
+                    },
+                    "403": {
+                        "description": "Permission denied"
+                    },
+                    "409": {
+                        "description": "DAILY_OPERATION_ALREADY_OPEN | BUSINESS_DATE_ALREADY_CLOSED | IDEMPOTENCY_KEY_REUSED"
+                    },
+                    "422": {
+                        "description": "Invalid opening float"
                     }
                 },
                 "security": [
@@ -2708,6 +3041,309 @@
                 }
             }
         },
+        "/api/v1/invitations/preview": {
+            "post": {
+                "tags": [
+                    "Invitations"
+                ],
+                "summary": "Read an invitation without consuming it (POST so the token never appears in a URL)",
+                "operationId": "invitationsPreview",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "token"
+                                ],
+                                "properties": {
+                                    "token": {
+                                        "description": "Secret from the e-mail link fragment. Sent only in the body, never in a URL.",
+                                        "type": "string",
+                                        "example": "token-from-the-e-mail-link"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Invitation summary",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "properties": {
+                                                "invitation": {
+                                                    "$ref": "#/components/schemas/InvitationPreview"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "INVITATION_NOT_FOUND (unknown, replaced or used token)",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/DomainError"
+                                }
+                            }
+                        }
+                    },
+                    "410": {
+                        "description": "INVITATION_EXPIRED | INVITATION_REVOKED | INVITATION_ALREADY_ACCEPTED",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/DomainError"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation error"
+                    },
+                    "429": {
+                        "description": "Too many requests"
+                    }
+                }
+            }
+        },
+        "/api/v1/invitations/accept": {
+            "post": {
+                "tags": [
+                    "Invitations"
+                ],
+                "summary": "Accept with a NEW account (name + own password); signs in and selects the invited organization",
+                "operationId": "invitationsAccept",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "token",
+                                    "name",
+                                    "password",
+                                    "password_confirmation"
+                                ],
+                                "properties": {
+                                    "token": {
+                                        "description": "Secret from the e-mail link fragment. Sent only in the body, never in a URL.",
+                                        "type": "string",
+                                        "example": "token-from-the-e-mail-link"
+                                    },
+                                    "name": {
+                                        "type": "string"
+                                    },
+                                    "password": {
+                                        "type": "string",
+                                        "format": "password",
+                                        "minLength": 8
+                                    },
+                                    "password_confirmation": {
+                                        "type": "string",
+                                        "format": "password"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Accepted and signed in",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "data": {
+                                            "properties": {
+                                                "user": {
+                                                    "$ref": "#/components/schemas/User"
+                                                },
+                                                "organization_id": {
+                                                    "type": "integer"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "INVITATION_ACCOUNT_SUSPENDED",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/DomainError"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "INVITATION_NOT_FOUND (unknown, replaced or used token)",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/DomainError"
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "INVITATION_ACCOUNT_EXISTS | INVITATION_ACCOUNT_MISMATCH | INVITATION_ORGANIZATION_UNAVAILABLE | INVITATION_MEMBERSHIP_CONFLICT | INVITATION_ASSIGNMENT_CONFLICT | INVITATION_NOT_ALLOWED_FOR_ACCOUNT",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/DomainError"
+                                }
+                            }
+                        }
+                    },
+                    "410": {
+                        "description": "INVITATION_EXPIRED | INVITATION_REVOKED | INVITATION_ALREADY_ACCEPTED",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/DomainError"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation error"
+                    },
+                    "429": {
+                        "description": "Too many requests"
+                    }
+                }
+            }
+        },
+        "/api/v1/invitations/accept-existing": {
+            "post": {
+                "tags": [
+                    "Invitations"
+                ],
+                "summary": "Accept with the EXISTING account of the invitation e-mail (its current password); name/password unchanged",
+                "operationId": "invitationsAcceptExisting",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "token",
+                                    "password"
+                                ],
+                                "properties": {
+                                    "token": {
+                                        "description": "Secret from the e-mail link fragment. Sent only in the body, never in a URL.",
+                                        "type": "string",
+                                        "example": "token-from-the-e-mail-link"
+                                    },
+                                    "password": {
+                                        "type": "string",
+                                        "format": "password"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Accepted and signed in",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "data": {
+                                            "properties": {
+                                                "user": {
+                                                    "$ref": "#/components/schemas/User"
+                                                },
+                                                "organization_id": {
+                                                    "type": "integer"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "INVITATION_ACCOUNT_SUSPENDED",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/DomainError"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "INVITATION_NOT_FOUND (unknown, replaced or used token)",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/DomainError"
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "INVITATION_ACCOUNT_REQUIRED | INVITATION_ACCOUNT_MISMATCH | INVITATION_ORGANIZATION_UNAVAILABLE | INVITATION_MEMBERSHIP_CONFLICT | INVITATION_ASSIGNMENT_CONFLICT | INVITATION_NOT_ALLOWED_FOR_ACCOUNT",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/DomainError"
+                                }
+                            }
+                        }
+                    },
+                    "410": {
+                        "description": "INVITATION_EXPIRED | INVITATION_REVOKED | INVITATION_ALREADY_ACCEPTED",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/DomainError"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation error or wrong password (field password)"
+                    },
+                    "429": {
+                        "description": "Too many requests"
+                    }
+                }
+            }
+        },
         "/api/v1/kitchen/orders": {
             "get": {
                 "tags": [
@@ -3931,6 +4567,26 @@
                         }
                     },
                     {
+                        "name": "per_page",
+                        "in": "query",
+                        "description": "Opt-in session history keyset pagination; requires restaurant_id and table_session_id. Returns meta.next_before_id.",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "maximum": 100,
+                            "minimum": 1
+                        }
+                    },
+                    {
+                        "name": "before_id",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1
+                        }
+                    },
+                    {
                         "name": "status",
                         "in": "query",
                         "required": false,
@@ -4640,6 +5296,559 @@
                 ]
             }
         },
+        "/api/v1/platform/invitations": {
+            "get": {
+                "tags": [
+                    "Platform Admin"
+                ],
+                "summary": "List owner invitations (create_platform_restaurants)",
+                "operationId": "platformInvitationsIndex",
+                "parameters": [
+                    {
+                        "name": "organization_id",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "state",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "pending",
+                                "expired",
+                                "accepted",
+                                "revoked"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "per_page",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "maximum": 100
+                        }
+                    },
+                    {
+                        "name": "page",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Owner invitations, newest first",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "properties": {
+                                                "invitations": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "$ref": "#/components/schemas/Invitation"
+                                                    }
+                                                }
+                                            },
+                                            "type": "object"
+                                        },
+                                        "meta": {
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "Missing permission"
+                    }
+                },
+                "security": [
+                    {
+                        "sessionCookie": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/platform/organizations/{organization}/owner-invitations": {
+            "post": {
+                "tags": [
+                    "Platform Admin"
+                ],
+                "summary": "Invite the owner of an organization that has no active owner (create_platform_restaurants + manage_platform_organizations)",
+                "description": "A new owner invitation for an organization that has NO active owner\n(recovery after a revoked/mistyped first invitation). Not a way to add\nco-owners or transfer ownership: refused once any active owner exists.",
+                "operationId": "platformOwnerInvitationsStore",
+                "parameters": [
+                    {
+                        "name": "organization",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "email"
+                                ],
+                                "properties": {
+                                    "email": {
+                                        "type": "string",
+                                        "format": "email",
+                                        "example": "owner@example.com"
+                                    },
+                                    "name": {
+                                        "type": "string",
+                                        "nullable": true
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Invitation created and e-mail queued",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "data": {
+                                            "properties": {
+                                                "invitation": {
+                                                    "$ref": "#/components/schemas/Invitation"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "Missing permission"
+                    },
+                    "404": {
+                        "description": "Organization not found"
+                    },
+                    "409": {
+                        "description": "ORGANIZATION_HAS_OWNER | INVITATION_ALREADY_PENDING (with invitation_id) | ORGANIZATION_SUSPENDED",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/DomainError"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation error (incl. platform administrator e-mail)"
+                    },
+                    "429": {
+                        "description": "Too many requests"
+                    }
+                },
+                "security": [
+                    {
+                        "sessionCookie": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/platform/invitations/{invitation}/resend": {
+            "post": {
+                "tags": [
+                    "Platform Admin"
+                ],
+                "summary": "Resend an owner invitation (new link, renewed expiry, same record)",
+                "operationId": "platformInvitationsResend",
+                "parameters": [
+                    {
+                        "name": "invitation",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Updated invitation",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "data": {
+                                            "properties": {
+                                                "invitation": {
+                                                    "$ref": "#/components/schemas/Invitation"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "Missing permission"
+                    },
+                    "404": {
+                        "description": "Not found (staff invitations are not reachable here)"
+                    },
+                    "409": {
+                        "description": "INVITATION_NOT_PENDING",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/DomainError"
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "INVITATION_RESEND_TOO_SOON (Retry-After) or too many requests",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/DomainError"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "sessionCookie": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/platform/invitations/{invitation}/revoke": {
+            "post": {
+                "tags": [
+                    "Platform Admin"
+                ],
+                "summary": "Revoke a pending owner invitation",
+                "operationId": "platformInvitationsRevoke",
+                "parameters": [
+                    {
+                        "name": "invitation",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Updated invitation",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "data": {
+                                            "properties": {
+                                                "invitation": {
+                                                    "$ref": "#/components/schemas/Invitation"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "Missing permission"
+                    },
+                    "404": {
+                        "description": "Not found (staff invitations are not reachable here)"
+                    },
+                    "409": {
+                        "description": "INVITATION_NOT_PENDING",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/DomainError"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "sessionCookie": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/platform/restaurants": {
+            "get": {
+                "tags": [
+                    "Platform Admin"
+                ],
+                "summary": "List every restaurant on the platform, across every organization",
+                "operationId": "platformRestaurantsIndex",
+                "parameters": [
+                    {
+                        "name": "search",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "organization_id",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "status",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "example": "active"
+                        }
+                    },
+                    {
+                        "name": "per_page",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "default": 25
+                        }
+                    },
+                    {
+                        "name": "page",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "default": 1
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "A page of restaurants"
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "Platform administrator access required"
+                    }
+                },
+                "security": [
+                    {
+                        "sessionCookie": []
+                    }
+                ]
+            },
+            "post": {
+                "tags": [
+                    "Platform Admin"
+                ],
+                "summary": "Onboard a restaurant (new or existing organization) and invite its owner",
+                "operationId": "platformRestaurantsOnboard",
+                "parameters": [
+                    {
+                        "name": "Idempotency-Key",
+                        "in": "header",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "maxLength": 100
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "properties": {
+                                    "organization_id": {
+                                        "type": "integer",
+                                        "nullable": true
+                                    },
+                                    "organization": {
+                                        "properties": {
+                                            "name": {
+                                                "type": "string"
+                                            },
+                                            "slug": {
+                                                "type": "string"
+                                            }
+                                        },
+                                        "type": "object",
+                                        "nullable": true
+                                    },
+                                    "restaurant": {
+                                        "properties": {
+                                            "name": {
+                                                "type": "string"
+                                            },
+                                            "slug": {
+                                                "type": "string"
+                                            },
+                                            "timezone": {
+                                                "type": "string",
+                                                "nullable": true
+                                            },
+                                            "default_locale": {
+                                                "type": "string",
+                                                "nullable": true,
+                                                "enum": [
+                                                    "es-ES",
+                                                    "ca-ES-valencia",
+                                                    "en-GB"
+                                                ]
+                                            }
+                                        },
+                                        "type": "object"
+                                    },
+                                    "owner": {
+                                        "properties": {
+                                            "email": {
+                                                "type": "string",
+                                                "format": "email"
+                                            },
+                                            "name": {
+                                                "type": "string",
+                                                "nullable": true
+                                            }
+                                        },
+                                        "type": "object",
+                                        "nullable": true
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Onboarded (organization/restaurant/settings + owner invitation for a new organization)",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "data": {
+                                            "$ref": "#/components/schemas/OnboardingResult"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "200": {
+                        "description": "Replay: same Idempotency-Key and same payload return the first result (data.replayed=true); nothing is created twice",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "data": {
+                                            "$ref": "#/components/schemas/OnboardingResult"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "Missing platform permission"
+                    },
+                    "409": {
+                        "description": "IDEMPOTENCY_KEY_REUSED (same key, different payload) | ORGANIZATION_SUSPENDED",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/DomainError"
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "Too many requests"
+                    },
+                    "422": {
+                        "description": "Validation error"
+                    }
+                },
+                "security": [
+                    {
+                        "sessionCookie": []
+                    }
+                ]
+            }
+        },
         "/api/v1/platform/organizations": {
             "get": {
                 "tags": [
@@ -4875,76 +6084,6 @@
                     },
                     "422": {
                         "description": "Validation error"
-                    }
-                },
-                "security": [
-                    {
-                        "sessionCookie": []
-                    }
-                ]
-            }
-        },
-        "/api/v1/platform/restaurants": {
-            "get": {
-                "tags": [
-                    "Platform Admin"
-                ],
-                "summary": "List every restaurant on the platform, across every organization",
-                "operationId": "platformRestaurantsIndex",
-                "parameters": [
-                    {
-                        "name": "search",
-                        "in": "query",
-                        "required": false,
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    {
-                        "name": "organization_id",
-                        "in": "query",
-                        "required": false,
-                        "schema": {
-                            "type": "integer"
-                        }
-                    },
-                    {
-                        "name": "status",
-                        "in": "query",
-                        "required": false,
-                        "schema": {
-                            "type": "string",
-                            "example": "active"
-                        }
-                    },
-                    {
-                        "name": "per_page",
-                        "in": "query",
-                        "required": false,
-                        "schema": {
-                            "type": "integer",
-                            "default": 25
-                        }
-                    },
-                    {
-                        "name": "page",
-                        "in": "query",
-                        "required": false,
-                        "schema": {
-                            "type": "integer",
-                            "default": 1
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "A page of restaurants"
-                    },
-                    "401": {
-                        "description": "Unauthenticated"
-                    },
-                    "403": {
-                        "description": "Platform administrator access required"
                     }
                 },
                 "security": [
@@ -5960,6 +7099,51 @@
             }
         },
         "/api/v1/public/tables/{publicToken}/orders": {
+            "get": {
+                "tags": [
+                    "Public"
+                ],
+                "summary": "Track QR orders of the pinned group visit; never staff orders",
+                "operationId": "publicOrdersIndex",
+                "parameters": [
+                    {
+                        "name": "publicToken",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "X-Table-Visit",
+                        "in": "header",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "before_id",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "data.orders: snapshot-only QR orders, newest id first, 20 per page; meta.next_before_id: next cursor or null"
+                    },
+                    "409": {
+                        "description": "PUBLIC_VISIT_INVALID"
+                    },
+                    "404": {
+                        "description": "QR not publicly servable"
+                    }
+                }
+            },
             "post": {
                 "tags": [
                     "Public"
@@ -5971,6 +7155,15 @@
                     {
                         "name": "publicToken",
                         "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "X-Table-Visit",
+                        "in": "header",
+                        "description": "Visit token returned by POST entry (session.feedback.token).",
                         "required": true,
                         "schema": {
                             "type": "string"
@@ -6112,6 +7305,55 @@
                 }
             }
         },
+        "/api/v1/public/tables/{publicToken}/enter": {
+            "post": {
+                "tags": [
+                    "Public"
+                ],
+                "summary": "Start a QR visit or resume its pinned session",
+                "description": "Fresh entry opens/reuses one session. X-Table-Visit pins a returning browser to its original visit, including after close; it never follows a new session.",
+                "operationId": "publicTablesEnter",
+                "parameters": [
+                    {
+                        "name": "publicToken",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "X-Table-Visit",
+                        "in": "header",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Visit context, inside the data envelope",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PublicTableResolution"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "QR not publicly servable"
+                    },
+                    "409": {
+                        "description": "PUBLIC_VISIT_INVALID"
+                    },
+                    "429": {
+                        "description": "Too many entry requests"
+                    }
+                }
+            }
+        },
         "/api/v1/public/tables/{publicToken}/requests/call-waiter": {
             "post": {
                 "tags": [
@@ -6124,6 +7366,15 @@
                     {
                         "name": "publicToken",
                         "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "X-Table-Visit",
+                        "in": "header",
+                        "description": "Visit token returned by POST entry (session.feedback.token).",
                         "required": true,
                         "schema": {
                             "type": "string"
@@ -6213,6 +7464,15 @@
                     {
                         "name": "publicToken",
                         "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "X-Table-Visit",
+                        "in": "header",
+                        "description": "Visit token returned by POST entry (session.feedback.token).",
                         "required": true,
                         "schema": {
                             "type": "string"
@@ -6362,7 +7622,7 @@
                     "Activity"
                 ],
                 "summary": "List a restaurant's operational activity feed",
-                "description": "Newest first (by id). Cursor-paginated: pass meta.next_cursor back as ?cursor= to load older events — stable while new events keep arriving at the top (which offset pages would not be). New events arrive in realtime as `restaurant.activity.created` on the private `restaurant.{id}.activity` channel, carrying this exact item shape.",
+                "description": "Use ?scope=assignments for the requesting waiter's assignment notifications (serve_orders), or pending assignment notices (assign_waiters). The full timeline still requires view_activity. Newest first (by id). Cursor-paginated: pass meta.next_cursor back as ?cursor= to load older events — stable while new events keep arriving at the top (which offset pages would not be). New events arrive in realtime as `restaurant.activity.created` on the private `restaurant.{id}.activity` channel, carrying this exact item shape.",
                 "operationId": "restaurantActivityIndex",
                 "parameters": [
                     {
@@ -6371,6 +7631,17 @@
                         "required": true,
                         "schema": {
                             "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "scope",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "assignments"
+                            ]
                         }
                     },
                     {
@@ -7313,6 +8584,62 @@
                 ]
             }
         },
+        "/api/v1/restaurant-products/{restaurantProduct}/availability": {
+            "patch": {
+                "tags": [
+                    "Restaurant Products"
+                ],
+                "summary": "Change only restaurant product availability (manage_product_availability or manage_products)",
+                "operationId": "restaurantProductAvailabilityUpdate",
+                "parameters": [
+                    {
+                        "name": "restaurantProduct",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "available"
+                                ],
+                                "properties": {
+                                    "available": {
+                                        "type": "boolean"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Updated restaurant_product in data.restaurant_product"
+                    },
+                    "403": {
+                        "description": "Permission denied"
+                    },
+                    "404": {
+                        "description": "Not found"
+                    },
+                    "422": {
+                        "description": "Invalid availability payload"
+                    }
+                },
+                "security": [
+                    {
+                        "sessionCookie": []
+                    }
+                ]
+            }
+        },
         "/api/v1/restaurants/{restaurant}/settings": {
             "get": {
                 "tags": [
@@ -7665,6 +8992,269 @@
                     },
                     "422": {
                         "description": "Validation error"
+                    }
+                },
+                "security": [
+                    {
+                        "sessionCookie": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/staff/invitations": {
+            "get": {
+                "tags": [
+                    "Staff"
+                ],
+                "summary": "List staff invitations whose every restaurant the requester manages (manage_users)",
+                "operationId": "staffInvitationsIndex",
+                "responses": {
+                    "200": {
+                        "description": "Invitations, newest first (max 200)",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "properties": {
+                                                "invitations": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "$ref": "#/components/schemas/Invitation"
+                                                    }
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "Missing permission"
+                    }
+                },
+                "security": [
+                    {
+                        "sessionCookie": []
+                    }
+                ]
+            },
+            "post": {
+                "tags": [
+                    "Staff"
+                ],
+                "summary": "Invite a staff member (no password: they choose it on acceptance)",
+                "operationId": "staffInvitationsStore",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/StaffInvitationRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Invitation created and e-mail queued",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "data": {
+                                            "properties": {
+                                                "invitation": {
+                                                    "$ref": "#/components/schemas/Invitation"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "manage_users missing at one of the restaurants"
+                    },
+                    "404": {
+                        "description": "A restaurant is outside the requester scope"
+                    },
+                    "409": {
+                        "description": "STAFF_ALREADY_MEMBER | STAFF_MEMBERSHIP_INACTIVE | INVITATION_ALREADY_PENDING (with invitation_id)",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/DomainError"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation error (role outside manager/waiter/kitchen/cashier, restaurant of another organization, employee code taken or reserved)"
+                    },
+                    "429": {
+                        "description": "Too many requests"
+                    }
+                },
+                "security": [
+                    {
+                        "sessionCookie": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/staff/invitations/{invitation}/resend": {
+            "post": {
+                "tags": [
+                    "Staff"
+                ],
+                "summary": "Resend a staff invitation: new link (previous one stops working), renewed expiry, same record",
+                "operationId": "staffInvitationsResend",
+                "parameters": [
+                    {
+                        "name": "invitation",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Updated invitation",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "data": {
+                                            "properties": {
+                                                "invitation": {
+                                                    "$ref": "#/components/schemas/Invitation"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "Missing permission"
+                    },
+                    "404": {
+                        "description": "Not found, owner invitation, or a restaurant outside the requester scope"
+                    },
+                    "409": {
+                        "description": "INVITATION_NOT_PENDING",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/DomainError"
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "INVITATION_RESEND_TOO_SOON (Retry-After) or too many requests",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/DomainError"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "sessionCookie": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/staff/invitations/{invitation}/revoke": {
+            "post": {
+                "tags": [
+                    "Staff"
+                ],
+                "summary": "Revoke a pending staff invitation",
+                "operationId": "staffInvitationsRevoke",
+                "parameters": [
+                    {
+                        "name": "invitation",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Updated invitation",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "data": {
+                                            "properties": {
+                                                "invitation": {
+                                                    "$ref": "#/components/schemas/Invitation"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "Missing permission"
+                    },
+                    "404": {
+                        "description": "Not found, owner invitation, or a restaurant outside the requester scope"
+                    },
+                    "409": {
+                        "description": "INVITATION_NOT_PENDING",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/DomainError"
+                                }
+                            }
+                        }
                     }
                 },
                 "security": [
@@ -10460,6 +12050,12 @@
                         "items": {
                             "$ref": "#/components/schemas/AuthContextOrganization"
                         }
+                    },
+                    "active_organization_id": {
+                        "description": "Organization tenant routes resolve for this session (PUT /api/v1/auth/active-organization, otherwise the lowest-id active membership). Null without any active membership (e.g. a platform admin).",
+                        "type": "integer",
+                        "example": 1,
+                        "nullable": true
                     }
                 },
                 "type": "object"
@@ -10864,6 +12460,13 @@
                         "format": "int64",
                         "example": 2
                     },
+                    "assignment_status": {
+                        "type": "string",
+                        "enum": [
+                            "assigned",
+                            "pending"
+                        ]
+                    },
                     "guest_count": {
                         "type": "integer",
                         "example": 4
@@ -10893,7 +12496,8 @@
                     "opened_by_user_id": {
                         "type": "integer",
                         "format": "int64",
-                        "example": 5
+                        "example": 5,
+                        "nullable": true
                     },
                     "closed_by_user_id": {
                         "type": "integer",
@@ -13112,7 +14716,9 @@
                     "id",
                     "status",
                     "total",
-                    "created_at"
+                    "created_at",
+                    "items",
+                    "billable"
                 ],
                 "properties": {
                     "id": {
@@ -13123,6 +14729,16 @@
                     "status": {
                         "type": "string",
                         "example": "served"
+                    },
+                    "billable": {
+                        "description": "Whether this order contributes to the canonical session total.",
+                        "type": "boolean"
+                    },
+                    "items": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/OrderItem"
+                        }
                     },
                     "total": {
                         "type": "string",
@@ -16215,6 +17831,35 @@
                                 "description": "SUM(PaymentRecord.amount) since local midnight (RestaurantSettings.timezone), never Order totals.",
                                 "type": "string",
                                 "example": "842.50"
+                            },
+                            "operation": {
+                                "description": "Operational-day card: payments of the sessions of the open day (state=open), else of the last closed day (state=closed, closed_at), else state=none. Never includes the opening float.",
+                                "properties": {
+                                    "state": {
+                                        "type": "string",
+                                        "enum": [
+                                            "open",
+                                            "closed",
+                                            "none"
+                                        ]
+                                    },
+                                    "business_date": {
+                                        "type": "string",
+                                        "format": "date",
+                                        "nullable": true
+                                    },
+                                    "closed_at": {
+                                        "type": "string",
+                                        "format": "date-time",
+                                        "nullable": true
+                                    },
+                                    "received": {
+                                        "type": "string",
+                                        "example": "120.50",
+                                        "nullable": true
+                                    }
+                                },
+                                "type": "object"
                             }
                         },
                         "type": "object"
@@ -17080,6 +18725,8 @@
                     "payment.recorded",
                     "table_session.opened",
                     "table_session.closed",
+                    "table_session.waiter_assigned",
+                    "table_session.assignment_pending",
                     "product.marked_unavailable",
                     "product.marked_available"
                 ]
@@ -17189,6 +18836,11 @@
                             }
                         },
                         "type": "object",
+                        "nullable": true
+                    },
+                    "target_table_id": {
+                        "description": "Assignment notices only: current active table of the session; null once closed. Open using session identity to survive transfers.",
+                        "type": "integer",
                         "nullable": true
                     },
                     "table_session_id": {
@@ -17610,6 +19262,334 @@
                     }
                 },
                 "type": "object"
+            },
+            "DomainError": {
+                "description": "Domain error shape used by every business-rule failure ({\"error\": {\"code\", \"message\", ...extra}}). Extra keys depend on the code (e.g. invitation_id for INVITATION_ALREADY_PENDING, retry_after for INVITATION_RESEND_TOO_SOON).",
+                "required": [
+                    "error"
+                ],
+                "properties": {
+                    "error": {
+                        "required": [
+                            "code",
+                            "message"
+                        ],
+                        "properties": {
+                            "code": {
+                                "type": "string",
+                                "example": "INVITATION_EXPIRED"
+                            },
+                            "message": {
+                                "type": "string",
+                                "example": "This invitation has expired. Ask for a new one."
+                            }
+                        },
+                        "type": "object",
+                        "additionalProperties": true
+                    }
+                },
+                "type": "object"
+            },
+            "Invitation": {
+                "description": "An owner/staff invitation as seen by whoever manages it. Never contains the token or its hash. delivery.status: queued (job created) | sent (accepted by the mail transport — not proof of inbox delivery) | failed. Acceptance is state=accepted, a separate axis.",
+                "required": [
+                    "id",
+                    "type",
+                    "email",
+                    "state",
+                    "delivery",
+                    "expires_at"
+                ],
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "example": 12
+                    },
+                    "type": {
+                        "type": "string",
+                        "enum": [
+                            "owner",
+                            "staff"
+                        ]
+                    },
+                    "email": {
+                        "type": "string",
+                        "format": "email",
+                        "example": "person@example.com"
+                    },
+                    "name": {
+                        "type": "string",
+                        "example": "Ana",
+                        "nullable": true
+                    },
+                    "state": {
+                        "type": "string",
+                        "enum": [
+                            "pending",
+                            "expired",
+                            "accepted",
+                            "revoked"
+                        ]
+                    },
+                    "role": {
+                        "type": "string",
+                        "example": "waiter",
+                        "nullable": true
+                    },
+                    "organization": {
+                        "description": "Platform responses only.",
+                        "properties": {
+                            "id": {
+                                "type": "integer"
+                            },
+                            "name": {
+                                "type": "string"
+                            }
+                        },
+                        "type": "object"
+                    },
+                    "restaurants": {
+                        "type": "array",
+                        "items": {
+                            "properties": {
+                                "id": {
+                                    "type": "integer"
+                                },
+                                "name": {
+                                    "type": "string",
+                                    "nullable": true
+                                },
+                                "sub_id": {
+                                    "type": "string",
+                                    "example": "W-01"
+                                }
+                            },
+                            "type": "object"
+                        }
+                    },
+                    "delivery": {
+                        "properties": {
+                            "status": {
+                                "type": "string",
+                                "enum": [
+                                    "queued",
+                                    "sent",
+                                    "failed"
+                                ]
+                            },
+                            "send_count": {
+                                "type": "integer"
+                            },
+                            "last_queued_at": {
+                                "type": "string",
+                                "format": "date-time",
+                                "nullable": true
+                            },
+                            "last_sent_at": {
+                                "type": "string",
+                                "format": "date-time",
+                                "nullable": true
+                            },
+                            "failed_at": {
+                                "type": "string",
+                                "format": "date-time",
+                                "nullable": true
+                            },
+                            "resend_available_at": {
+                                "type": "string",
+                                "format": "date-time",
+                                "nullable": true
+                            }
+                        },
+                        "type": "object"
+                    },
+                    "expires_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "accepted_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true
+                    },
+                    "revoked_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true
+                    }
+                },
+                "type": "object"
+            },
+            "InvitationPreview": {
+                "description": "Public, non-consuming summary of the invitation itself. account_exists only refers to the invitation e-mail and decides the acceptance form.",
+                "properties": {
+                    "type": {
+                        "type": "string",
+                        "enum": [
+                            "owner",
+                            "staff"
+                        ]
+                    },
+                    "email": {
+                        "type": "string",
+                        "format": "email"
+                    },
+                    "name": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "role": {
+                        "type": "string",
+                        "example": "owner"
+                    },
+                    "organization": {
+                        "properties": {
+                            "name": {
+                                "type": "string"
+                            }
+                        },
+                        "type": "object"
+                    },
+                    "restaurants": {
+                        "type": "array",
+                        "items": {
+                            "properties": {
+                                "name": {
+                                    "type": "string"
+                                }
+                            },
+                            "type": "object"
+                        }
+                    },
+                    "expires_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "account_exists": {
+                        "type": "boolean"
+                    }
+                },
+                "type": "object"
+            },
+            "StaffInvitationRequest": {
+                "required": [
+                    "name",
+                    "email",
+                    "role",
+                    "restaurant_assignments"
+                ],
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "example": "Ana"
+                    },
+                    "email": {
+                        "type": "string",
+                        "format": "email",
+                        "example": "person@example.com"
+                    },
+                    "role": {
+                        "type": "string",
+                        "enum": [
+                            "manager",
+                            "waiter",
+                            "kitchen",
+                            "cashier"
+                        ]
+                    },
+                    "restaurant_assignments": {
+                        "type": "array",
+                        "items": {
+                            "required": [
+                                "restaurant_id",
+                                "sub_id"
+                            ],
+                            "properties": {
+                                "restaurant_id": {
+                                    "type": "integer"
+                                },
+                                "sub_id": {
+                                    "type": "string",
+                                    "example": "W-01"
+                                }
+                            },
+                            "type": "object"
+                        },
+                        "minItems": 1
+                    }
+                },
+                "type": "object"
+            },
+            "OnboardingResult": {
+                "properties": {
+                    "organization": {
+                        "properties": {
+                            "id": {
+                                "type": "integer"
+                            },
+                            "name": {
+                                "type": "string"
+                            },
+                            "slug": {
+                                "type": "string"
+                            },
+                            "status": {
+                                "type": "string"
+                            },
+                            "created": {
+                                "type": "boolean"
+                            }
+                        },
+                        "type": "object"
+                    },
+                    "restaurant": {
+                        "properties": {
+                            "id": {
+                                "type": "integer"
+                            },
+                            "name": {
+                                "type": "string"
+                            },
+                            "slug": {
+                                "type": "string"
+                            },
+                            "status": {
+                                "type": "string"
+                            },
+                            "timezone": {
+                                "type": "string",
+                                "example": "Europe/Madrid"
+                            },
+                            "currency": {
+                                "type": "string",
+                                "example": "EUR"
+                            },
+                            "default_locale": {
+                                "type": "string",
+                                "example": "es-ES"
+                            }
+                        },
+                        "type": "object"
+                    },
+                    "owner_invitation": {
+                        "oneOf": [
+                            {
+                                "$ref": "#/components/schemas/Invitation"
+                            }
+                        ],
+                        "nullable": true
+                    },
+                    "replayed": {
+                        "description": "true when this response replays an earlier request with the same Idempotency-Key and payload (HTTP 200).",
+                        "type": "boolean"
+                    }
+                },
+                "type": "object"
             }
         },
         "securitySchemes": {
@@ -17647,12 +19627,20 @@
             "description": "Customer Feedback"
         },
         {
+            "name": "Daily operation",
+            "description": "Daily operation"
+        },
+        {
             "name": "Floor Plan",
             "description": "Floor Plan"
         },
         {
             "name": "System",
             "description": "System"
+        },
+        {
+            "name": "Invitations",
+            "description": "Invitations"
         },
         {
             "name": "Kitchen",

@@ -95,6 +95,7 @@ use OpenApi\Attributes as OA;
         new OA\Property(property: 'user', ref: '#/components/schemas/AuthContextUser'),
         new OA\Property(property: 'platform', ref: '#/components/schemas/AuthContextPlatform'),
         new OA\Property(property: 'organizations', type: 'array', items: new OA\Items(ref: '#/components/schemas/AuthContextOrganization')),
+        new OA\Property(property: 'active_organization_id', description: 'Organization tenant routes resolve for this session (PUT /api/v1/auth/active-organization, otherwise the lowest-id active membership). Null without any active membership (e.g. a platform admin).', type: 'integer', nullable: true, example: 1),
     ],
     type: 'object'
 )]
@@ -2746,6 +2747,95 @@ use OpenApi\Attributes as OA;
         ], type: 'object')),
         new OA\Property(property: 'recent_accepted', type: 'array', description: 'Up to 5 orders accepted today, newest first.', items: new OA\Items(ref: '#/components/schemas/KitchenDashboardRecentOrder')),
         new OA\Property(property: 'recent_ready', type: 'array', description: 'Up to 5 orders that became ready today, newest first.', items: new OA\Items(ref: '#/components/schemas/KitchenDashboardRecentOrder')),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
+    schema: 'DomainError',
+    description: 'Domain error shape used by every business-rule failure ({"error": {"code", "message", ...extra}}). Extra keys depend on the code (e.g. invitation_id for INVITATION_ALREADY_PENDING, retry_after for INVITATION_RESEND_TOO_SOON).',
+    required: ['error'],
+    properties: [
+        new OA\Property(property: 'error', required: ['code', 'message'], properties: [
+            new OA\Property(property: 'code', type: 'string', example: 'INVITATION_EXPIRED'),
+            new OA\Property(property: 'message', type: 'string', example: 'This invitation has expired. Ask for a new one.'),
+        ], type: 'object', additionalProperties: true),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
+    schema: 'Invitation',
+    description: 'An owner/staff invitation as seen by whoever manages it. Never contains the token or its hash. delivery.status: queued (job created) | sent (accepted by the mail transport — not proof of inbox delivery) | failed. Acceptance is state=accepted, a separate axis.',
+    required: ['id', 'type', 'email', 'state', 'delivery', 'expires_at'],
+    properties: [
+        new OA\Property(property: 'id', type: 'integer', example: 12),
+        new OA\Property(property: 'type', type: 'string', enum: ['owner', 'staff']),
+        new OA\Property(property: 'email', type: 'string', format: 'email', example: 'person@example.com'),
+        new OA\Property(property: 'name', type: 'string', nullable: true, example: 'Ana'),
+        new OA\Property(property: 'state', type: 'string', enum: ['pending', 'expired', 'accepted', 'revoked']),
+        new OA\Property(property: 'role', type: 'string', nullable: true, example: 'waiter'),
+        new OA\Property(property: 'organization', description: 'Platform responses only.', properties: [
+            new OA\Property(property: 'id', type: 'integer'), new OA\Property(property: 'name', type: 'string'),
+        ], type: 'object'),
+        new OA\Property(property: 'restaurants', type: 'array', items: new OA\Items(properties: [
+            new OA\Property(property: 'id', type: 'integer'), new OA\Property(property: 'name', type: 'string', nullable: true), new OA\Property(property: 'sub_id', type: 'string', example: 'W-01'),
+        ], type: 'object')),
+        new OA\Property(property: 'delivery', properties: [
+            new OA\Property(property: 'status', type: 'string', enum: ['queued', 'sent', 'failed']),
+            new OA\Property(property: 'send_count', type: 'integer'),
+            new OA\Property(property: 'last_queued_at', type: 'string', format: 'date-time', nullable: true),
+            new OA\Property(property: 'last_sent_at', type: 'string', format: 'date-time', nullable: true),
+            new OA\Property(property: 'failed_at', type: 'string', format: 'date-time', nullable: true),
+            new OA\Property(property: 'resend_available_at', type: 'string', format: 'date-time', nullable: true),
+        ], type: 'object'),
+        new OA\Property(property: 'expires_at', type: 'string', format: 'date-time'),
+        new OA\Property(property: 'accepted_at', type: 'string', format: 'date-time', nullable: true),
+        new OA\Property(property: 'revoked_at', type: 'string', format: 'date-time', nullable: true),
+        new OA\Property(property: 'created_at', type: 'string', format: 'date-time', nullable: true),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
+    schema: 'InvitationPreview',
+    description: 'Public, non-consuming summary of the invitation itself. account_exists only refers to the invitation e-mail and decides the acceptance form.',
+    properties: [
+        new OA\Property(property: 'type', type: 'string', enum: ['owner', 'staff']),
+        new OA\Property(property: 'email', type: 'string', format: 'email'),
+        new OA\Property(property: 'name', type: 'string', nullable: true),
+        new OA\Property(property: 'role', type: 'string', example: 'owner'),
+        new OA\Property(property: 'organization', properties: [new OA\Property(property: 'name', type: 'string')], type: 'object'),
+        new OA\Property(property: 'restaurants', type: 'array', items: new OA\Items(properties: [new OA\Property(property: 'name', type: 'string')], type: 'object')),
+        new OA\Property(property: 'expires_at', type: 'string', format: 'date-time'),
+        new OA\Property(property: 'account_exists', type: 'boolean'),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
+    schema: 'StaffInvitationRequest',
+    required: ['name', 'email', 'role', 'restaurant_assignments'],
+    properties: [
+        new OA\Property(property: 'name', type: 'string', example: 'Ana'),
+        new OA\Property(property: 'email', type: 'string', format: 'email', example: 'person@example.com'),
+        new OA\Property(property: 'role', type: 'string', enum: ['manager', 'waiter', 'kitchen', 'cashier']),
+        new OA\Property(property: 'restaurant_assignments', type: 'array', minItems: 1, items: new OA\Items(required: ['restaurant_id', 'sub_id'], properties: [
+            new OA\Property(property: 'restaurant_id', type: 'integer'), new OA\Property(property: 'sub_id', type: 'string', example: 'W-01'),
+        ], type: 'object')),
+    ],
+    type: 'object'
+)]
+#[OA\Schema(
+    schema: 'OnboardingResult',
+    properties: [
+        new OA\Property(property: 'organization', properties: [
+            new OA\Property(property: 'id', type: 'integer'), new OA\Property(property: 'name', type: 'string'), new OA\Property(property: 'slug', type: 'string'),
+            new OA\Property(property: 'status', type: 'string'), new OA\Property(property: 'created', type: 'boolean'),
+        ], type: 'object'),
+        new OA\Property(property: 'restaurant', properties: [
+            new OA\Property(property: 'id', type: 'integer'), new OA\Property(property: 'name', type: 'string'), new OA\Property(property: 'slug', type: 'string'),
+            new OA\Property(property: 'status', type: 'string'), new OA\Property(property: 'timezone', type: 'string', example: 'Europe/Madrid'),
+            new OA\Property(property: 'currency', type: 'string', example: 'EUR'), new OA\Property(property: 'default_locale', type: 'string', example: 'es-ES'),
+        ], type: 'object'),
+        new OA\Property(property: 'owner_invitation', ref: '#/components/schemas/Invitation', nullable: true),
+        new OA\Property(property: 'replayed', description: 'true when this response replays an earlier request with the same Idempotency-Key and payload (HTTP 200).', type: 'boolean'),
     ],
     type: 'object'
 )]

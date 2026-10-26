@@ -10,6 +10,7 @@ use App\Models\Table;
 use App\Models\User;
 use App\Models\UserRole;
 use App\Support\Restaurants\RestaurantScope;
+use App\Support\Tenancy\ActiveOrganization;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Gate;
@@ -58,9 +59,14 @@ class AuthContextBuilder
      *     user: array{id: int, name: string, email: string, status: string},
      *     platform: array{is_platform_admin: bool, roles: array<int, string>, permissions: array<int, string>},
      *     organizations: array<int, array<string, mixed>>,
+     *     active_organization_id: int|null,
      * }
+     *
+     * active_organization_id is the organization tenant routes resolve for
+     * this session (ActiveOrganization — the same rule ResolveTenant uses),
+     * null when the user has no active membership (e.g. a platform admin).
      */
-    public function build(User $user): array
+    public function build(User $user, ?int $preferredOrganizationId = null): array
     {
         $user->loadMissing([
             'organizations',
@@ -90,6 +96,7 @@ class AuthContextBuilder
                 ->map(fn (Organization $organization) => $this->buildOrganization($user, $organization))
                 ->values()
                 ->all(),
+            'active_organization_id' => ActiveOrganization::resolve($user, $preferredOrganizationId)?->id,
         ];
     }
 

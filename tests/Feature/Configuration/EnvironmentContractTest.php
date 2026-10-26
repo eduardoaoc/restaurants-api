@@ -39,6 +39,31 @@ class EnvironmentContractTest extends TestCase
         });
     }
 
+    public function test_local_realtime_and_spa_defaults_never_leak_into_deployed_environments(): void
+    {
+        foreach (['staging', 'production'] as $env) {
+            $this->withEnvironment(['APP_ENV' => $env, 'APP_URL' => 'https://api.example.test'], function (): void {
+                $this->assertSame([], (require config_path('sanctum.php'))['stateful']);
+                // [''] matches no Origin host: every handshake is refused.
+                $this->assertSame([''], (require config_path('reverb.php'))['apps']['apps'][0]['allowed_origins']);
+            });
+        }
+        $this->withEnvironment(['APP_ENV' => 'local', 'APP_URL' => 'http://localhost:8080'], function (): void {
+            $this->assertContains('localhost', (require config_path('sanctum.php'))['stateful']);
+            $this->assertSame(['localhost', '127.0.0.1'], (require config_path('reverb.php'))['apps']['apps'][0]['allowed_origins']);
+        });
+        $this->withEnvironment(['APP_ENV' => 'staging', 'SANCTUM_STATEFUL_DOMAINS' => ' app.example.test , ', 'REVERB_ALLOWED_ORIGINS' => 'app.example.test, other.example.test'], function (): void {
+            $this->assertSame(['app.example.test'], (require config_path('sanctum.php'))['stateful']);
+            $this->assertSame(['app.example.test', 'other.example.test'], (require config_path('reverb.php'))['apps']['apps'][0]['allowed_origins']);
+        });
+    }
+
+    public function test_whatsapp_queue_is_explicit_configuration(): void
+    {
+        $this->withEnvironment([], fn () => $this->assertNull((require config_path('whatsapp.php'))['queue']));
+        $this->withEnvironment(['WHATSAPP_QUEUE' => 'whatsapp'], fn () => $this->assertSame('whatsapp', (require config_path('whatsapp.php'))['queue']));
+    }
+
     private function withEnvironment(array $values, callable $callback): void
     {
         $property = new \ReflectionProperty(Env::class, 'repository');

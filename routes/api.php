@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\V1\AuditLogController;
 use App\Http\Controllers\Api\V1\Auth\AuthController;
+use App\Http\Controllers\Api\V1\Auth\PasswordResetController;
 use App\Http\Controllers\Api\V1\BillReceiptController;
 use App\Http\Controllers\Api\V1\CashMovementController;
 use App\Http\Controllers\Api\V1\CategoryController;
@@ -15,6 +16,7 @@ use App\Http\Controllers\Api\V1\DayCloseWhatsAppSettingsController;
 use App\Http\Controllers\Api\V1\FloorController;
 use App\Http\Controllers\Api\V1\FloorPlanController;
 use App\Http\Controllers\Api\V1\HealthController;
+use App\Http\Controllers\Api\V1\InvitationController;
 use App\Http\Controllers\Api\V1\KitchenController;
 use App\Http\Controllers\Api\V1\KitchenTicketController;
 use App\Http\Controllers\Api\V1\MenuController;
@@ -23,6 +25,8 @@ use App\Http\Controllers\Api\V1\ModifierOptionController;
 use App\Http\Controllers\Api\V1\OrderController;
 use App\Http\Controllers\Api\V1\OrganizationController;
 use App\Http\Controllers\Api\V1\Platform\PlatformAuditLogController;
+use App\Http\Controllers\Api\V1\Platform\PlatformInvitationController;
+use App\Http\Controllers\Api\V1\Platform\PlatformOnboardingController;
 use App\Http\Controllers\Api\V1\Platform\PlatformOrganizationController;
 use App\Http\Controllers\Api\V1\Platform\PlatformRestaurantController;
 use App\Http\Controllers\Api\V1\Platform\PlatformUserController;
@@ -42,6 +46,7 @@ use App\Http\Controllers\Api\V1\RestaurantOperationsController;
 use App\Http\Controllers\Api\V1\RestaurantProductController;
 use App\Http\Controllers\Api\V1\RestaurantSettingsController;
 use App\Http\Controllers\Api\V1\StaffController;
+use App\Http\Controllers\Api\V1\StaffInvitationController;
 use App\Http\Controllers\Api\V1\StaffPerformanceController;
 use App\Http\Controllers\Api\V1\StaffReviewController;
 use App\Http\Controllers\Api\V1\StaffShiftController;
@@ -64,6 +69,14 @@ Route::prefix('v1')->group(function () {
     Route::prefix('auth')->group(function () {
         Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:login');
 
+        // Password recovery (native broker). Stateful like login (CSRF);
+        // the reset token only travels in JSON bodies. See
+        // PasswordResetController.
+        Route::post('/forgot-password', [PasswordResetController::class, 'forgot'])->middleware('throttle:password-forgot');
+        Route::post('/reset-password/preview', [PasswordResetController::class, 'preview'])
+            ->middleware('throttle:password-reset')->name('auth.password.preview');
+        Route::post('/reset-password', [PasswordResetController::class, 'reset'])->middleware('throttle:password-reset');
+
         // /me and /context are gated by active_user too — a suspended
         // staff member must never receive identity/authorization context
         // usable by the frontend as if they were still authorized (Passo
@@ -72,6 +85,7 @@ Route::prefix('v1')->group(function () {
         Route::middleware(['auth:sanctum', 'active_user', 'throttle:api'])->group(function () {
             Route::get('/me', [AuthController::class, 'me']);
             Route::get('/context', [AuthController::class, 'context']);
+            Route::put('/active-organization', [AuthController::class, 'selectOrganization']);
         });
 
         Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
@@ -130,6 +144,17 @@ Route::prefix('v1')->group(function () {
             });
         });
 
+    // Invitation preview/acceptance: reachable without a session (the
+    // invitee may not have an account yet), but deliberately NOT excluded
+    // from the stateful middleware like the QR group above — acceptance
+    // signs the person in, which needs the SPA session + CSRF. The token
+    // only ever travels in the JSON body. See InvitationController.
+    Route::prefix('invitations')->group(function () {
+        Route::post('/preview', [InvitationController::class, 'preview'])->middleware('throttle:invitation-public');
+        Route::post('/accept', [InvitationController::class, 'accept'])->middleware('throttle:invitation-public');
+        Route::post('/accept-existing', [InvitationController::class, 'acceptExisting'])->middleware('throttle:invitation-accept');
+    });
+
     // Meta WhatsApp Cloud API webhook (CARTA 9.1E): called by Meta, so no
     // Sanctum/tenant and no stateful/CSRF middleware (same reasoning as the
     // public group above) — authenticity is the verify token (GET) and the
@@ -159,6 +184,14 @@ Route::prefix('v1')->group(function () {
         Route::get('/organizations/{organization}', [PlatformOrganizationController::class, 'show']);
         Route::patch('/organizations/{organization}/status', [PlatformOrganizationController::class, 'updateStatus']);
         Route::patch('/organizations/{organization}/plan', [PlatformOrganizationController::class, 'updatePlan']);
+
+        // Manual onboarding (new or existing organization) + owner
+        // invitations — see OnboardRestaurantAction.
+        Route::post('/restaurants', [PlatformOnboardingController::class, 'store'])->middleware('throttle:invitation-writes');
+        Route::get('/invitations', [PlatformInvitationController::class, 'index']);
+        Route::post('/organizations/{organization}/owner-invitations', [PlatformInvitationController::class, 'storeOwner'])->middleware('throttle:invitation-writes');
+        Route::post('/invitations/{invitation}/resend', [PlatformInvitationController::class, 'resend'])->middleware('throttle:invitation-writes');
+        Route::post('/invitations/{invitation}/revoke', [PlatformInvitationController::class, 'revoke']);
 
         Route::get('/restaurants', [PlatformRestaurantController::class, 'index']);
         Route::get('/restaurants/{restaurant}', [PlatformRestaurantController::class, 'show']);
@@ -195,6 +228,16 @@ Route::prefix('v1')->group(function () {
             ->middleware('throttle:api-heavy');
         Route::get('/restaurants/{restaurant}/settings', [RestaurantSettingsController::class, 'show']);
         Route::patch('/restaurants/{restaurant}/settings', [RestaurantSettingsController::class, 'update']);
+
+        // Staff invitations — declared before /staff/{user} so the literal
+        // segment is never captured as a user id. See StaffInvitationController.
+        Route::get('/staff/invitations', [StaffInvitationController::class, 'index']);
+        Route::post('/staff/invitations', [StaffInvitationController::class, 'store'])
+            ->middleware('throttle:staff-writes');
+        Route::post('/staff/invitations/{invitation}/resend', [StaffInvitationController::class, 'resend'])
+            ->middleware('throttle:staff-writes');
+        Route::post('/staff/invitations/{invitation}/revoke', [StaffInvitationController::class, 'revoke'])
+            ->middleware('throttle:staff-writes');
 
         Route::get('/staff', [StaffController::class, 'index']);
         Route::post('/staff', [StaffController::class, 'store'])

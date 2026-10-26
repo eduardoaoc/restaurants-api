@@ -79,7 +79,7 @@ final class DayCloseDeliveryService
             'queued_at' => now(),
         ]);
 
-        SendDayCloseWhatsApp::dispatch($delivery->id)->afterCommit();
+        SendDayCloseWhatsApp::dispatch($delivery->id)->onQueue(config('whatsapp.queue'))->afterCommit();
 
         return $delivery;
     }

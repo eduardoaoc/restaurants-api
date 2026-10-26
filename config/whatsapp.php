@@ -34,6 +34,14 @@ return [
     'timeout' => 10,
     'connect_timeout' => 5,
 
+    // Queue the delivery job goes to. null = the connection's default
+    // queue (previous behaviour). Staging/production use a dedicated name
+    // (e.g. "whatsapp") with its own supervised worker, so a WhatsApp
+    // worker never consumes broadcasts/e-mail and an old backlog in
+    // "default" never delays a report. Jobs already queued keep the queue
+    // they were pushed to; a retry (release) stays on the same queue.
+    'queue' => env('WHATSAPP_QUEUE'),
+
     // Authenticated frontend route of a close's detail — the report link
     // is NEVER a public URL. {id} is replaced by the close id.
     'web_url' => env('AFORO_WEB_URL'),

@@ -21,6 +21,7 @@ class PlatformRolePermissionSeeder extends Seeder
             'manage_platform_organizations',
             'view_platform_restaurants',
             'manage_platform_restaurants',
+            'create_platform_restaurants',
             'view_platform_audit',
         ],
     ];

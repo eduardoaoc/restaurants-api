@@ -65,6 +65,21 @@ return [
             'replace_placeholders' => true,
         ],
 
+        // Local mail capture box: with MAIL_MAILER=log + MAIL_LOG_CHANNEL=
+        // mail_capture, outgoing e-mail (invitation/reset links included) is
+        // written ONLY here — never to laravel.log — readable only by the
+        // owner. Local development and, as a PROTECTED CAPTURE (nothing is
+        // delivered), staging: storage/ is outside public/ and the file is
+        // 0600 for the app user (docs/staging-runbook.md §6). Production
+        // needs real SMTP; aforo:deploy-check flags this mode as a warning.
+        'mail_capture' => [
+            'driver' => 'single',
+            'path' => storage_path('logs/mail-capture.log'),
+            'level' => 'debug',
+            'permission' => 0600,
+            'replace_placeholders' => false,
+        ],
+
         'daily' => [
             'driver' => 'daily',
             'path' => storage_path('logs/laravel.log'),

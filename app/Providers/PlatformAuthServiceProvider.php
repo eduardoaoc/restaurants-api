@@ -39,6 +39,7 @@ class PlatformAuthServiceProvider extends ServiceProvider
 
         Gate::define('platform.restaurants.view', fn (User $user) => $user->hasPlatformPermission('view_platform_restaurants'));
         Gate::define('platform.restaurants.manage', fn (User $user) => $user->hasPlatformPermission('manage_platform_restaurants'));
+        Gate::define('platform.restaurants.create', fn (User $user) => $user->hasPlatformPermission('create_platform_restaurants'));
 
         Gate::define('platform.audit.view', fn (User $user) => $user->hasPlatformPermission('view_platform_audit'));
     }

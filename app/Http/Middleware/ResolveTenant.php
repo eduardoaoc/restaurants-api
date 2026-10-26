@@ -3,7 +3,7 @@
 namespace App\Http\Middleware;
 
 use App\Models\Organization;
-use App\Models\OrganizationUser;
+use App\Support\Tenancy\ActiveOrganization;
 use App\Support\Tenancy\TenantContext;
 use Closure;
 use Illuminate\Http\Request;
@@ -28,6 +28,10 @@ use Symfony\Component\HttpKernel\Exception\HttpException;
  * Organization::STATUS_SUSPENDED below (the organization's own,
  * platform-controlled status) — an inactive membership never overrides a
  * user's access to a DIFFERENT organization they still actively belong to.
+ *
+ * A user with several active memberships may pick one for the session
+ * (ActiveOrganization) — honoured only while that membership stays active;
+ * otherwise the lowest-id active membership is used, as before.
  */
 class ResolveTenant
 {
@@ -41,13 +45,7 @@ class ResolveTenant
             throw new HttpException(401, 'Unauthenticated.');
         }
 
-        $organization = $user->organizations()
-            ->wherePivot('status', OrganizationUser::STATUS_ACTIVE)
-            // Explicit order: without it Postgres may return any row, so a
-            // multi-organization user could land in a different tenant from
-            // one request to the next.
-            ->orderBy('organizations.id')
-            ->first();
+        $organization = ActiveOrganization::resolve($user, ActiveOrganization::preferredId($request));
 
         if (! $organization) {
             throw new HttpException(403, 'The authenticated user has no active organization.');

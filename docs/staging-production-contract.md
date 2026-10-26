@@ -22,7 +22,11 @@ Do not run migrations or provisioning against an unintended database.
 
 Keep the existing database queue/session/cache drivers. Configure worker supervision,
 failed-job monitoring and a worker timeout lower than `DB_QUEUE_RETRY_AFTER`
-(default 90 seconds). Select `LOG_STACK=stderr` or `daily` for the hosting runtime,
+(default 90 seconds). Use one dedicated queue per concern — `BROADCAST_QUEUE`,
+`AFORO_MAIL_QUEUE`, `WHATSAPP_QUEUE` — each with its own worker
+(`deploy/staging/`). `php artisan aforo:deploy-check` validates the effective
+configuration (names only, never values) and must pass before traffic;
+`php artisan aforo:queue-status` reports sizes/ages without payloads. Select `LOG_STACK=stderr` or `daily` for the hosting runtime,
 `LOG_LEVEL=info`, and retention via `LOG_DAILY_DAYS`. Do not log secrets.
 
 ## SPA authentication and CORS
@@ -32,13 +36,19 @@ The Sanctum SPA/session authentication model is unchanged.
 when needed; no schemes). `CORS_ALLOWED_ORIGINS` is an explicit comma-separated
 list of HTTP(S) origins including scheme and optional port. Whitespace is trimmed;
 wildcards and malformed entries are discarded. No matching origin means no CORS
-grant. If unset, only local/testing receive the existing localhost defaults.
+grant. If unset, only local/testing receive the existing localhost defaults; the same
+rule now applies to `SANCTUM_STATEFUL_DOMAINS` and `REVERB_ALLOWED_ORIGINS`
+(unset outside local/testing = nothing trusted / every WebSocket refused).
 Credentials remain enabled. Supply the actual staging/production frontend origins.
 
 Set `SESSION_SECURE_COOKIE=true` on HTTPS, `SESSION_HTTP_ONLY=true`, and
 `SESSION_SAME_SITE=lax` by default. Set `SESSION_DOMAIN` for the environment's
 cookie scope (or leave null for host-only cookies). SPA and API should share the
 same site for the default lax cookie contract. Do not hardcode a real domain.
+When SPA and API hosts differ, `SESSION_DOMAIN` must be their shared parent
+domain (leading dot): the SPA reads `XSRF-TOKEN` from `document.cookie`, so a
+host-only API cookie makes every POST fail with 419. Use an environment-specific
+`SESSION_COOKIE` name.
 
 ## Provisioning
 
@@ -71,7 +81,11 @@ headers are ignored: `$request->ip()` becomes the proxy address, every
 IP-keyed limiter (`login`, `public-*`, `whatsapp-webhook`) turns into one
 bucket shared by all clients, and HTTPS is not detected. Use `*` only when
 the API is reachable exclusively through a proxy that overwrites
-`X-Forwarded-For`. Empty (the default) trusts no proxy.
+`X-Forwarded-For`. Empty (the default) trusts no proxy. With nginx speaking
+FastCGI to PHP-FPM on the same server (docs/staging-runbook.md) there is no
+HTTP proxy hop: `REMOTE_ADDR` is the client and `HTTPS=on` comes from
+FastCGI, so `TRUSTED_PROXIES` stays empty unless a CDN/load balancer is added
+in front of nginx.
 
 Every authenticated route (tenant, `/platform`, `/auth/me|context|logout`,
 `/broadcasting/auth`) runs `throttle:api` (300/min per user). Analytics,
@@ -82,6 +96,8 @@ webhook keep their own limiters. `/sanctum/csrf-cookie` is re-registered by
 and `/` has no route, so anonymous traffic cannot flood the `sessions` table. Limiter state lives in `CACHE_STORE`; with
 more than one app instance it must be a shared store (Redis), not `file`.
 
-No Supabase, hosting, Meta, production Reverb, S3 or deployment is configured here.
+Staging preparation (templates, nginx, supervisor, deploy/rollback script,
+runbook) lives in `deploy/staging/` and `docs/staging-runbook.md`; nothing
+external (Supabase, hosting, DNS, Meta, SMTP) is configured from this repo.
 Infrastructure, secret injection, production account onboarding, migrations,
 worker supervision, backups and promotion gates remain subsequent work.

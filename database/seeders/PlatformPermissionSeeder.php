@@ -23,6 +23,7 @@ class PlatformPermissionSeeder extends Seeder
         'manage_platform_organizations' => 'Manage organization status and plan globally',
         'view_platform_restaurants' => 'View restaurants globally',
         'manage_platform_restaurants' => 'Manage restaurant status globally',
+        'create_platform_restaurants' => 'Onboard restaurants and invite their owners',
         'view_platform_audit' => 'View the platform-level audit log',
     ];
 

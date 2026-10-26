@@ -4,9 +4,13 @@ namespace App\Http\Controllers\Api\V1\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\Auth\LoginRequest;
+use App\Http\Requests\Api\V1\Auth\SelectActiveOrganizationRequest;
 use App\Http\Resources\Api\V1\Auth\AuthContextResource;
+use App\Models\Organization;
+use App\Models\OrganizationUser;
 use App\Models\User;
 use App\Support\Auth\AuthContextBuilder;
+use App\Support\Tenancy\ActiveOrganization;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -189,7 +193,56 @@ class AuthController extends Controller
         $user = $request->user();
 
         return response()->json([
-            'data' => new AuthContextResource($user, $authContextBuilder->build($user)),
+            'data' => new AuthContextResource($user, $authContextBuilder->build($user, ActiveOrganization::preferredId($request))),
+        ]);
+    }
+
+    /**
+     * Choose which organization this session operates on (users with more
+     * than one active membership). Only an organization where the user's
+     * own membership is active is accepted; anything else is 404, so the
+     * answer never reveals other organizations.
+     */
+    #[OA\Put(
+        path: '/api/v1/auth/active-organization',
+        operationId: 'authSelectActiveOrganization',
+        summary: 'Select the active organization of the session',
+        security: [['sessionCookie' => []]],
+        tags: ['Authentication'],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                required: ['organization_id'],
+                properties: [new OA\Property(property: 'organization_id', type: 'integer')]
+            )
+        ),
+        responses: [
+            new OA\Response(response: 200, description: 'Active organization selected'),
+            new OA\Response(response: 401, description: 'Unauthenticated'),
+            new OA\Response(response: 404, description: 'Organization not found'),
+            new OA\Response(response: 409, description: 'ORGANIZATION_SUSPENDED'),
+            new OA\Response(response: 422, description: 'Validation error'),
+        ]
+    )]
+    public function selectOrganization(SelectActiveOrganizationRequest $request): JsonResponse
+    {
+        $organization = $request->user()->organizations()
+            ->wherePivot('status', OrganizationUser::STATUS_ACTIVE)
+            ->whereKey($request->integer('organization_id'))
+            ->first();
+
+        if ($organization === null) {
+            abort(404, 'Organization not found.');
+        }
+
+        if ($organization->status === Organization::STATUS_SUSPENDED) {
+            return response()->json(['error' => ['code' => 'ORGANIZATION_SUSPENDED', 'message' => 'This organization has been suspended.']], 409);
+        }
+
+        ActiveOrganization::remember($request, $organization->id);
+
+        return response()->json([
+            'data' => ['active_organization_id' => $organization->id],
         ]);
     }
 

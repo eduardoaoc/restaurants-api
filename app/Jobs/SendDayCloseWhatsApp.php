@@ -70,6 +70,21 @@ class SendDayCloseWhatsApp implements ShouldQueue
      */
     public int $tries = self::MAX_ATTEMPTS;
 
+    /**
+     * Hard ceiling for one execution (the HTTP call alone is capped at
+     * connect 5s + total 10s). Must stay below the queue connection's
+     * retry_after (aforo:deploy-check verifies it), otherwise a second
+     * worker could pick the job up while this one is still running.
+     */
+    public int $timeout = 30;
+
+    /**
+     * A timed-out execution may already have reached Meta: failing the
+     * job (-> failed() -> delivery `failed`, `job_failed`) is the
+     * at-most-once outcome; a manual resend is the way forward.
+     */
+    public bool $failOnTimeout = true;
+
     public function __construct(public readonly int $deliveryId) {}
 
     public function handle(WhatsAppProvider $provider, WhatsAppConfig $config): void

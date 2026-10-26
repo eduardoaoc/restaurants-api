@@ -41,7 +41,8 @@ Meta ──► POST /api/v1/webhooks/whatsapp  (X-Hub-Signature-256)
 | Variable | Purpose |
 |---|---|
 | `WHATSAPP_CLOUD_ENABLED` | `true` to send. `false` (default): no delivery is attempted. |
-| `WHATSAPP_GRAPH_API_VERSION` | Explicit Graph API version, e.g. `v25.0`. Never "latest" — upgrading is a deliberate change. |
+| `WHATSAPP_GRAPH_API_VERSION` | Explicit Graph API version, e.g. `v25.0` (available until 2028-07-29; v26.0 is the newest as of 2026-10-25). Never "latest" — upgrading is a deliberate change. |
+| `WHATSAPP_QUEUE` | Queue of the delivery job (`whatsapp` in staging/production). Unset = connection default. |
 | `WHATSAPP_PHONE_NUMBER_ID` | ID of AFORO's sender phone number (WhatsApp Manager / App Dashboard). |
 | `WHATSAPP_ACCESS_TOKEN` | **System user** access token with `whatsapp_business_messaging` (+ `whatsapp_business_management`, `business_management`). Secret. |
 | `WHATSAPP_WABA_ID` | AFORO's WABA id. Used to ignore webhooks from any other account. |
@@ -206,15 +207,24 @@ Key dependencies:
 
 ## Queue worker (required)
 
-Deliveries are sent by a queued job (`QUEUE_CONNECTION=database`). In
-production a worker **must** be running, e.g.:
+Deliveries are sent by a queued job (`QUEUE_CONNECTION=database`) on the
+queue named by `WHATSAPP_QUEUE` (unset = the connection's `default` queue,
+the previous behaviour). Staging/production use `WHATSAPP_QUEUE=whatsapp`
+with exactly one dedicated, supervised worker
+(`deploy/staging/supervisor-aforo-staging.conf`):
 
 ```
-php artisan queue:work --queue=default --tries=3
+php artisan queue:work database --queue=whatsapp --tries=3 --timeout=30
 ```
 
-(supervised by systemd/supervisor). Without a worker, deliveries stay
-`pending`. The same worker also processes realtime broadcasts.
+The job declares `timeout = 30` and `failOnTimeout = true`: a run killed
+mid-call becomes `failed` (`job_failed`), never re-sent. `retry_after` of
+the queue connection must stay above 60 s (stale-claim window) — checked by
+`php artisan aforo:deploy-check`. Without a worker, deliveries stay
+`pending` (and block manual resends with 409); `php artisan
+aforo:queue-status --queue=whatsapp --max-age=300` detects it without
+reading payloads. Jobs already sitting in `default` stay there: switching
+the variable does not move them.
 
 ## Testing
 

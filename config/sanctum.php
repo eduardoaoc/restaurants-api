@@ -18,12 +18,16 @@ return [
     |
     */
 
-    'stateful' => explode(',', env('SANCTUM_STATEFUL_DOMAINS', sprintf(
-        '%s%s',
-        'localhost,localhost:3000,127.0.0.1,127.0.0.1:8000,::1',
-        Sanctum::currentApplicationUrlWithPort(),
-        // Sanctum::currentRequestHost(),
-    ))),
+    // The localhost defaults apply only to local/testing (same rule as
+    // CORS_ALLOWED_ORIGINS): a staging/production install without
+    // SANCTUM_STATEFUL_DOMAINS gets no stateful SPA host at all instead of
+    // silently trusting localhost. `php artisan aforo:deploy-check` fails
+    // on an empty list.
+    'stateful' => array_values(array_filter(array_map('trim', explode(',', (string) env('SANCTUM_STATEFUL_DOMAINS',
+        in_array(env('APP_ENV', 'production'), ['local', 'testing'], true)
+            ? sprintf('%s%s', 'localhost,localhost:3000,127.0.0.1,127.0.0.1:8000,::1', Sanctum::currentApplicationUrlWithPort())
+            : ''
+    ))))),
 
     /*
     |--------------------------------------------------------------------------

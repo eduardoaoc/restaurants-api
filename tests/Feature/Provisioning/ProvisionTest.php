@@ -94,6 +94,9 @@ class ProvisionTest extends TestCase
                 // the child at that config's real database instead of the
                 // empty in-memory one this test relies on.
                 'APP_CONFIG_CACHE' => sys_get_temp_dir().'/aforo-provision-test-'.bin2hex(random_bytes(8)).'-no-config.php',
+                // Without a cached config the child reads .env: keep its
+                // expected failure out of the application log.
+                'LOG_CHANNEL' => 'null',
             ],
         );
         $process->run();
