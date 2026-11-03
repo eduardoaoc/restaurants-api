@@ -103,6 +103,16 @@ class Restaurant extends Model
     }
 
     /**
+     * The saved 3D floor layout document, if the editor has ever saved one.
+     *
+     * @return HasOne<RestaurantFloorLayout, $this>
+     */
+    public function floorLayout(): HasOne
+    {
+        return $this->hasOne(RestaurantFloorLayout::class);
+    }
+
+    /**
      * This restaurant's operational configuration — always present for a
      * real Restaurant (see RestaurantSettings::createDefaultsFor()).
      *

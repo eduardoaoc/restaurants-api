@@ -121,6 +121,9 @@ class AuditLog extends Model
     // FloorPlanController::updateLayout / the Bloco 1 report.
     public const EVENT_FLOOR_PLAN_LAYOUT_UPDATED = 'floor_plan.layout.updated';
 
+    // 3D floor layout document replaced as a whole (one event per save).
+    public const EVENT_FLOOR_LAYOUT_REPLACED = 'floor_layout.replaced';
+
     // Waiter assignment events (Bloco 2). ASSIGNED fires from an
     // unassigned state, REASSIGNED when a different waiter replaces the
     // previous one — see AssignWaiterAction. A no-op re-assign of the same
@@ -232,6 +235,7 @@ class AuditLog extends Model
         self::EVENT_ZONE_UPDATED,
         self::EVENT_ZONE_DELETED,
         self::EVENT_FLOOR_PLAN_LAYOUT_UPDATED,
+        self::EVENT_FLOOR_LAYOUT_REPLACED,
         self::EVENT_TABLE_SESSION_WAITER_ASSIGNED,
         self::EVENT_TABLE_SESSION_WAITER_REASSIGNED,
         self::EVENT_TABLE_SESSION_WAITER_UNASSIGNED,

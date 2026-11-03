@@ -14,6 +14,7 @@ use App\Http\Controllers\Api\V1\DayCloseController;
 use App\Http\Controllers\Api\V1\DayCloseDeliveryController;
 use App\Http\Controllers\Api\V1\DayCloseWhatsAppSettingsController;
 use App\Http\Controllers\Api\V1\FloorController;
+use App\Http\Controllers\Api\V1\FloorLayoutController;
 use App\Http\Controllers\Api\V1\FloorPlanController;
 use App\Http\Controllers\Api\V1\HealthController;
 use App\Http\Controllers\Api\V1\InvitationController;
@@ -317,6 +318,10 @@ Route::prefix('v1')->group(function () {
 
         Route::get('/restaurants/{restaurant}/floor-plan', [FloorPlanController::class, 'show']);
         Route::patch('/restaurants/{restaurant}/floor-plan/layout', [FloorPlanController::class, 'updateLayout']);
+
+        // 3D floor layout document (full-document GET/PUT, no per-table CRUD).
+        Route::get('/restaurants/{restaurant}/floor-layout', [FloorLayoutController::class, 'show']);
+        Route::put('/restaurants/{restaurant}/floor-layout', [FloorLayoutController::class, 'update']);
 
         Route::get('/restaurants/{restaurant}/menu', [MenuController::class, 'show']);
         Route::post('/restaurants/{restaurant}/menu', [MenuController::class, 'store']);
