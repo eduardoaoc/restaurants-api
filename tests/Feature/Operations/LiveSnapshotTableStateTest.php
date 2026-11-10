@@ -63,6 +63,8 @@ class LiveSnapshotTableStateTest extends TestCase
         $this->assertSame('occupied', $view['primary_status']);
         $this->assertNotNull($view['session']);
         $this->assertSame(2, $view['session']['guest_count']);
+        $this->assertSame('occupied', $view['session']['status']);
+        $this->assertNotEmpty($view['session']['opened_at']);
     }
 
     public function test_table_with_preparing_order(): void

@@ -196,7 +196,7 @@ class AuthorizationScopeTest extends TestCase
         $b1->users()->attach($staff->id, ['sub_id' => 'SHARED-B']);
         $this->assignRole($staff, 'waiter', $foreign, $b1);
         $this->actingAs($owner, 'web')->patchJson("/api/v1/staff/{$staff->id}", [
-            'restaurant_assignments' => [['restaurant_id' => $a1->id, 'sub_id' => 'SHARED-A-NEW']],
+            'restaurant_assignments' => [['restaurant_id' => $a1->id]],
         ])->assertOk();
         $this->assertTrue($staff->restaurants()->whereKey($b1->id)->exists());
         $this->assertTrue($staff->userRoles()->where('organization_id', $foreign->id)->where('restaurant_id', $b1->id)->exists());
@@ -207,7 +207,7 @@ class AuthorizationScopeTest extends TestCase
         [$organization, , $a1, $a2, $user] = $this->mixedRoles();
         $this->actingAs($user, 'web')->postJson('/api/v1/staff', [
             'name' => 'Forbidden Multi', 'email' => 'forbidden-multi@example.test', 'password' => 'password123', 'role' => 'manager',
-            'restaurant_assignments' => [['restaurant_id' => $a1->id, 'sub_id' => 'N-1'], ['restaurant_id' => $a2->id, 'sub_id' => 'N-2']],
+            'restaurant_assignments' => [['restaurant_id' => $a1->id], ['restaurant_id' => $a2->id]],
         ])->assertForbidden();
         $this->assertDatabaseMissing('users', ['email' => 'forbidden-multi@example.test']);
         $staff = $this->createStaff($organization, $a1, 'waiter', 'S-1');
@@ -223,7 +223,7 @@ class AuthorizationScopeTest extends TestCase
         [$organization, , $a1, $a2, $user] = $this->mixedRoles();
         $staff = $this->createStaff($organization, $a1, 'waiter', 'S-1');
         $this->actingAs($user, 'web')->patchJson("/api/v1/staff/{$staff->id}", [
-            'restaurant_assignments' => [['restaurant_id' => $a1->id, 'sub_id' => 'S-1'], ['restaurant_id' => $a2->id, 'sub_id' => 'S-2']],
+            'restaurant_assignments' => [['restaurant_id' => $a1->id], ['restaurant_id' => $a2->id]],
         ])->assertForbidden();
         $this->assertFalse($staff->restaurants()->whereKey($a2->id)->exists());
     }

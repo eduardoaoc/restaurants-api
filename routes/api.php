@@ -55,6 +55,7 @@ use App\Http\Controllers\Api\V1\TableController;
 use App\Http\Controllers\Api\V1\TableRequestController;
 use App\Http\Controllers\Api\V1\TableSessionBillController;
 use App\Http\Controllers\Api\V1\TableSessionController;
+use App\Http\Controllers\Api\V1\TableSessionGuestCountController;
 use App\Http\Controllers\Api\V1\TableSessionTransferController;
 use App\Http\Controllers\Api\V1\TableSessionVoidController;
 use App\Http\Controllers\Api\V1\TableSessionWaiterController;
@@ -393,6 +394,7 @@ Route::prefix('v1')->group(function () {
         // Table — see TableSessionWaiterController.
         Route::put('/table-sessions/{tableSession}/waiter', [TableSessionWaiterController::class, 'update']);
         Route::delete('/table-sessions/{tableSession}/waiter', [TableSessionWaiterController::class, 'destroy']);
+        Route::patch('/table-sessions/{tableSession}/guest-count', [TableSessionGuestCountController::class, 'update']);
 
         // Staff Shift (Bloco 3): canonical operational presence, scoped to
         // one Restaurant — see StaffShiftController.

@@ -127,6 +127,39 @@ class AuditLogIndexTest extends TestCase
         $this->assertCount(1, $byActor->json('data.audit_logs'));
     }
 
+    public function test_actor_filter_is_an_exact_id_match_and_never_reveals_users_of_other_organizations(): void
+    {
+        [$organization, $owner, $restaurant] = $this->createTenant();
+        [$organizationB, $ownerB, $restaurantB] = $this->createTenant();
+        $waiter = $this->createStaff($organization, $restaurant, 'waiter', 'W-1');
+
+        $this->makeLog($organization, $restaurant, $owner);
+        $this->makeLog($organization, $restaurant, $waiter);
+        $this->makeLog($organizationB, $restaurantB, $ownerB);
+
+        $exact = $this->actingAs($owner, 'web')->getJson("/api/v1/audit-logs?actor_user_id={$waiter->id}")->assertOk();
+        $this->assertSame([$waiter->id], collect($exact->json('data.audit_logs'))->pluck('actor.user.id')->all());
+
+        // An ID that exists, but in another organization, is indistinguishable
+        // from one that does not exist: empty page, same shape, no actor data.
+        $external = $this->actingAs($owner, 'web')->getJson("/api/v1/audit-logs?actor_user_id={$ownerB->id}")->assertOk();
+        $missing = $this->actingAs($owner, 'web')->getJson('/api/v1/audit-logs?actor_user_id=99999999')->assertOk();
+        $this->assertSame([], $external->json('data.audit_logs'));
+        $this->assertSame($missing->json(), $external->json());
+    }
+
+    public function test_actor_filter_does_not_widen_a_managers_restaurant_scope(): void
+    {
+        [$organization, $owner, $restaurantA] = $this->createTenant();
+        $restaurantB = Restaurant::factory()->create(['organization_id' => $organization->id]);
+        $manager = $this->createStaff($organization, $restaurantA, 'manager', 'M-1');
+
+        $this->makeLog($organization, $restaurantB, $owner);
+
+        $response = $this->actingAs($manager, 'web')->getJson("/api/v1/audit-logs?actor_user_id={$owner->id}")->assertOk();
+        $this->assertSame([], $response->json('data.audit_logs'));
+    }
+
     public function test_invalid_event_and_resource_type_filters_are_rejected(): void
     {
         [$organization, $owner] = $this->createTenant();

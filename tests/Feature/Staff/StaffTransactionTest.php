@@ -48,7 +48,7 @@ class StaffTransactionTest extends TestCase
                 // inside the action will fail after the User row has
                 // already been inserted and attached to organization_users.
                 'restaurant_assignments' => [
-                    ['restaurant_id' => $restaurantFromOtherOrganization->id, 'sub_id' => 'W-1'],
+                    ['restaurant_id' => $restaurantFromOtherOrganization->id],
                 ],
             ], User::factory()->create());
 

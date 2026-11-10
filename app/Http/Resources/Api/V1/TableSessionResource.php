@@ -28,6 +28,7 @@ class TableSessionResource extends JsonResource
             'table_id' => $this->table_id,
             'restaurant_id' => $this->restaurant_id,
             'guest_count' => $this->guest_count,
+            'guest_count_version' => $this->guest_count_version,
             'status' => $this->status,
             'payment_status' => $this->payment_status,
             'opened_at' => $this->opened_at,

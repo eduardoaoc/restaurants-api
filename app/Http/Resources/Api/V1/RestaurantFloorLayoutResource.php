@@ -19,6 +19,7 @@ class RestaurantFloorLayoutResource extends JsonResource
         return [
             'version' => $this->schema_version,
             'floor' => $this->layout['floor'],
+            'entrance' => $this->layout['entrance'] ?? null,
             'tables' => $this->layout['tables'],
             'updated_at' => $this->updated_at?->toIso8601String(),
         ];

@@ -82,7 +82,7 @@ class StaffStatusTest extends TestCase
             'password' => 'password123',
             'role' => 'waiter',
             'restaurant_assignments' => [
-                ['restaurant_id' => $restaurant->id, 'sub_id' => 'W-1'],
+                ['restaurant_id' => $restaurant->id],
             ],
         ])->assertCreated();
 

@@ -492,6 +492,27 @@ Parar/religar **por PID** (`docker exec restaurants-api-laravel.test-1 ps -eo pi
 | Esperado | Sem rolagem horizontal, alvos ≥ 44 px, foco visível, textos traduzidos (incluindo erros de turno). |
 | Estado | PENDENTE |
 
+## ID01 — ID técnico do colaborador (sem código manual)
+
+Mudança (2026-11-09): o dono não digita mais nenhum ID/código ao convidar
+ou editar equipe. O ID do colaborador é `users.id` (automático). O código por
+restaurante `restaurant_users.sub_id` continua existindo, mas é gerado pelo
+backend (`E-{users.id}`) e é somente leitura. **Nenhuma migration**; nada a
+aplicar no banco habitual. Detalhes: `docs/ID01-staff-user-id-report.md`.
+
+Execução do agente: **só automatizada + navegador real em banco isolado**
+(`id01_browser_testing`, já removido). Os itens abaixo seguem PENDENTES para
+a sua rodada manual no ambiente habitual.
+
+| # | Passo | Esperado | Estado |
+|---|---|---|---|
+| ID01.1 | «Equipo» → «Invitar persona» | Só nome, e-mail, função e restaurante; **sem** campo de código | PENDENTE |
+| ID01.2 | Aceitar o convite (janela sem sessão) e abrir a pessoa em «Equipo» | «ID del usuario: #N» + botão copiar («ID copiado») | PENDENTE |
+| ID01.3 | Convidar um e-mail que já tem conta noutra organização e aceitar com a senha dela | Mesmo `users.id`; nome/senha/vínculos antigos intactos | PENDENTE |
+| ID01.4 | Buscar na equipe `#N` e `N` | Só essa pessoa; `N` parcial e IDs de outra organização não retornam ninguém | PENDENTE |
+| ID01.5 | «Editar persona» | Sem campo de código; salvar mantém o código existente | PENDENTE |
+| ID01.6 | Auditoria (API `GET /api/v1/audit-logs?actor_user_id=N`) | Só ações executadas por N; `actor.user.id` junto do nome | PENDENTE |
+
 ## Fechamento da rodada
 
 - Backlog da `default` igual ao de 1.4; `failed_jobs` sem novas falhas (ou anotadas).

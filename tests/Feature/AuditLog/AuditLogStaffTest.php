@@ -30,7 +30,7 @@ class AuditLogStaffTest extends TestCase
             'password' => 'password123',
             'role' => 'waiter',
             'restaurant_assignments' => [
-                ['restaurant_id' => $restaurant->id, 'sub_id' => 'W-1'],
+                ['restaurant_id' => $restaurant->id],
             ],
         ])->assertCreated();
 
@@ -56,8 +56,8 @@ class AuditLogStaffTest extends TestCase
             'password' => 'password123',
             'role' => 'waiter',
             'restaurant_assignments' => [
-                ['restaurant_id' => $restaurantA->id, 'sub_id' => 'W-A'],
-                ['restaurant_id' => $restaurantB->id, 'sub_id' => 'W-B'],
+                ['restaurant_id' => $restaurantA->id],
+                ['restaurant_id' => $restaurantB->id],
             ],
         ])->assertCreated();
 
@@ -80,6 +80,28 @@ class AuditLogStaffTest extends TestCase
         $this->assertSame(AuditLog::RESOURCE_STAFF, $log->resource_type);
         $this->assertSame($staff->id, $log->resource_id);
         $this->assertEquals(['name' => ['old' => 'Carlos', 'new' => 'Carlos Silva']], $log->changes);
+    }
+
+    public function test_actor_is_the_executor_and_differs_from_the_affected_staff(): void
+    {
+        [$organization, $owner, $restaurant] = $this->createTenant();
+        $staff = $this->createStaff($organization, $restaurant, 'waiter', 'W-1', name: 'Carlos');
+
+        $this->actingAs($owner, 'web')
+            ->patchJson("/api/v1/staff/{$staff->id}", ['name' => 'Carlos Silva'])
+            ->assertOk();
+
+        $log = AuditLog::query()->where('event', AuditLog::EVENT_STAFF_UPDATED)->sole();
+        $this->assertSame($owner->id, $log->actor_user_id);
+        $this->assertSame($staff->id, $log->resource_id);
+        $this->assertNotSame($log->actor_user_id, $log->resource_id);
+
+        // Authorized log query shows the actor ID next to the name and the
+        // affected staff only as the resource id.
+        $entry = $this->actingAs($owner, 'web')->getJson('/api/v1/audit-logs?event=staff.updated')
+            ->assertOk()->json('data.audit_logs.0');
+        $this->assertSame(['id' => $owner->id, 'name' => $owner->name], $entry['actor']['user']);
+        $this->assertSame(['type' => 'staff', 'id' => $staff->id], $entry['resource']);
     }
 
     public function test_no_op_staff_update_records_no_audit_event(): void
@@ -119,7 +141,7 @@ class AuditLogStaffTest extends TestCase
         $this->actingAs($owner, 'web')
             ->patchJson("/api/v1/staff/{$staff->id}", [
                 'restaurant_assignments' => [
-                    ['restaurant_id' => $restaurantB->id, 'sub_id' => 'W-1'],
+                    ['restaurant_id' => $restaurantB->id],
                 ],
             ])
             ->assertOk();

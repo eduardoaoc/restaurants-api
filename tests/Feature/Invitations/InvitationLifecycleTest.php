@@ -36,7 +36,7 @@ class InvitationLifecycleTest extends TestCase
     {
         $this->actingAs($owner, 'web')->postJson('/api/v1/staff/invitations', [
             'name' => 'Ana', 'email' => 'ana@example.com', 'role' => 'waiter',
-            'restaurant_assignments' => [['restaurant_id' => $restaurantId, 'sub_id' => 'W-1']],
+            'restaurant_assignments' => [['restaurant_id' => $restaurantId]],
         ])->assertCreated();
 
         return Invitation::query()->sole();
@@ -98,7 +98,7 @@ class InvitationLifecycleTest extends TestCase
         // A new invitation for the same person is possible after revoking.
         $this->postJson('/api/v1/staff/invitations', [
             'name' => 'Ana', 'email' => 'ana@example.com', 'role' => 'waiter',
-            'restaurant_assignments' => [['restaurant_id' => $restaurant->id, 'sub_id' => 'W-1']],
+            'restaurant_assignments' => [['restaurant_id' => $restaurant->id]],
         ])->assertCreated();
     }
 

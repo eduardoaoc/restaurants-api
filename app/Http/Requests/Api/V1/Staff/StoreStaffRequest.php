@@ -25,6 +25,10 @@ class StoreStaffRequest extends FormRequest
     }
 
     /**
+     * sub_id (employee code) is not an input: the backend generates it
+     * (EmployeeCodeGenerator), and a client-sent value is ignored because it
+     * is not in the validated set.
+     *
      * Get the validation rules that apply to the request.
      *
      * restaurant_assignments requires at least one entry — a staff member
@@ -58,18 +62,6 @@ class StoreStaffRequest extends FormRequest
             ],
         ];
 
-        // sub_id uniqueness is per-restaurant, so each array index needs
-        // its own rule scoped to that index's own restaurant_id — not
-        // expressible as a single wildcard rule.
-        foreach ((array) $this->input('restaurant_assignments', []) as $index => $assignment) {
-            $rules["restaurant_assignments.{$index}.sub_id"] = [
-                'required',
-                'string',
-                'max:255',
-                Rule::unique('restaurant_users', 'sub_id')->where('restaurant_id', $assignment['restaurant_id'] ?? null),
-            ];
-        }
-
         return $rules;
     }
 
@@ -81,20 +73,6 @@ class StoreStaffRequest extends FormRequest
         if (is_string($this->input('email'))) {
             $this->merge([
                 'email' => strtolower(trim((string) $this->input('email'))),
-            ]);
-        }
-
-        if (is_array($this->input('restaurant_assignments'))) {
-            $this->merge([
-                'restaurant_assignments' => collect($this->input('restaurant_assignments'))
-                    ->map(function ($assignment) {
-                        if (is_array($assignment) && is_string($assignment['sub_id'] ?? null)) {
-                            $assignment['sub_id'] = trim((string) $assignment['sub_id']);
-                        }
-
-                        return $assignment;
-                    })
-                    ->all(),
             ]);
         }
     }

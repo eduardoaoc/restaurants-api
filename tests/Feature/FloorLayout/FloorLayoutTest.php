@@ -4,6 +4,7 @@ namespace Tests\Feature\FloorLayout;
 
 use App\Models\AuditLog;
 use App\Models\Restaurant;
+use App\Models\Table;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Illuminate\Support\Str;
@@ -108,6 +109,54 @@ class FloorLayoutTest extends TestCase
 
         $this->assertDatabaseHas('restaurant_floor_layouts', ['restaurant_id' => $restaurant->id, 'schema_version' => 1]);
         $this->assertDatabaseHas('audit_logs', ['restaurant_id' => $restaurant->id, 'event' => AuditLog::EVENT_FLOOR_LAYOUT_REPLACED]);
+    }
+
+    public function test_backend_table_mapping_and_entrance_round_trip(): void
+    {
+        [, $owner, $restaurant] = $this->createTenant();
+        $table = Table::factory()->create(['restaurant_id' => $restaurant->id]);
+        $doc = $this->document();
+        $doc['entrance'] = ['x' => 1.5, 'z' => -2.0];
+        $doc['tables'][0]['backendTableId'] = $table->id;
+
+        $this->as($owner)->putJson($this->url($restaurant), $doc)
+            ->assertOk()
+            ->assertJsonPath('data.floor_layout.entrance.x', 1.5)
+            ->assertJsonPath('data.floor_layout.tables.0.backendTableId', $table->id);
+    }
+
+    public function test_backend_table_mapping_must_belong_to_restaurant_and_be_unique(): void
+    {
+        [, $owner, $restaurant] = $this->createTenant();
+        [, , $otherRestaurant] = $this->createTenant();
+        $foreignTable = Table::factory()->create(['restaurant_id' => $otherRestaurant->id]);
+        $doc = $this->document();
+        $doc['tables'][0]['backendTableId'] = $foreignTable->id;
+        $this->as($owner)->putJson($this->url($restaurant), $doc)
+            ->assertUnprocessable()->assertJsonValidationErrors(['tables.0.backendTableId']);
+
+        $table = Table::factory()->create(['restaurant_id' => $restaurant->id]);
+        $doc['tables'][0]['backendTableId'] = $table->id;
+        $doc['tables'][1]['backendTableId'] = $table->id;
+        $this->as($owner)->putJson($this->url($restaurant), $doc)
+            ->assertUnprocessable()->assertJsonValidationErrors(['tables.1.backendTableId']);
+    }
+
+    public function test_missing_mapping_and_entrance_remain_backward_compatible(): void
+    {
+        [, $owner, $restaurant] = $this->createTenant();
+        $this->as($owner)->putJson($this->url($restaurant), $this->document())
+            ->assertOk()
+            ->assertJsonPath('data.floor_layout.entrance', null)
+            ->assertJsonMissingPath('data.floor_layout.tables.0.backendTableId');
+    }
+
+    public function test_entrance_outside_floor_is_rejected(): void
+    {
+        [, $owner, $restaurant] = $this->createTenant();
+        $doc = $this->document(['entrance' => ['x' => 10.01, 'z' => 0]]);
+        $this->as($owner)->putJson($this->url($restaurant), $doc)
+            ->assertUnprocessable()->assertJsonValidationErrors(['entrance']);
     }
 
     public function test_put_replaces_the_existing_layout_entirely(): void

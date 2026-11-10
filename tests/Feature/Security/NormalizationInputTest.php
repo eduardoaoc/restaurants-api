@@ -13,7 +13,7 @@ class NormalizationInputTest extends TestCase
 
     public static function fields(): array
     {
-        return array_map(fn ($field) => [$field], ['organization_slug', 'restaurant_slug', 'category_slug', 'staff_email', 'staff_sub_id']);
+        return array_map(fn ($field) => [$field], ['organization_slug', 'restaurant_slug', 'category_slug', 'staff_email', 'staff_restaurant_id']);
     }
 
     #[DataProvider('fields')]
@@ -27,8 +27,8 @@ class NormalizationInputTest extends TestCase
             'organization_slug' => ['PATCH', '/organization', ['slug' => ['bad']]],
             'restaurant_slug' => ['POST', '/restaurants', ['name' => 'valid', 'slug' => ['bad']]],
             'category_slug' => ['POST', "/restaurants/{$restaurant->id}/categories", ['slug' => ['bad'], 'translations' => [['locale' => 'en', 'name' => 'valid']]]],
-            'staff_email' => ['POST', '/staff', ['name' => 'valid', 'email' => ['bad'], 'password' => 'password123', 'role' => 'waiter', 'restaurant_assignments' => [['restaurant_id' => $restaurant->id, 'sub_id' => 'valid']]]],
-            'staff_sub_id' => ['POST', '/staff', ['name' => 'valid', 'email' => 'new@example.test', 'password' => 'password123', 'role' => 'waiter', 'restaurant_assignments' => [['restaurant_id' => $restaurant->id, 'sub_id' => ['bad']]]]],
+            'staff_email' => ['POST', '/staff', ['name' => 'valid', 'email' => ['bad'], 'password' => 'password123', 'role' => 'waiter', 'restaurant_assignments' => [['restaurant_id' => $restaurant->id]]]],
+            'staff_restaurant_id' => ['POST', '/staff', ['name' => 'valid', 'email' => 'new@example.test', 'password' => 'password123', 'role' => 'waiter', 'restaurant_assignments' => [['restaurant_id' => ['bad']]]]],
         };
         $this->json($method, '/api/v1'.$url, $payload)->assertUnprocessable();
         $this->assertDatabaseCount('restaurants', 1);

@@ -43,6 +43,12 @@ class TableSessionPolicy
         return $this->hasAnyPermissionInRestaurantScope($user, $session, ['manage_tables', 'close_bill']);
     }
 
+    /** Managing party size is an operational table action for table staff. */
+    public function updateGuestCount(User $user, TableSession $session): bool
+    {
+        return $this->hasAnyPermissionInRestaurantScope($user, $session, ['manage_tables']);
+    }
+
     /**
      * Voiding an EMPTY session (CARTA 9.1A) is the empty-session
      * counterpart of close(): same staff, same permissions.

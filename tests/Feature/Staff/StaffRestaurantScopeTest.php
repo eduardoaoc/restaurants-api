@@ -92,7 +92,7 @@ class StaffRestaurantScopeTest extends TestCase
                 'password' => 'password123',
                 'role' => 'waiter',
                 'restaurant_assignments' => [
-                    ['restaurant_id' => $restaurantB->id, 'sub_id' => 'INJ-1'],
+                    ['restaurant_id' => $restaurantB->id],
                 ],
             ])
             ->assertNotFound();
@@ -112,7 +112,7 @@ class StaffRestaurantScopeTest extends TestCase
                 'password' => 'password123',
                 'role' => 'waiter',
                 'restaurant_assignments' => [
-                    ['restaurant_id' => $restaurantA->id, 'sub_id' => 'NW-1'],
+                    ['restaurant_id' => $restaurantA->id],
                 ],
             ])
             ->assertCreated();
@@ -161,7 +161,7 @@ class StaffRestaurantScopeTest extends TestCase
                 'password' => 'password123',
                 'role' => 'waiter',
                 'restaurant_assignments' => [
-                    ['restaurant_id' => $restaurantB->id, 'sub_id' => 'OC-1'],
+                    ['restaurant_id' => $restaurantB->id],
                 ],
             ])
             ->assertCreated();

@@ -48,6 +48,7 @@ use App\Exceptions\Tables\TableSessionNotEmptyException;
 use App\Exceptions\Tables\WaiterAssignmentIneligibleException;
 use App\Exceptions\Tables\WaiterCallConflictException;
 use App\Exceptions\TableSessionConflictException;
+use App\Exceptions\GuestCountVersionConflictException;
 use App\Exceptions\WhatsApp\WhatsAppDeliveryException;
 use App\Http\Middleware\EnsurePlatformAdmin;
 use App\Http\Middleware\EnsureUserIsActive;
@@ -92,6 +93,11 @@ return Application::configure(basePath: dirname(__DIR__))
         );
         $exceptions->render(function (TableSessionConflictException $e, Request $request) {
             return response()->json(['message' => $e->getMessage()], 409);
+        });
+        $exceptions->render(function (GuestCountVersionConflictException $e, Request $request) {
+            return response()->json([
+                'error' => ['code' => 'GUEST_COUNT_VERSION_CONFLICT', 'message' => $e->getMessage()],
+            ], 409);
         });
         $exceptions->render(function (WaiterAssignmentIneligibleException $e, Request $request) {
             return response()->json(['message' => $e->getMessage()], 422);

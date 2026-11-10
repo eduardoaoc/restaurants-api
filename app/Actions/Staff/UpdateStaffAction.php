@@ -10,6 +10,7 @@ use App\Models\Role;
 use App\Models\User;
 use App\Models\UserRole;
 use App\Support\Audit\AuditLogger;
+use App\Support\Staff\EmployeeCodeGenerator;
 use App\Support\Tables\WaiterAssignmentLock;
 use Illuminate\Support\Facades\DB;
 
@@ -20,8 +21,8 @@ use Illuminate\Support\Facades\DB;
  * Bloco 18: `restaurant_assignments`, when present, REPLACES the staff
  * member's full restaurant set — assignments missing from the new list are
  * removed (both the restaurant_users row and its matching user_roles row),
- * assignments already present are updated in place (sub_id), and new ones
- * are created. A `role` change (with or without `restaurant_assignments`)
+ * assignments already present are kept as they are (sub_id preserved), and
+ * new ones are created with a generated sub_id. A `role` change (with or without `restaurant_assignments`)
  * applies uniformly to every one of the staff member's restaurants — this
  * MVP does not support a different role per restaurant (see report).
  *
@@ -40,10 +41,13 @@ use Illuminate\Support\Facades\DB;
  */
 class UpdateStaffAction
 {
-    public function __construct(private readonly AuditLogger $auditLogger) {}
+    public function __construct(
+        private readonly AuditLogger $auditLogger,
+        private readonly EmployeeCodeGenerator $employeeCodes,
+    ) {}
 
     /**
-     * @param  array{name?: string, email?: string, status?: string, role?: string, restaurant_assignments?: array<int, array{restaurant_id: int, sub_id: string}>}  $data
+     * @param  array{name?: string, email?: string, status?: string, role?: string, restaurant_assignments?: array<int, array{restaurant_id: int}>}  $data
      *
      * $actor is mandatory — no fallback, no silent audit skip (see
      * CreateStaffAction). Audit `changes` is an explicit whitelist — name,
@@ -120,10 +124,12 @@ class UpdateStaffAction
 
                     $restaurantUser = $existingRestaurantUsers->get($restaurantId);
 
-                    if ($restaurantUser) {
-                        $restaurantUser->update(['sub_id' => $assignment['sub_id']]);
-                    } else {
-                        $restaurant->users()->attach($staff->id, ['sub_id' => $assignment['sub_id']]);
+                    // sub_id is never taken from input: an existing link keeps
+                    // its code untouched; a new link gets a generated one.
+                    if (! $restaurantUser) {
+                        $restaurant->users()->attach($staff->id, [
+                            'sub_id' => $this->employeeCodes->generate($restaurant->id, $staff->id),
+                        ]);
                     }
 
                     $userRole = $existingUserRoles->get($restaurantId);

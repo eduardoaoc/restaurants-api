@@ -64,17 +64,6 @@ class UpdateStaffRequest extends FormRequest
             ],
         ];
 
-        foreach ((array) $this->input('restaurant_assignments', []) as $index => $assignment) {
-            $rules["restaurant_assignments.{$index}.sub_id"] = [
-                'required_with:restaurant_assignments',
-                'string',
-                'max:255',
-                Rule::unique('restaurant_users', 'sub_id')
-                    ->where('restaurant_id', $assignment['restaurant_id'] ?? null)
-                    ->ignore($staffId, 'user_id'),
-            ];
-        }
-
         return $rules;
     }
 
@@ -86,20 +75,6 @@ class UpdateStaffRequest extends FormRequest
         if (is_string($this->input('email'))) {
             $this->merge([
                 'email' => strtolower(trim((string) $this->input('email'))),
-            ]);
-        }
-
-        if (is_array($this->input('restaurant_assignments'))) {
-            $this->merge([
-                'restaurant_assignments' => collect($this->input('restaurant_assignments'))
-                    ->map(function ($assignment) {
-                        if (is_array($assignment) && is_string($assignment['sub_id'] ?? null)) {
-                            $assignment['sub_id'] = trim((string) $assignment['sub_id']);
-                        }
-
-                        return $assignment;
-                    })
-                    ->all(),
             ]);
         }
     }

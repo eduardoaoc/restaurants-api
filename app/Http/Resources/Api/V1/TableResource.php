@@ -40,6 +40,7 @@ class TableResource extends JsonResource
                 'id' => $activeSession->id,
                 'status' => $activeSession->status,
                 'guest_count' => $activeSession->guest_count,
+                'guest_count_version' => $activeSession->guest_count_version,
                 'opened_at' => $activeSession->opened_at,
             ] : null,
             'created_at' => $this->created_at,

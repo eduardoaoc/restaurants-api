@@ -4,10 +4,12 @@ namespace App\Actions\Staff;
 
 use App\Models\AuditLog;
 use App\Models\Organization;
+use App\Models\RestaurantUser;
 use App\Models\Role;
 use App\Models\User;
 use App\Models\UserRole;
 use App\Support\Audit\AuditLogger;
+use App\Support\Staff\EmployeeCodeGenerator;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -27,10 +29,13 @@ use Illuminate\Support\Facades\DB;
  */
 class CreateStaffAction
 {
-    public function __construct(private readonly AuditLogger $auditLogger) {}
+    public function __construct(
+        private readonly AuditLogger $auditLogger,
+        private readonly EmployeeCodeGenerator $employeeCodes,
+    ) {}
 
     /**
-     * @param  array{name: string, email: string, password: string, role: string, restaurant_assignments: array<int, array{restaurant_id: int, sub_id: string}>}  $data
+     * @param  array{name: string, email: string, password: string, role: string, restaurant_assignments: array<int, array{restaurant_id: int, sub_id?: string}>}  $data
      *
      * $actor is mandatory — there is no fallback to a "system" actor and
      * no silent audit skip. Every caller, including test fixtures, must
@@ -75,7 +80,9 @@ class CreateStaffAction
      * transaction; no audit of its own. Reused by AcceptInvitationAction so
      * an invited staff member ends up linked exactly like one created here.
      *
-     * @param  array<int, array{restaurant_id: int, sub_id: string}>  $assignments
+     * @param  array<int, array{restaurant_id: int, sub_id?: string|null}>  $assignments  sub_id is optional: when absent (always, for new
+     *                                                                                    API input) the backend generates it; a value is honoured only for
+     *                                                                                    legacy pending invitations that still carry one and it is still free
      * @return array<int, int> restaurant ids, in assignment order
      */
     public function attach(Organization $organization, User $user, string $roleSlug, array $assignments): array
@@ -92,7 +99,9 @@ class CreateStaffAction
             // validation.
             $restaurant = $organization->restaurants()->findOrFail($assignment['restaurant_id']);
 
-            $restaurant->users()->attach($user->id, ['sub_id' => $assignment['sub_id']]);
+            $restaurant->users()->attach($user->id, [
+                'sub_id' => $this->resolveCode($restaurant->id, $user->id, $assignment['sub_id'] ?? null),
+            ]);
 
             UserRole::query()->create([
                 'user_id' => $user->id,
@@ -105,5 +114,19 @@ class CreateStaffAction
         }
 
         return $restaurantIds;
+    }
+
+    /**
+     * Keeps a legacy code that is still free at the restaurant; otherwise
+     * generates one. Never overwrites an existing restaurant_users row.
+     */
+    private function resolveCode(int $restaurantId, int $userId, ?string $legacyCode): string
+    {
+        if ($legacyCode !== null && $legacyCode !== ''
+            && ! RestaurantUser::query()->where('restaurant_id', $restaurantId)->where('sub_id', $legacyCode)->exists()) {
+            return $legacyCode;
+        }
+
+        return $this->employeeCodes->generate($restaurantId, $userId);
     }
 }

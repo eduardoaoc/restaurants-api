@@ -323,9 +323,12 @@ class BuildRestaurantOperationsSnapshotAction
             'flags' => $state['flags'],
             'session' => [
                 'id' => $session->id,
+                'status' => $session->status,
+                'opened_at' => $session->opened_at,
                 'started_at' => $session->opened_at,
                 'elapsed_seconds' => ElapsedTime::seconds($now, $session->opened_at),
                 'guest_count' => $session->guest_count,
+                'guest_count_version' => $session->guest_count_version,
                 'assigned_waiter' => $assignedWaiterView,
                 'assignment_status' => $eligible ? 'assigned' : 'pending',
             ],

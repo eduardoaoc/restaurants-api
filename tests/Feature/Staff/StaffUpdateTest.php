@@ -67,7 +67,7 @@ class StaffUpdateTest extends TestCase
         $this->actingAs($owner, 'web')
             ->patchJson("/api/v1/staff/{$staff->id}", [
                 'restaurant_assignments' => [
-                    ['restaurant_id' => $restaurantB->id, 'sub_id' => 'W-1'],
+                    ['restaurant_id' => $restaurantB->id],
                 ],
             ])
             ->assertOk()
@@ -104,8 +104,8 @@ class StaffUpdateTest extends TestCase
         $response = $this->actingAs($owner, 'web')
             ->patchJson("/api/v1/staff/{$staff->id}", [
                 'restaurant_assignments' => [
-                    ['restaurant_id' => $restaurantA->id, 'sub_id' => 'W-A'],
-                    ['restaurant_id' => $restaurantB->id, 'sub_id' => 'W-B'],
+                    ['restaurant_id' => $restaurantA->id],
+                    ['restaurant_id' => $restaurantB->id],
                 ],
             ])
             ->assertOk();
@@ -130,8 +130,8 @@ class StaffUpdateTest extends TestCase
         $this->actingAs($owner, 'web')
             ->patchJson("/api/v1/staff/{$staff->id}", [
                 'restaurant_assignments' => [
-                    ['restaurant_id' => $restaurantB->id, 'sub_id' => 'MS-'.$restaurantB->id],
-                    ['restaurant_id' => $restaurantC->id, 'sub_id' => 'MS-'.$restaurantC->id],
+                    ['restaurant_id' => $restaurantB->id],
+                    ['restaurant_id' => $restaurantC->id],
                 ],
             ])
             ->assertOk();
@@ -192,27 +192,30 @@ class StaffUpdateTest extends TestCase
         $this->assertSame(['cashier'], $roleSlugs->values()->all());
     }
 
-    public function test_owner_can_change_the_sub_id(): void
+    public function test_update_never_changes_an_existing_sub_id_nor_the_user_id(): void
     {
         $organization = Organization::factory()->create();
         $owner = User::factory()->create();
         $this->assignRole($owner, 'owner', $organization);
         $restaurant = Restaurant::factory()->create(['organization_id' => $organization->id]);
         $staff = $this->createStaff($organization, $restaurant, 'waiter', 'W-1');
+        $originalId = $staff->id;
 
         $this->actingAs($owner, 'web')
             ->patchJson("/api/v1/staff/{$staff->id}", [
+                'id' => 424242,
+                'name' => 'Renamed',
                 'restaurant_assignments' => [
                     ['restaurant_id' => $restaurant->id, 'sub_id' => 'W-999'],
                 ],
             ])
             ->assertOk()
-            ->assertJsonPath('data.staff.restaurants.0.sub_id', 'W-999');
+            ->assertJsonPath('data.staff.id', $originalId)
+            ->assertJsonPath('data.staff.restaurants.0.sub_id', 'W-1');
 
-        $this->assertDatabaseHas('restaurant_users', [
-            'user_id' => $staff->id,
-            'sub_id' => 'W-999',
-        ]);
+        $this->assertDatabaseHas('users', ['id' => $originalId, 'name' => 'Renamed']);
+        $this->assertDatabaseMissing('users', ['id' => 424242]);
+        $this->assertDatabaseHas('restaurant_users', ['user_id' => $originalId, 'sub_id' => 'W-1']);
     }
 
     public function test_manager_with_manage_users_can_update_staff(): void
@@ -241,7 +244,7 @@ class StaffUpdateTest extends TestCase
             ->patchJson("/api/v1/staff/{$staff->id}", [
                 'role' => 'kitchen',
                 'restaurant_assignments' => [
-                    ['restaurant_id' => $restaurantB->id, 'sub_id' => 'K-5'],
+                    ['restaurant_id' => $restaurantB->id],
                 ],
             ])
             ->assertOk();
@@ -252,7 +255,7 @@ class StaffUpdateTest extends TestCase
         $this->assertSame($restaurantB->id, $restaurantUser->restaurant_id);
         $this->assertSame($restaurantB->id, $userRole->restaurant_id);
         $this->assertSame($organization->id, $userRole->organization_id);
-        $this->assertSame('K-5', $restaurantUser->sub_id);
+        $this->assertSame('E-'.$staff->id, $restaurantUser->sub_id);
         $this->assertSame('kitchen', $userRole->role->slug);
     }
 
@@ -270,7 +273,7 @@ class StaffUpdateTest extends TestCase
         $this->actingAs($owner, 'web')
             ->patchJson("/api/v1/staff/{$staff->id}", [
                 'restaurant_assignments' => [
-                    ['restaurant_id' => $otherRestaurant->id, 'sub_id' => 'W-1'],
+                    ['restaurant_id' => $otherRestaurant->id],
                 ],
             ])
             ->assertUnprocessable()

@@ -68,7 +68,7 @@ class FloorLayoutController extends Controller
             new OA\Parameter(name: 'restaurant', in: 'path', required: true, schema: new OA\Schema(type: 'integer')),
         ],
         requestBody: new OA\RequestBody(required: true, content: new OA\JsonContent(
-            description: '{version: 1, floor: {width, depth, gridStep}, tables: [{id (uuid), number, shape, seats, position: {x, z}, rotation}]}'
+            description: '{version: 1, floor: {width, depth, gridStep}, entrance?: {x, z}, tables: [{id (uuid), backendTableId?: integer|null, number, shape, seats, position: {x, z}, rotation}]}'
         )),
         responses: [
             new OA\Response(response: 200, description: 'Saved; returns the canonical stored document'),

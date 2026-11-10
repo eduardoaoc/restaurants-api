@@ -60,7 +60,6 @@ class InvitationResource extends JsonResource
             'restaurants' => collect($this->restaurant_assignments ?? [])->map(fn (array $assignment) => [
                 'id' => (int) $assignment['restaurant_id'],
                 'name' => self::$restaurantNames[(int) $assignment['restaurant_id']] ?? null,
-                'sub_id' => $assignment['sub_id'],
             ])->values()->all(),
             'delivery' => [
                 'status' => $this->delivery_status,

@@ -15,7 +15,7 @@ use InvalidArgumentException;
 #[Fillable([
     'restaurant_id', 'daily_operation_id', 'table_id', 'opened_by_user_id', 'closed_by_user_id', 'guest_count',
     'status', 'opened_at', 'closed_at', 'payment_status', 'paid_at', 'assigned_waiter_user_id',
-    'feedback_token', 'voided_at', 'voided_by_user_id', 'void_reason',
+    'feedback_token', 'voided_at', 'voided_by_user_id', 'void_reason', 'guest_count_version',
 ])]
 class TableSession extends Model
 {

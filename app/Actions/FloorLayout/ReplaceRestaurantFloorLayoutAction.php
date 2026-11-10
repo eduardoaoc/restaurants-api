@@ -30,7 +30,11 @@ class ReplaceRestaurantFloorLayoutAction
                 ->first() ?? new RestaurantFloorLayout(['restaurant_id' => $restaurant->id]);
 
             $layout->schema_version = $document['version'];
-            $layout->layout = ['floor' => $document['floor'], 'tables' => array_values($document['tables'])];
+            $layout->layout = array_filter([
+                'floor' => $document['floor'],
+                'entrance' => $document['entrance'] ?? null,
+                'tables' => array_values($document['tables']),
+            ], static fn ($value) => $value !== null);
             $layout->save();
 
             $this->auditLogger->log(

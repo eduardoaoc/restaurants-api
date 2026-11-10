@@ -165,7 +165,7 @@ class PlatformOnboardingTest extends TestCase
             'restaurant' => ['organization_id' => $otherOrganization->id, 'status' => 'suspended'],
             'owner' => ['role' => 'super_admin', 'password' => 'chosen-by-admin', 'permissions' => ['manage_platform_users']],
             'role' => 'owner',
-            'restaurant_assignments' => [['restaurant_id' => 1, 'sub_id' => 'X']],
+            'restaurant_assignments' => [['restaurant_id' => 1]],
         ]))->assertCreated();
 
         $organization = Organization::query()->where('slug', 'casa-pepe')->firstOrFail();

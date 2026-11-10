@@ -24,7 +24,7 @@ class CreateInvitationAction
     public function __construct(private readonly AuditLogger $auditLogger) {}
 
     /**
-     * @param  array<int, array{restaurant_id: int, sub_id: string}>|null  $assignments
+     * @param  array<int, array{restaurant_id: int}>|null  $assignments
      */
     public function execute(
         Organization $organization,

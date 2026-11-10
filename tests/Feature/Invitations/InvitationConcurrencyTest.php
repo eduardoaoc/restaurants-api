@@ -74,7 +74,7 @@ class InvitationConcurrencyTest extends TestCase
         [$organization, $owner, $restaurant] = $this->createTenant();
         $this->actingAs($owner, 'web')->withHeader('Origin', 'http://localhost:5173')->postJson('/api/v1/staff/invitations', [
             'name' => 'Ana', 'email' => 'ana@example.com', 'role' => 'waiter',
-            'restaurant_assignments' => [['restaurant_id' => $restaurant->id, 'sub_id' => 'W-1']],
+            'restaurant_assignments' => [['restaurant_id' => $restaurant->id]],
         ])->assertCreated();
         $invitation = Invitation::query()->sole();
 
@@ -101,6 +101,35 @@ class InvitationConcurrencyTest extends TestCase
         $this->assertSame(1, OrganizationUser::query()->where('organization_id', $organization->id)->where('user_id', $mine['user']->id)->count());
         $this->assertSame(1, UserRole::query()->where('user_id', $mine['user']->id)->count());
         $this->assertSame(1, AuditLog::query()->where('event', AuditLog::EVENT_INVITATION_ACCEPTED)->count());
+    }
+
+    public function test_simultaneous_acceptances_for_one_restaurant_generate_distinct_codes(): void
+    {
+        [, $owner, $restaurant] = $this->createTenant();
+        $tokens = [];
+        foreach (['ana@example.com', 'bia@example.com', 'caio@example.com'] as $email) {
+            $this->actingAs($owner, 'web')->withHeader('Origin', 'http://localhost:5173')->postJson('/api/v1/staff/invitations', [
+                'name' => 'P', 'email' => $email, 'role' => 'waiter',
+                'restaurant_assignments' => [['restaurant_id' => $restaurant->id]],
+            ])->assertCreated();
+        }
+        foreach (Invitation::query()->orderBy('id')->get() as $invitation) {
+            $tokens[] = $this->mintToken($invitation);
+        }
+
+        // Three independent PHP processes accept at the same moment.
+        $workers = array_map(fn (string $token) => $this->worker(AcceptInvitationAction::MODE_NEW, $token, 'worker-pass-1'), $tokens);
+        $results = array_map(fn (array $worker) => $this->workerResult($worker), $workers);
+
+        $userIds = array_column($results, 'user_id');
+        $this->assertCount(3, array_unique($userIds), 'three separate identities');
+
+        $codes = DB::table('restaurant_users')->where('restaurant_id', $restaurant->id)->orderBy('user_id')->pluck('sub_id', 'user_id')->all();
+        $this->assertCount(3, $codes);
+        $this->assertCount(3, array_unique($codes), 'unique(restaurant_id, sub_id) holds under concurrency');
+        foreach ($codes as $userId => $code) {
+            $this->assertSame('E-'.$userId, $code);
+        }
     }
 
     public function test_revoke_during_acceptance_wins_or_loses_atomically(): void

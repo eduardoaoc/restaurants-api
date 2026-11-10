@@ -204,6 +204,7 @@ shared envelope and appends the event's own small, explicit payload
 |--------------------------------|------------------------------------------------------------------|------------------------------------------------------------------------------------------|
 | `table.session.opened`         | `OpenTableAction`                                                | `table_id`, `table_session_id`, `guest_count`, `opened_at`                               |
 | `table.session.closed`         | `CloseTableAction`                                               | `table_id`, `table_session_id`, `closed_at`                                              |
+| `table.session.guest_count_changed` | `UpdateTableSessionGuestCountAction` | `table_id`, `table_session_id`, `previous_guest_count`, `guest_count` |
 | `table.session.transferred`    | `TransferTableSessionAction`                                     | `table_session_id`, `from_table_id`, `to_table_id`                                       |
 | `table.waiter.assigned`        | `AssignWaiterAction` (no previous waiter)                        | `table_session_id`, `table_id`, `previous_waiter_user_id` (null), `new_waiter_user_id`   |
 | `table.waiter.reassigned`      | `AssignWaiterAction` (had a different waiter)                    | same fields, `previous_waiter_user_id` non-null                                          |
